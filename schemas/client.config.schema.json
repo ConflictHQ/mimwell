@@ -132,9 +132,29 @@
     "assistant": {
       "type": "object",
       "additionalProperties": false,
+      "if": {
+        "properties": { "provider": { "const": "openai" } },
+        "required": ["provider"]
+      },
+      "then": {
+        "required": ["model"],
+        "properties": { "model": { "not": { "pattern": "^claude-" } } }
+      },
       "properties": {
+        "provider": {
+          "$comment": "Model provider for the chat assistant, edit-agent and authoring agent (#438). \"anthropic\" (default) reads the ANTHROPIC_API_KEY worker secret; \"openai\" reads OPENAI_API_KEY and requires an explicit OpenAI `model`.",
+          "type": "string",
+          "enum": ["anthropic", "openai"],
+          "default": "anthropic"
+        },
         "model": {
+          "$comment": "Model id for the configured provider. The template default is claude-sonnet-5; an OpenAI brain must set its own.",
           "type": "string"
+        },
+        "baseUrl": {
+          "$comment": "Optional https base URL for an OpenAI-compatible endpoint (provider \"openai\" only). Defaults to https://api.openai.com/v1.",
+          "type": "string",
+          "pattern": "^https://"
         },
         "maxAgentTurns": {
           "type": "integer",

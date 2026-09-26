@@ -40,7 +40,8 @@
     "heroMarkWidth": 96
   },
   "assistant": {
-    "model": "claude-sonnet-4-6",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5",
     "maxAgentTurns": 8,
     "maxDocChars": 300000,
     "identity": "Answer questions using the current portal knowledge and cite the available sources.",

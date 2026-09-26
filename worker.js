@@ -25,6 +25,22 @@ if (ACCESS.lockdown) {
 }
 
 const MODEL = config.assistant.model;
+
+// Model provider (#438). "anthropic" (the default) uses the Anthropic SDK;
+// "openai" uses the OpenAI adapter in openai-client.js, which keeps the same
+// client contract, so every agent path below is provider-agnostic. An OpenAI
+// brain must name its model explicitly: there is no guessed default, and a
+// Claude model id left over from the template is refused.
+const PROVIDER = config.assistant.provider || "anthropic";
+const PROVIDER_KEY = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY" };
+const MODEL_CONFIG_ERROR = !(PROVIDER in PROVIDER_KEY)
+  ? `unknown assistant.provider "${PROVIDER}" (use "anthropic" or "openai")`
+  : PROVIDER === "openai" && (!MODEL || /^claude-/.test(MODEL))
+    ? 'assistant.provider "openai" needs assistant.model set to an OpenAI model id'
+    : "";
+if (MODEL_CONFIG_ERROR) console.error(`assistant config: ${MODEL_CONFIG_ERROR}`);
+// True when the configured provider's key is present and the config is usable.
+const modelAvailable = (env) => !MODEL_CONFIG_ERROR && Boolean(env && env[PROVIDER_KEY[PROVIDER]]);
 const MAX_AGENT_TURNS = config.assistant.maxAgentTurns;
 const MAX_DOC_CHARS = config.assistant.maxDocChars; // ~75k tokens per doc — the model has a 1M input window
 
@@ -594,11 +610,12 @@ function editTools(artifacts) {
 
 // Credentials never enter authored records, commit messages or commit identity
 // (#38). Checks the Worker's own secret values plus well-known token shapes.
-const CREDENTIAL_ENV = ["GITHUB_TOKEN", "ANTHROPIC_API_KEY", "KNOWLEDGE_POLICY_SECRET", "BRAIN_OPERATIONS_CREDENTIALS"];
+const CREDENTIAL_ENV = ["GITHUB_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "KNOWLEDGE_POLICY_SECRET", "BRAIN_OPERATIONS_CREDENTIALS"];
 const CREDENTIAL_SHAPES = [
   /\bgh[pousr]_[A-Za-z0-9]{20,}/,
   /\bgithub_pat_[A-Za-z0-9_]{20,}/,
   /\bsk-ant-[A-Za-z0-9_-]{16,}/,
+  /\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{16,}/,
   /\bAKIA[0-9A-Z]{16}\b/,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
 ];
@@ -616,7 +633,24 @@ function carriesCredential(env, text) {
 // calling `new Anthropic(...)` inline, so a test can inject a scripted fake and
 // exercise the agent loop with no network. Production behavior is unchanged:
 // the default factory is exactly the constructor call it replaced.
-const defaultModelClient = (env) => new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+// With provider "openai", the adapter module loads on first use (a dynamic
+// import, like policy-authoring.js), so an Anthropic brain never evaluates it.
+const openAIModelClient = (env) => ({
+  messages: {
+    stream(params) {
+      return {
+        async finalMessage() {
+          const { createOpenAIClient } = await import("./openai-client.js");
+          const client = createOpenAIClient({ apiKey: env.OPENAI_API_KEY, baseUrl: config.assistant.baseUrl });
+          return client.messages.stream(params).finalMessage();
+        },
+      };
+    },
+  },
+});
+const defaultModelClient = PROVIDER === "openai"
+  ? openAIModelClient
+  : (env) => new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 let modelClientFactory = defaultModelClient;
 
 // Inject a model client factory (env) => client, where `client` exposes
@@ -1184,6 +1218,7 @@ async function handleChat(request, env, ctx, gate = ACCESS) {
     return json({ error: "messages must end with a user message" }, 400);
   }
 
+  if (MODEL_CONFIG_ERROR) return json({ error: `chat unavailable: ${MODEL_CONFIG_ERROR}` }, 503);
   const client = modelClientFactory(env);
   const pack = await loadPack(env);
 
@@ -1656,7 +1691,7 @@ async function handleEdit(request, env, ctx, gate = ACCESS) {
       actor: accessEmail, repo: authoringRepo, branch: AUTHORING_BRANCH, artifacts,
       canRead: (path, actor) => gate.canRead(path, actor), get: ghGetFile, put: ghPutFile,
       apply: (doc, op) => applyEditOp(doc, op, artifacts), json,
-      agentDraft: AUTHORING_AGENT && env.ANTHROPIC_API_KEY ? (input) => draftOpsFromAgent(env, input, artifacts) : null,
+      agentDraft: AUTHORING_AGENT && modelAvailable(env) ? (input) => draftOpsFromAgent(env, input, artifacts) : null,
     });
   }
 
@@ -1670,7 +1705,7 @@ async function handleEdit(request, env, ctx, gate = ACCESS) {
   // markdown deltas into the editor buffer, NEVER commits. Gated separately.
   if (action === "buffer") {
     if (!AUTHORING_WYSIWYG_AGENT) return json({ error: "buffer edit-agent not enabled" }, 404);
-    if (!env.ANTHROPIC_API_KEY) return json({ error: "edit-agent unavailable" }, 503);
+    if (!modelAvailable(env)) return json({ error: "edit-agent unavailable" }, 503);
     const client = modelClientFactory(env);
     const command = String(body.command || "rewrite");
     const selection = String(body.selection || body.text || "").slice(0, 32000);
@@ -1757,7 +1792,7 @@ async function handleEdit(request, env, ctx, gate = ACCESS) {
   let ops = Array.isArray(body.ops) ? body.ops : null;
   if (!ops) {
     if (!AUTHORING_AGENT) return json({ error: "conversational edit not enabled" }, 404);
-    if (!env.ANTHROPIC_API_KEY) return json({ error: "edit-agent unavailable" }, 503);
+    if (!modelAvailable(env)) return json({ error: "edit-agent unavailable" }, 503);
     ops = await draftOpsFromAgent(env, body, artifacts);
     if (!ops.length) return json({ error: "the editor agent produced no change" }, 422);
   }
