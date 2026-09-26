@@ -1,0 +1,91 @@
+site_name: Mimwell
+site_url: https://mimwell.dev
+site_description: A knowledge brain for people, teams and agents
+site_author: CONFLICT LLC
+repo_url: https://github.com/ConflictHQ/mimwell
+repo_name: ConflictHQ/mimwell
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: assets/images/mimwell-mark-dark.svg
+  favicon: assets/images/mimwell-favicon.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - header.autohide
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - assets/css/custom.css
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - Concepts: concepts.md
+  - Configuration: configuration.md
+  - Deploying: deploying.md
+  - Guides:
+      - Brain Apps: guide/brain-apps.md
+      - Sensemaking: guide/sensemaking.md
+  - Contributing: contributing.md
+  - License: license.md
+  - About: about.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ConflictHQ/mimwell
+  generator: false
+
+copyright: Copyright &copy; 2026 CONFLICT LLC. Licensed under Apache-2.0.

@@ -19,6 +19,9 @@ This tree ships the portal, the graph compiler and the shared Python runtime,
 with empty instance data. The engine sources come from the exact revision
 recorded in `edition.json`.
 
+Full documentation lives at [mimwell.dev](https://mimwell.dev). The site's
+sources are in `website/`; delete that folder if you don't need it in your brain.
+
 ## Quick start
 
 You need Python 3.14, Node 22 and the Wrangler CLI.

@@ -8,3 +8,7 @@ __pycache__/
 _internal/
 .wrangler/
 runtime/brain-classifier/target/
+
+# mimwell.dev documentation site (MkDocs build output and local tooling)
+website/site/
+website/.venv/

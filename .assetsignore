@@ -41,3 +41,6 @@ runtime/brain-classifier
 
 # App bundles are served only by the authenticated app host (#371).
 apps
+
+# mimwell.dev documentation site sources; published to GitHub Pages, never served by the brain portal.
+website
