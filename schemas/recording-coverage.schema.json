@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/recording-coverage/v1",
+  "title": "Current reviewed recording parent coverage",
+  "description": "Derived metadata under explicit host selection and current authorization. Runtime verifies the exact plan, native publications and coverage; a report is not a portable read grant or a transcription quality claim.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/selection"
+    },
+    {
+      "$ref": "#/$defs/report"
+    }
+  ],
+  "$defs": {
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "plan",
+        "profileSha256",
+        "modelSha256"
+      ],
+      "properties": {
+        "format": {
+          "const": "recording-coverage-selection/v1"
+        },
+        "plan": {
+          "$ref": "conflict:schema/intake-recording/v1#/$defs/plan"
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "modelSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record",
+        "revision",
+        "receiptSha256",
+        "inferenceSha256",
+        "source",
+        "sourceRevision"
+      ],
+      "properties": {
+        "record": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "receiptSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "inferenceSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sourceRevision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chunkId",
+        "range",
+        "status",
+        "publication"
+      ],
+      "properties": {
+        "chunkId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "properties": {
+            "kind": {
+              "const": "audio-frames"
+            },
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 345599999
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 345600000
+            }
+          }
+        },
+        "status": {
+          "enum": [
+            "reviewed",
+            "unavailable"
+          ]
+        },
+        "publication": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/publication"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "reviewed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "publication": {
+                "$ref": "#/$defs/publication"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "publication": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "union",
+        "gaps",
+        "overlaps",
+        "coveredFrames"
+      ],
+      "properties": {
+        "union": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "conflict:schema/intake-recording/v1#/$defs/interval"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "maxItems": 257,
+          "items": {
+            "$ref": "conflict:schema/intake-recording/v1#/$defs/interval"
+          }
+        },
+        "overlaps": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "conflict:schema/intake-recording/v1#/$defs/interval"
+          }
+        },
+        "coveredFrames": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 345600000
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "selectionSha256",
+        "parentSha256",
+        "planSha256",
+        "normalizationSha256",
+        "profileSha256",
+        "modelSha256",
+        "authoritySha256",
+        "nativeReadPointSha256",
+        "policySha256",
+        "bindingsSha256",
+        "destinationSha256",
+        "parentId",
+        "principal",
+        "evaluatedAt",
+        "scopes",
+        "protection",
+        "labels",
+        "basis",
+        "sampleFrames",
+        "plannedCoverage",
+        "coverage",
+        "ranges",
+        "status"
+      ],
+      "properties": {
+        "format": {
+          "const": "recording-parent-coverage/v1"
+        },
+        "selectionSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "parentSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "planSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "normalizationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "modelSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authoritySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "nativeReadPointSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bindingsSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "destinationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "parentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "scopes": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "uniqueItems": true
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policySha256",
+            "requirements"
+          ],
+          "properties": {
+            "policySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requirements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "encryption",
+                "mediation",
+                "opaqueMetadata",
+                "offline",
+                "plaintextCopies",
+                "derivatives",
+                "verifiedAuthorship"
+              ],
+              "properties": {
+                "encryption": {
+                  "type": "boolean"
+                },
+                "mediation": {
+                  "type": "boolean"
+                },
+                "opaqueMetadata": {
+                  "type": "boolean"
+                },
+                "offline": {
+                  "type": "boolean"
+                },
+                "plaintextCopies": {
+                  "type": "boolean"
+                },
+                "derivatives": {
+                  "type": "boolean"
+                },
+                "verifiedAuthorship": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "labels": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "uniqueItems": true
+        },
+        "basis": {
+          "$ref": "conflict:schema/intake/v1#/$defs/basis"
+        },
+        "sampleFrames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 345600000
+        },
+        "plannedCoverage": {
+          "$ref": "conflict:schema/intake-recording/v1#/$defs/plan/properties/coverage"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "ranges": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/range"
+          },
+          "minItems": 1
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "incomplete"
+          ]
+        }
+      }
+    }
+  }
+}

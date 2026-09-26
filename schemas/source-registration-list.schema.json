@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/source-registration-list/v1",
+  "title": "Authorized registrations without source acquisition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "basisSha256",
+    "sources",
+    "visibleTotal",
+    "nextCursor",
+    "availability",
+    "freshness"
+  ],
+  "properties": {
+    "format": {
+      "const": "source-registration-list/v1"
+    },
+    "basisSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sources": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/view"
+      }
+    },
+    "visibleTotal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "basisSha256",
+            "after"
+          ],
+          "properties": {
+            "basisSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "after": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "availability": {
+      "const": "not-observed"
+    },
+    "freshness": {
+      "const": "unknown"
+    }
+  },
+  "$defs": {
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "source",
+        "registrationSha256",
+        "sourceId",
+        "itemId",
+        "mediaType",
+        "resource",
+        "scopes",
+        "expectedSourceSha256",
+        "maxBytes",
+        "extraction",
+        "availability",
+        "freshness"
+      ],
+      "properties": {
+        "format": {
+          "const": "source-registration-view/v1"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "registrationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "resource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "expectedSourceSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "extraction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adapter",
+            "profileSha256",
+            "maxSourceBytes",
+            "maxTextBytes",
+            "maxPages",
+            "timeoutSeconds"
+          ],
+          "properties": {
+            "adapter": {
+              "enum": [
+                "utf8-text/v1",
+                "poppler-text/v1"
+              ]
+            },
+            "profileSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "maxSourceBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxTextBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxPages": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "timeoutSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "availability": {
+          "const": "not-observed"
+        },
+        "freshness": {
+          "const": "unknown"
+        }
+      }
+    }
+  }
+}

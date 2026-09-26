@@ -1,0 +1,922 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-transfer/v1",
+  "title": "Independent native intake release, transfer evidence and bounded coordination",
+  "description": "Shapes are not grants. Hosts independently register source keys, recipients, destination policies and trusted clocks. Native replay and live fresh release validation are mandatory.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/release"
+    },
+    {
+      "$ref": "#/$defs/offer"
+    },
+    {
+      "$ref": "#/$defs/witness"
+    },
+    {
+      "$ref": "#/$defs/origin"
+    },
+    {
+      "$ref": "#/$defs/httpRequest"
+    },
+    {
+      "$ref": "#/$defs/httpResponse"
+    },
+    {
+      "$ref": "#/$defs/batchRequest"
+    },
+    {
+      "$ref": "#/$defs/batchResult"
+    }
+  ],
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "authority",
+        "instance",
+        "contract",
+        "ontology"
+      ],
+      "properties": {
+        "participant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "instance": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "contract": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ontology": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "authority",
+        "instance",
+        "contract",
+        "ontology",
+        "collection",
+        "revision",
+        "kind",
+        "record",
+        "expectedRevision"
+      ],
+      "properties": {
+        "participant": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "instance": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "contract": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ontology": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "collection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "record": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "expectedRevision": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor",
+        "reason",
+        "at"
+      ],
+      "properties": {
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "source",
+        "target",
+        "expiresAt",
+        "requirements",
+        "selected",
+        "payload"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-release/v1"
+        },
+        "source": {
+          "$ref": "#/$defs/binding"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requirements": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/requirements"
+        },
+        "selected": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/profile"
+        },
+        "payload": {
+          "$ref": "conflict:schema/knowledge-record/v1"
+        }
+      }
+    },
+    "descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "selected",
+        "publicKey"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/binding"
+        },
+        "selected": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/profile"
+        },
+        "publicKey": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "offer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "source",
+        "release",
+        "revision",
+        "grant",
+        "review",
+        "sourceReview",
+        "issuedAt",
+        "requirements"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-offer/v1"
+        },
+        "source": {
+          "$ref": "#/$defs/binding"
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "grant": {
+          "$ref": "#/$defs/release"
+        },
+        "review": {
+          "$ref": "#/$defs/review"
+        },
+        "sourceReview": {
+          "$ref": "#/$defs/review"
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requirements": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/requirements"
+        }
+      }
+    },
+    "witness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "source",
+        "release",
+        "revision",
+        "offerSha256",
+        "intent",
+        "nonce",
+        "issuedAt",
+        "expiresAt",
+        "requirements"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-witness/v1"
+        },
+        "source": {
+          "$ref": "#/$defs/binding"
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "offerSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "intent": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "issuedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requirements": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/requirements"
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "source",
+        "peer",
+        "release",
+        "revision",
+        "offerSha256",
+        "requirements"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-transfer-origin/v1"
+        },
+        "source": {
+          "$ref": "#/$defs/binding"
+        },
+        "peer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "offerSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "requirements": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/requirements"
+        }
+      }
+    },
+    "pin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "peer",
+        "descriptor",
+        "audience",
+        "release",
+        "revision",
+        "offer"
+      ],
+      "properties": {
+        "peer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "audience": {
+          "$ref": "#/$defs/binding"
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "offer": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/record"
+        }
+      }
+    },
+    "httpRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "operation",
+            "release",
+            "revision",
+            "audience",
+            "nonce"
+          ],
+          "properties": {
+            "format": {
+              "const": "intake-transfer-http/v1"
+            },
+            "operation": {
+              "const": "offer"
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            "audience": {
+              "$ref": "#/$defs/binding"
+            },
+            "nonce": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "operation",
+            "release",
+            "revision",
+            "audience",
+            "nonce",
+            "offer",
+            "intent"
+          ],
+          "properties": {
+            "format": {
+              "const": "intake-transfer-http/v1"
+            },
+            "operation": {
+              "const": "witness"
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "pattern": "\\S"
+            },
+            "audience": {
+              "$ref": "#/$defs/binding"
+            },
+            "nonce": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            },
+            "offer": {
+              "$ref": "conflict:schema/brain-protection/v1#/$defs/record"
+            },
+            "intent": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "httpResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "operation",
+        "release",
+        "revision",
+        "audience",
+        "nonce",
+        "result"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-transfer-http/v1"
+        },
+        "operation": {
+          "enum": [
+            "offer",
+            "witness"
+          ]
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "audience": {
+          "$ref": "#/$defs/binding"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "result": {
+          "$ref": "conflict:schema/brain-protection/v1#/$defs/record"
+        }
+      }
+    },
+    "batchRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "operation",
+        "items",
+        "offset",
+        "inputSha256",
+        "budget"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-transfer-batch/v1"
+        },
+        "operation": {
+          "enum": [
+            "prepare",
+            "commit"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {},
+          "minItems": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "inputSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxItems",
+            "maxBytes"
+          ],
+          "properties": {
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "prepare"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "destination",
+                    "release",
+                    "releaseRevision",
+                    "record",
+                    "requestId",
+                    "expectedRevision"
+                  ],
+                  "properties": {
+                    "destination": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "release": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "releaseRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "record": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "expectedRevision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256,
+                          "pattern": "\\S"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "destination",
+                    "release",
+                    "releaseRevision",
+                    "record",
+                    "proposal"
+                  ],
+                  "properties": {
+                    "destination": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "release": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "releaseRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "record": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256,
+                      "pattern": "\\S"
+                    },
+                    "proposal": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "batchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "operation",
+        "inputSha256",
+        "offset",
+        "nextOffset",
+        "items",
+        "truncation"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-transfer-result/v1"
+        },
+        "operation": {
+          "enum": [
+            "prepare",
+            "commit"
+          ]
+        },
+        "inputSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "destination",
+                  "record",
+                  "status"
+                ],
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  },
+                  "record": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  },
+                  "status": {
+                    "const": "unavailable"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "destination",
+                  "record",
+                  "status",
+                  "proposal"
+                ],
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  },
+                  "record": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  },
+                  "status": {
+                    "const": "prepared"
+                  },
+                  "proposal": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "destination",
+                  "record",
+                  "status",
+                  "proposal",
+                  "receiptSha256",
+                  "revision"
+                ],
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  },
+                  "record": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  },
+                  "status": {
+                    "const": "committed"
+                  },
+                  "proposal": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  },
+                  "receiptSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256,
+                    "pattern": "\\S"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "truncation": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "enum": [
+              "maxItems",
+              "maxBytes"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

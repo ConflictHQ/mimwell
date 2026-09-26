@@ -1,0 +1,10 @@
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+.dev.vars
+_internal/
+.wrangler/
+runtime/brain-classifier/target/

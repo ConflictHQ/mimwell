@@ -1,0 +1,744 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-protection/v1",
+  "title": "Protection requirements, selected profiles, protected records and transitions",
+  "x-conflict": {
+    "version": "1.0"
+  },
+  "$ref": "#/$defs/record",
+  "$defs": {
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encryption",
+        "mediation",
+        "opaqueMetadata",
+        "offline",
+        "plaintextCopies",
+        "derivatives",
+        "verifiedAuthorship"
+      ],
+      "properties": {
+        "encryption": {
+          "type": "boolean"
+        },
+        "mediation": {
+          "type": "boolean"
+        },
+        "opaqueMetadata": {
+          "type": "boolean"
+        },
+        "offline": {
+          "type": "boolean"
+        },
+        "plaintextCopies": {
+          "type": "boolean"
+        },
+        "derivatives": {
+          "type": "boolean"
+        },
+        "verifiedAuthorship": {
+          "type": "boolean"
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "key",
+        "resolver",
+        "signer",
+        "recipientPolicy",
+        "trust"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "plaintext",
+            "whole-root",
+            "per-record",
+            "hybrid-pointer",
+            "served"
+          ]
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolver": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signer": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recipientPolicy": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "trust": {
+          "enum": [
+            "untrusted",
+            "reviewed"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "plaintext"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "key": {
+                "type": "null"
+              },
+              "resolver": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "per-record"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "resolver": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "whole-root"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "resolver": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "hybrid-pointer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "resolver": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "served"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "key": {
+                "type": "null"
+              },
+              "resolver": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "plaintext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "body"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "json"
+        },
+        "body": {}
+      }
+    },
+    "ciphertext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "nonce",
+        "ciphertext"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "aes256gcm/v1"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{16}$"
+        },
+        "ciphertext": {
+          "type": "string",
+          "minLength": 24,
+          "maxLength": 5592432,
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+        }
+      }
+    },
+    "rootCiphertext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "nonce",
+        "ciphertext"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "aes256gcm/v1"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9+/]{16}$"
+        },
+        "ciphertext": {
+          "type": "string",
+          "minLength": 24,
+          "maxLength": 44739264,
+          "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+        }
+      }
+    },
+    "pointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "object",
+        "revision",
+        "sha256"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "external/v1"
+        },
+        "object": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "served": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "object",
+        "revision"
+      ],
+      "description": "Reference to a body held by the served mediator; the envelope carries no body or body digest.",
+      "properties": {
+        "encoding": {
+          "const": "served/v1"
+        },
+        "object": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "object",
+        "revision",
+        "requirements",
+        "profile"
+      ],
+      "properties": {
+        "format": {
+          "const": "protected-record/v1"
+        },
+        "object": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirements"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "object",
+        "revision",
+        "requirements",
+        "profile",
+        "storage",
+        "signature"
+      ],
+      "properties": {
+        "format": {
+          "const": "protected-record/v1"
+        },
+        "object": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirements"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "storage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/plaintext"
+            },
+            {
+              "$ref": "#/$defs/ciphertext"
+            },
+            {
+              "$ref": "#/$defs/rootCiphertext"
+            },
+            {
+              "$ref": "#/$defs/pointer"
+            },
+            {
+              "$ref": "#/$defs/served"
+            }
+          ]
+        },
+        "signature": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "algorithm",
+                "value"
+              ],
+              "properties": {
+                "algorithm": {
+                  "const": "ed25519/v1"
+                },
+                "value": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9+/]{86}==$"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "profile": {
+                "properties": {
+                  "mode": {
+                    "const": "plaintext"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage": {
+                "$ref": "#/$defs/plaintext"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile": {
+                "properties": {
+                  "mode": {
+                    "const": "per-record"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage": {
+                "$ref": "#/$defs/ciphertext"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile": {
+                "properties": {
+                  "mode": {
+                    "const": "whole-root"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage": {
+                "$ref": "#/$defs/rootCiphertext"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile": {
+                "properties": {
+                  "mode": {
+                    "const": "hybrid-pointer"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage": {
+                "$ref": "#/$defs/pointer"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile": {
+                "properties": {
+                  "mode": {
+                    "const": "served"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "storage": {
+                "$ref": "#/$defs/served"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "profile": {
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "plaintext",
+                    "whole-root",
+                    "per-record",
+                    "hybrid-pointer",
+                    "served"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "profile": {
+                "properties": {
+                  "signer": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "signature": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "signature": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "records",
+        "sha256"
+      ],
+      "properties": {
+        "format": {
+          "const": "protected-exchange/v1"
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 1024,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/record"
+              },
+              {
+                "properties": {
+                  "profile": {
+                    "properties": {
+                      "mode": {
+                        "enum": [
+                          "whole-root",
+                          "per-record",
+                          "hybrid-pointer",
+                          "served"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "state",
+        "items",
+        "target",
+        "basis",
+        "instance",
+        "losses"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "state": {
+          "const": "prepared"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "before",
+              "afterRevision",
+              "done"
+            ],
+            "properties": {
+              "before": {
+                "$ref": "#/$defs/header"
+              },
+              "afterRevision": {
+                "type": "null"
+              },
+              "done": {
+                "const": false
+              }
+            }
+          }
+        },
+        "target": {
+          "$ref": "#/$defs/profile"
+        },
+        "basis": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "instance": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "losses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "id",
+        "state",
+        "epoch",
+        "records",
+        "converted",
+        "losses",
+        "rollback"
+      ],
+      "properties": {
+        "format": {
+          "const": "protection-transition/v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "state": {
+          "enum": [
+            "prepared",
+            "running",
+            "complete",
+            "rolling-back",
+            "rolled-back"
+          ]
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "records": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "converted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "losses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "rollback": {
+          "const": "requires-current-permission-and-original-capabilities"
+        }
+      }
+    }
+  }
+}

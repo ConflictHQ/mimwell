@@ -1,0 +1,10 @@
+{
+ "overlay": "tracker",
+ "revision": "1.0.0",
+ "$comment": "Optional compiled source mappings. Select matching brain.sourceAdapters explicitly; instance access policy is separate.",
+ "patches": {
+  "issue": {
+   "node": "Issue"
+  }
+ }
+}

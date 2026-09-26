@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/selected-federation-navigation/v1",
+  "type": "object",
+  "required": [
+    "portal"
+  ],
+  "properties": {
+    "portal": {
+      "type": "object",
+      "required": [
+        "federationNavigation"
+      ],
+      "properties": {
+        "federationNavigation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocolVersion": {
+              "const": "1.0"
+            },
+            "roots": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "\\S"
+              },
+              "maxItems": 32,
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "budget": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxParticipants": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                },
+                "maxLinks": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1024
+                },
+                "maxDepth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16
+                },
+                "maxPaths": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 16
+                },
+                "maxExpansions": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "maxBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "maxParticipants",
+                "maxLinks",
+                "maxDepth",
+                "maxPaths",
+                "maxExpansions",
+                "maxBytes"
+              ]
+            }
+          },
+          "required": [
+            "protocolVersion",
+            "roots"
+          ]
+        }
+      }
+    }
+  }
+}

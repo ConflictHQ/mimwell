@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/native-proposal-queue/v1",
+  "title": "Currently readable native proposal discovery",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "collections",
+    "basisSha256",
+    "rows",
+    "visibleTotal",
+    "nextCursor",
+    "scope",
+    "executionAuthorized"
+  ],
+  "properties": {
+    "format": {
+      "const": "native-proposal-queue/v1"
+    },
+    "collections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "basisSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "rows": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal",
+          "proposalSha256",
+          "record",
+          "collection",
+          "kind",
+          "title",
+          "mutation",
+          "expectedRevision",
+          "currentRevision",
+          "lifecycle",
+          "expired",
+          "proposedAt",
+          "expiresAt"
+        ],
+        "properties": {
+          "proposal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "proposalSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "record": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "collection": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mutation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "expectedRevision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currentRevision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lifecycle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "historyBasis",
+              "events"
+            ],
+            "properties": {
+              "state": {
+                "enum": [
+                  "pending",
+                  "approved",
+                  "rejected",
+                  "deferred",
+                  "withdrawn",
+                  "committed",
+                  "committed-unattributed"
+                ]
+              },
+              "historyBasis": {
+                "const": "recorded-disposition-events; earlier approval history may be unknown"
+              },
+              "events": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 256
+              }
+            }
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "proposedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "visibleTotal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "basisSha256",
+            "after"
+          ],
+          "properties": {
+            "basisSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "after": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scope": {
+      "const": "currently-readable-native-proposals-in-selected-collections"
+    },
+    "executionAuthorized": {
+      "const": false
+    }
+  }
+}

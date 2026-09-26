@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-app/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "slug",
+    "version",
+    "name",
+    "title",
+    "entry",
+    "stack",
+    "runtime",
+    "grant"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stack": {
+      "const": "static"
+    },
+    "runtime": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]*@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "grant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "read",
+        "owned",
+        "elsewhere"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "read": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "owned": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "retentionDays",
+              "onRemoval"
+            ],
+            "properties": {
+              "retentionDays": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "onRemoval": {
+                "enum": [
+                  "retain",
+                  "delete-after-retention"
+                ]
+              }
+            }
+          }
+        },
+        "elsewhere": {
+          "const": "propose"
+        }
+      }
+    },
+    "description": {},
+    "template": {},
+    "owner": {},
+    "dataset": {},
+    "spec": {},
+    "timestamps": {},
+    "datasources": {},
+    "sqlite": {},
+    "setup": {},
+    "created": {},
+    "updated": {},
+    "enabled": {
+      "type": "boolean"
+    },
+    "pollSeconds": {
+      "type": "integer",
+      "minimum": 15,
+      "maximum": 3600
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundleBytes",
+        "requestsPerMinute"
+      ],
+      "properties": {
+        "bundleBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 2097152
+        },
+        "requestsPerMinute": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        }
+      }
+    },
+    "smoke": {
+      "type": "string",
+      "minLength": 1
+    },
+    "changelog": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "note"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

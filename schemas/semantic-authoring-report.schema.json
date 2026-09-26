@@ -1,0 +1,574 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/semantic-authoring/v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "semantic-authoring/v1"
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "recipe": {
+      "$ref": "recipe-catalog.schema.json#/$defs/resolved"
+    },
+    "recipeBinding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "ontology": {
+      "type": "object"
+    },
+    "kinds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "declaration": {
+            "type": "object"
+          },
+          "identityConvention": {
+            "type": "string",
+            "minLength": 1
+          },
+          "payloadFields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "schemaPointer": {
+                  "type": "string"
+                },
+                "purpose": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purposeState": {
+                  "enum": [
+                    "declared",
+                    "unspecified"
+                  ]
+                },
+                "requiredHere": {
+                  "type": "boolean"
+                },
+                "constraint": {
+                  "type": [
+                    "object",
+                    "boolean"
+                  ]
+                },
+                "examples": {
+                  "type": "array",
+                  "items": {}
+                },
+                "unknownRule": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "authoringHint": {
+                  "$ref": "semantic-authoring.schema.json#/properties/fieldHints/items"
+                }
+              },
+              "required": [
+                "name",
+                "schemaPointer",
+                "purpose",
+                "purposeState",
+                "requiredHere",
+                "constraint",
+                "examples",
+                "unknownRule"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "writerState": {
+            "const": "resolve-from-selected-collection-and-participant"
+          },
+          "writerHint": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "declaration",
+          "identityConvention",
+          "payloadFields",
+          "writerState",
+          "writerHint"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "taxonomy": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "collectionQuestions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "collectionProfileBindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "declaredWriters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "store": {
+            "type": "string",
+            "minLength": 1
+          },
+          "driver": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authorities": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "practice": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "status": {
+            "const": "declaration-only"
+          }
+        },
+        "required": [
+          "store",
+          "driver",
+          "authorities",
+          "practice",
+          "status"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "owningScope": {
+      "type": "object"
+    },
+    "federation": {
+      "type": "object"
+    },
+    "schemas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "semanticSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "schemaPointer": {
+                  "type": "string"
+                },
+                "purpose": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purposeState": {
+                  "enum": [
+                    "declared",
+                    "unspecified"
+                  ]
+                },
+                "requiredHere": {
+                  "type": "boolean"
+                },
+                "constraint": {
+                  "type": [
+                    "object",
+                    "boolean"
+                  ]
+                },
+                "examples": {
+                  "type": "array",
+                  "items": {}
+                },
+                "unknownRule": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "authoringHint": {
+                  "$ref": "semantic-authoring.schema.json#/properties/fieldHints/items"
+                }
+              },
+              "required": [
+                "name",
+                "schemaPointer",
+                "purpose",
+                "purposeState",
+                "requiredHere",
+                "constraint",
+                "examples",
+                "unknownRule"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "path",
+          "semanticSha256",
+          "fields"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "schemaInputBindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "purpose",
+          "capabilities",
+          "inputs",
+          "outputs",
+          "success",
+          "failure",
+          "example",
+          "counterexample",
+          "references",
+          "toolTemplate",
+          "prompt",
+          "referenceBindings",
+          "tools"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "referenceBindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "capability": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version"
+                  ],
+                  "additionalProperties": false
+                },
+                "component": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "version": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "available": {
+                  "type": "boolean"
+                },
+                "authorization": {
+                  "const": "not-evaluated"
+                },
+                "gap": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "capability",
+                "component",
+                "available",
+                "authorization",
+                "gap"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "changeRoutes": {
+      "type": "object",
+      "properties": {
+        "taxonomy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ontology": {
+          "type": "string",
+          "minLength": 1
+        },
+        "view": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "taxonomy",
+        "ontology",
+        "view",
+        "source",
+        "storage"
+      ],
+      "additionalProperties": false
+    },
+    "requiredGaps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "optionalGaps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "components": {
+      "type": "object"
+    },
+    "taskCatalogSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "authorization": {
+      "const": "not-evaluated"
+    },
+    "mutationsPerformed": {
+      "const": false
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "basisSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "format",
+    "asOf",
+    "recipe",
+    "recipeBinding",
+    "lineage",
+    "ontology",
+    "kinds",
+    "taxonomy",
+    "relationships",
+    "collectionQuestions",
+    "collectionProfileBindings",
+    "declaredWriters",
+    "owningScope",
+    "federation",
+    "schemas",
+    "schemaInputBindings",
+    "tasks",
+    "changeRoutes",
+    "requiredGaps",
+    "optionalGaps",
+    "components",
+    "taskCatalogSha256",
+    "authorization",
+    "mutationsPerformed",
+    "limits",
+    "basisSha256"
+  ],
+  "additionalProperties": false
+}

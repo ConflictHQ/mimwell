@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/retained-index-service/v1",
+  "x-conflict": {
+    "version": "1.1"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "federation",
+        "view",
+        "sources",
+        "localOnly",
+        "nonce",
+        "query"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "enum": [
+            "1.0",
+            "1.1"
+          ]
+        },
+        "federation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "view": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "participant",
+              "realm"
+            ],
+            "properties": {
+              "participant": {
+                "type": "string",
+                "minLength": 1
+              },
+              "realm": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "localOnly": {
+          "type": "boolean"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "query": {
+          "$ref": "conflict:schema/derived-index/v1#/$defs/request"
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "federation",
+        "view",
+        "sources",
+        "localOnly",
+        "nonce",
+        "result"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "enum": [
+            "1.0",
+            "1.1"
+          ]
+        },
+        "federation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "view": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "participant",
+              "realm"
+            ],
+            "properties": {
+              "participant": {
+                "type": "string",
+                "minLength": 1
+              },
+              "realm": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "localOnly": {
+          "type": "boolean"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "result": {
+          "$ref": "conflict:schema/federation-protection/v1#/$defs/indexResult"
+        },
+        "sourceEligibility": {
+          "$ref": "#/$defs/eligibility"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "protocolVersion": {
+                "const": "1.1"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "sourceEligibility"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "sourceEligibility"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "eligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "state",
+        "sources"
+      ],
+      "properties": {
+        "basis": {
+          "const": "retained-view-authorization"
+        },
+        "state": {
+          "enum": [
+            "available",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "status"
+            ],
+            "properties": {
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "participant",
+                  "realm"
+                ],
+                "properties": {
+                  "participant": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "realm": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "status": {
+                "enum": [
+                  "eligible",
+                  "unavailable"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

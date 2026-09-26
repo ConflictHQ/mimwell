@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-growth-plan-check/v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "brain-growth-plan-check/v1"
+    },
+    "status": {
+      "const": "basis-unchanged"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "executionAuthorized": {
+      "const": false
+    },
+    "remainingProofs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "format",
+    "status",
+    "planSha256",
+    "executionAuthorized",
+    "remainingProofs"
+  ],
+  "additionalProperties": false
+}

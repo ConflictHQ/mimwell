@@ -1,0 +1,1201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/selected-experience/v1.1",
+  "type": "object",
+  "required": [
+    "portal"
+  ],
+  "properties": {
+    "portal": {
+      "type": "object",
+      "required": [
+        "experience"
+      ],
+      "properties": {
+        "experience": {
+          "$ref": "#/$defs/resolved"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resolved": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocolVersion": {
+              "const": "1.0"
+            },
+            "selection": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "id",
+                "version",
+                "sha256"
+              ]
+            },
+            "lineage": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "sha256"
+                ]
+              },
+              "maxItems": 16
+            },
+            "packages": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "design": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "brand": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "layout": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "navigation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "ia": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                }
+              },
+              "required": [
+                "design",
+                "brand",
+                "layout",
+                "navigation",
+                "ia"
+              ]
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "sha256"
+                ]
+              },
+              "maxItems": 30
+            },
+            "design": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "light": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "bg": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "surface": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "muted": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "border": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "primary": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "link": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "accent": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    }
+                  },
+                  "required": [
+                    "bg",
+                    "surface",
+                    "text",
+                    "muted",
+                    "border",
+                    "primary",
+                    "link",
+                    "accent"
+                  ]
+                },
+                "dark": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "bg": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "surface": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "muted": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "border": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "primary": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "link": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "accent": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    }
+                  },
+                  "required": [
+                    "bg",
+                    "surface",
+                    "text",
+                    "muted",
+                    "border",
+                    "primary",
+                    "link",
+                    "accent"
+                  ]
+                },
+                "radius": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20
+                }
+              },
+              "required": [
+                "light",
+                "dark",
+                "radius"
+              ]
+            },
+            "layout": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "reading",
+                    "workbench"
+                  ]
+                },
+                "density": {
+                  "enum": [
+                    "comfortable",
+                    "compact"
+                  ]
+                },
+                "width": {
+                  "enum": [
+                    "standard",
+                    "wide"
+                  ]
+                },
+                "responsive": {
+                  "enum": [
+                    "auto",
+                    "stacked"
+                  ]
+                }
+              },
+              "required": [
+                "mode",
+                "density",
+                "width",
+                "responsive"
+              ]
+            },
+            "navigation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "top",
+                    "rail"
+                  ]
+                },
+                "search": {
+                  "type": "boolean"
+                },
+                "breadcrumbs": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "mode",
+                "search",
+                "breadcrumbs"
+              ]
+            },
+            "fontMode": {
+              "enum": [
+                "system",
+                "local"
+              ]
+            },
+            "localFonts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "family": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9 ]{0,79}$"
+                  },
+                  "path": {
+                    "type": "string",
+                    "pattern": "^assets/fonts/[a-zA-Z0-9_-]+\\.woff2?$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "weight": {
+                    "enum": [
+                      "400",
+                      "500",
+                      "600",
+                      "700"
+                    ]
+                  }
+                },
+                "required": [
+                  "family",
+                  "path",
+                  "sha256",
+                  "weight"
+                ]
+              },
+              "maxItems": 6
+            },
+            "entryFromVisiblePages": {
+              "const": true
+            }
+          },
+          "required": [
+            "protocolVersion",
+            "selection",
+            "lineage",
+            "packages",
+            "components",
+            "design",
+            "layout",
+            "navigation",
+            "fontMode",
+            "localFonts",
+            "entryFromVisiblePages"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocolVersion": {
+              "const": "1.1"
+            },
+            "selection": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "id",
+                "version",
+                "sha256"
+              ]
+            },
+            "lineage": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "sha256"
+                ]
+              },
+              "maxItems": 16
+            },
+            "packages": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "design": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "brand": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "layout": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "navigation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "ia": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                }
+              },
+              "required": [
+                "design",
+                "brand",
+                "layout",
+                "navigation",
+                "ia"
+              ]
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                  },
+                  "version": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "sha256"
+                ]
+              },
+              "maxItems": 30
+            },
+            "design": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "light": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "bg": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "surface": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "muted": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "border": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "primary": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "link": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "accent": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    }
+                  },
+                  "required": [
+                    "bg",
+                    "surface",
+                    "text",
+                    "muted",
+                    "border",
+                    "primary",
+                    "link",
+                    "accent"
+                  ]
+                },
+                "dark": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "bg": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "surface": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "muted": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "border": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "primary": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "link": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    },
+                    "accent": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-fA-F]{6}$"
+                    }
+                  },
+                  "required": [
+                    "bg",
+                    "surface",
+                    "text",
+                    "muted",
+                    "border",
+                    "primary",
+                    "link",
+                    "accent"
+                  ]
+                },
+                "radius": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20
+                }
+              },
+              "required": [
+                "light",
+                "dark",
+                "radius"
+              ]
+            },
+            "layout": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "reading",
+                    "workbench"
+                  ]
+                },
+                "density": {
+                  "enum": [
+                    "comfortable",
+                    "compact"
+                  ]
+                },
+                "width": {
+                  "enum": [
+                    "standard",
+                    "wide"
+                  ]
+                },
+                "responsive": {
+                  "enum": [
+                    "auto",
+                    "stacked"
+                  ]
+                }
+              },
+              "required": [
+                "mode",
+                "density",
+                "width",
+                "responsive"
+              ]
+            },
+            "navigation": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "top",
+                    "rail"
+                  ]
+                },
+                "search": {
+                  "type": "boolean"
+                },
+                "breadcrumbs": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "mode",
+                "search",
+                "breadcrumbs"
+              ]
+            },
+            "fontMode": {
+              "enum": [
+                "system",
+                "local"
+              ]
+            },
+            "localFonts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "family": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9 ]{0,79}$"
+                  },
+                  "path": {
+                    "type": "string",
+                    "pattern": "^assets/fonts/[a-zA-Z0-9_-]+\\.woff2?$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "weight": {
+                    "enum": [
+                      "400",
+                      "500",
+                      "600",
+                      "700"
+                    ]
+                  }
+                },
+                "required": [
+                  "family",
+                  "path",
+                  "sha256",
+                  "weight"
+                ]
+              },
+              "maxItems": 6
+            },
+            "entryFromVisiblePages": {
+              "const": true
+            },
+            "recordViews": {
+              "description": "Presentation of an already authorized flat record collection; view scope is not access policy. Keys are explicit source-local identities and must be unique.",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "protocolVersion": {
+                  "const": "1.0"
+                },
+                "pages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "pattern": "^/(?!/)[a-zA-Z0-9_/-]+/$",
+                        "maxLength": 300
+                      },
+                      "entry": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                      },
+                      "pinned": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "minItems": 0,
+                        "maxItems": 20,
+                        "uniqueItems": true
+                      },
+                      "views": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "kind": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                            },
+                            "key": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                              },
+                              "minItems": 1,
+                              "maxItems": 3,
+                              "uniqueItems": true
+                            },
+                            "scope": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "field": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                  },
+                                  "op": {
+                                    "enum": [
+                                      "eq",
+                                      "contains",
+                                      "in",
+                                      "exists"
+                                    ]
+                                  },
+                                  "value": {
+                                    "oneOf": [
+                                      {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean",
+                                          "null"
+                                        ],
+                                        "maxLength": 300,
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "array",
+                                        "items": {
+                                          "type": [
+                                            "string",
+                                            "number",
+                                            "boolean",
+                                            "null"
+                                          ],
+                                          "maxLength": 300,
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "minItems": 1,
+                                        "maxItems": 32
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "field",
+                                  "op",
+                                  "value"
+                                ]
+                              },
+                              "minItems": 0,
+                              "maxItems": 16
+                            },
+                            "facets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "field": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 160
+                                  }
+                                },
+                                "required": [
+                                  "field",
+                                  "label"
+                                ]
+                              },
+                              "minItems": 0,
+                              "maxItems": 8
+                            },
+                            "groupBy": {
+                              "oneOf": [
+                                {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "order": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "field": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                  },
+                                  "direction": {
+                                    "enum": [
+                                      "asc",
+                                      "desc"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "field",
+                                  "direction"
+                                ]
+                              },
+                              "minItems": 0,
+                              "maxItems": 4
+                            },
+                            "search": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                              },
+                              "minItems": 0,
+                              "maxItems": 12,
+                              "uniqueItems": true
+                            },
+                            "layout": {
+                              "enum": [
+                                "list",
+                                "detail",
+                                "workbench"
+                              ]
+                            },
+                            "density": {
+                              "enum": [
+                                "comfortable",
+                                "compact"
+                              ]
+                            },
+                            "responsive": {
+                              "enum": [
+                                "auto",
+                                "stacked"
+                              ]
+                            },
+                            "pageSize": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "breadcrumbs": {
+                              "type": "boolean"
+                            },
+                            "defaultSelection": {
+                              "enum": [
+                                "none",
+                                "first"
+                              ]
+                            },
+                            "artifact": {
+                              "type": "string",
+                              "pattern": "^app/[A-Za-z0-9_-]+\\.json$",
+                              "maxLength": 200
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "label",
+                            "kind",
+                            "key",
+                            "scope",
+                            "facets",
+                            "groupBy",
+                            "order",
+                            "search",
+                            "layout",
+                            "density",
+                            "responsive",
+                            "pageSize",
+                            "breadcrumbs",
+                            "defaultSelection",
+                            "artifact"
+                          ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 20
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "entry",
+                      "pinned",
+                      "views"
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 32
+                }
+              },
+              "required": [
+                "protocolVersion",
+                "pages"
+              ]
+            },
+            "recordViewDescriptors": {
+              "type": "object",
+              "maxProperties": 64,
+              "propertyNames": {
+                "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "required": [
+            "protocolVersion",
+            "selection",
+            "lineage",
+            "packages",
+            "components",
+            "design",
+            "layout",
+            "navigation",
+            "fontMode",
+            "localFonts",
+            "entryFromVisiblePages"
+          ],
+          "dependentRequired": {
+            "recordViews": [
+              "recordViewDescriptors"
+            ],
+            "recordViewDescriptors": [
+              "recordViews"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

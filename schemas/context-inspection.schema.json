@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/context-inspection/v1",
+  "title": "Exact authorized context inspection",
+  "description": "A bounded presentation envelope beside canonical context bytes. Selection and inspection never grant future authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "context",
+    "summary"
+  ],
+  "properties": {
+    "format": {
+      "const": "context-inspection/v1"
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "mediaType",
+        "sha256",
+        "bytes",
+        "payload"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "utf-8"
+        },
+        "mediaType": {
+          "const": "application/json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "payload": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contextSha256",
+        "basis",
+        "authorization",
+        "counts",
+        "gaps",
+        "conflicts",
+        "conflictAssessment",
+        "freshness",
+        "coverage",
+        "truncation",
+        "consumption"
+      ],
+      "properties": {
+        "contextSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "basis": {
+          "type": "object"
+        },
+        "authorization": {
+          "type": "object"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nodes",
+            "edges",
+            "references",
+            "localRecordsWithEvidence",
+            "resolvedReferences",
+            "referencesWithEvidence"
+          ],
+          "properties": {
+            "nodes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "references": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "localRecordsWithEvidence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resolvedReferences": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "referencesWithEvidence": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "conflictAssessment": {
+          "type": "string"
+        },
+        "freshness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope",
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "scope": {
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "current",
+                "stale",
+                "unknown"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        },
+        "coverage": {
+          "type": "object"
+        },
+        "truncation": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "consumption": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

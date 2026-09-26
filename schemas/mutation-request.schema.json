@@ -1,0 +1,72 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "resource": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "record": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "mutation": {
+      "enum": [
+        "read",
+        "create",
+        "correct",
+        "supersede",
+        "retract",
+        "delete",
+        "retain",
+        "promote"
+      ]
+    },
+    "expectedRevision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "\\S"
+      }
+    },
+    "sourceResource": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    }
+  },
+  "required": [
+    "id",
+    "resource",
+    "record",
+    "mutation",
+    "expectedRevision",
+    "reason",
+    "evidence",
+    "sourceResource"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/mutation-request/v1"
+}

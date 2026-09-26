@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-exchange/v1",
+  "title": "Brain transfer archive — transport validation only",
+  "description": "Preserves native JSON and an optional manifest as untrusted source claims. Digest, graph integrity and source recognition require knowledge_interchange.validate. Native schema/replay and destination authorization are separate required checks.",
+  "type": "object",
+  "required": ["format", "sourceFormat", "origin", "manifest", "payload", "sha256"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {"enum": ["brain-exchange/v1", "brain-exchange/v2"]},
+    "sourceFormat": {"enum": ["compiled-brain/v1", "conflict-kg/v1", "calliope-kg/v1", "calliope.brain/v1"]},
+    "origin": {
+      "type": "object", "required": ["id", "revision"], "additionalProperties": false,
+      "properties": {"id": {"type": "string", "minLength": 1}, "revision": {"type": "string", "minLength": 1}}
+    },
+    "manifest": {"type": ["object", "null"]},
+    "payload": {"type": "object"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

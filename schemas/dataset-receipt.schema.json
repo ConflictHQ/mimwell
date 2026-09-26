@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/dataset-receipt/v1",
+  "title": "Derived dataset build/refresh receipt",
+  "description": "A materialized app dataset table names each source's identity and revision, a transformation identity distinct from the combined fingerprint, when it was last refreshed, what it lost and that authorization was rechecked for this run even when the combined fingerprint had not moved.",
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind", "revision"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "kind": { "enum": ["datasource", "file", "brain"] },
+        "revision": {
+          "description": "The source's own revision at build time: the datasource query's own digest, the file's content digest, or the brain content fingerprint. Never empty.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "query": { "type": "string", "maxLength": 20000 }
+      }
+    },
+    "column": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "type": "string", "minLength": 1, "maxLength": 100 }
+      }
+    },
+    "loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "what"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "what": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "losses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lossless", "items"],
+      "properties": {
+        "lossless": { "type": "boolean" },
+        "items": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/loss" }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format", "table", "sources", "transformationId", "fingerprint",
+    "refreshedAt", "rows", "columns", "losses", "authorizationRechecked"
+  ],
+  "properties": {
+    "format": { "const": "dataset-receipt/v1" },
+    "table": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "transformationId": {
+      "description": "Identity of the shaping SQL alone, distinct from the combined table fingerprint (which also folds in source revisions).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "fingerprint": {
+      "description": "The combined table+sources fingerprint used for the skip-if-unchanged decision.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "refreshedAt": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "rows": { "type": "integer", "minimum": 0 },
+    "columns": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": { "$ref": "#/$defs/column" }
+    },
+    "losses": { "$ref": "#/$defs/losses" },
+    "authorizationRechecked": {
+      "description": "True on every build or refresh run, including a fingerprint-match skip: the source access gate ran again for this call rather than being assumed from a cached result.",
+      "const": true
+    }
+  }
+}

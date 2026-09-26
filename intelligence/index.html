@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intelligence</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #3A53A4;
+    --kb-link:         #7C92D6;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    /* ── Content zone: a light reading surface accented with the configured
+       primary color. The dark chrome (header/footer) re-scopes these below. ── */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  rgba(58, 83, 164,0.08);
+    --red-dark: #2F478E;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1500px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 620px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Tabs ── */
+  .tabbar {
+    max-width: 1500px; margin: 0 auto; padding: 28px 32px 0;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); background: none;
+    border: none; border-bottom: 2px solid transparent; cursor: pointer;
+    padding: 8px 12px 9px; transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); }
+  .tab-count { color: var(--dim); }
+  .tab.active .tab-count { color: var(--red); }
+
+  /* ── Sort + status controls ── */
+  .gallery-controls {
+    max-width: 1500px; margin: 0 auto; padding: 16px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: flex-end; gap: 18px;
+  }
+  .ctrl-group { display: flex; align-items: center; gap: 8px; }
+  .ctrl-label {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim);
+  }
+  .seg { display: flex; gap: 2px; }
+  .seg-btn {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--dim); background: var(--surface);
+    border: 1px solid var(--border); cursor: pointer; padding: 5px 10px;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .seg-btn:hover { color: var(--text); }
+  .seg-btn.active { color: var(--red); border-color: var(--red); }
+  .ctrl-select {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); cursor: pointer; padding: 5px 28px 5px 10px;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6' viewBox='0 0 8 6'%3E%3Cpath d='M0 0l4 6 4-6z' fill='%237C92D6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  .ctrl-select:hover { border-color: var(--red); }
+  .ctrl-select option { background: var(--bg); color: var(--text); }
+
+  /* ── Grid ── */
+  .gallery { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+
+  /* ── Label badges (on card) ── */
+  .card-labels { display: flex; flex-wrap: wrap; gap: 6px; }
+  .label-pill {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    color: var(--red); background: var(--red-dim);
+    border: 1px solid rgba(58, 83, 164,.4); border-radius: 3px; padding: 2px 8px;
+  }
+
+  /* ── Pager ── */
+  .pager {
+    max-width: 1500px; margin: 24px auto 0; padding: 0 32px;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  .pager-btn {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 3px; padding: 6px 14px; cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .pager-btn:hover:not(:disabled) { color: var(--red); border-color: rgba(58, 83, 164,.5); background: var(--surface2); }
+  .pager-btn:disabled { color: var(--dim); cursor: default; opacity: .5; }
+  .pager-status { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+  .pager-status span { color: var(--text); }
+
+  /* ── Session card ── */
+  .session-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; display: flex; flex-direction: column; text-decoration: none; color: inherit;
+    transition: border-color .15s, background .15s;
+  }
+  a.session-card:hover { border-color: rgba(58, 83, 164,.5); background: var(--surface2); }
+  .session-card.pending { opacity: .82; }
+
+  /* Thumbnail */
+  .card-thumb { position: relative; aspect-ratio: 16 / 9; background: #000; border-bottom: 1px solid var(--border); overflow: hidden; }
+  .card-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s, opacity .15s; }
+  a.session-card:hover .card-thumb img { transform: scale(1.03); }
+  /* Brand-tinted placeholder when no thumbnail is available */
+  .card-thumb.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background:
+      linear-gradient(135deg, var(--red-dim) 0%, rgba(0,0,0,0) 55%),
+      repeating-linear-gradient(135deg, rgba(255,255,255,.018) 0 12px, transparent 12px 24px),
+      var(--bg);
+  }
+  .card-thumb.placeholder .ph-mark {
+    font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--red); opacity: .7;
+    border: 1px solid rgba(58, 83, 164,.35); border-radius: 3px; padding: 5px 11px;
+  }
+  .card-duration {
+    position: absolute; right: 8px; bottom: 8px;
+    font-family: var(--kb-font-mono); font-size: 10px; color: var(--text);
+    background: rgba(0,0,0,.7); border: 1px solid var(--border); border-radius: 3px;
+    padding: 2px 7px; backdrop-filter: blur(2px);
+  }
+  .card-pending-flag {
+    position: absolute; left: 8px; top: 8px;
+    font-family: var(--kb-font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); background: rgba(0,0,0,.6); border: 1px solid var(--border);
+    border-radius: 3px; padding: 2px 7px;
+  }
+  /* In-place media affordances (#41): play / frames buttons over the thumbnail.
+     They sit above the card link and play inline (see the grid click handler). */
+  .card-media-btn {
+    position: absolute; z-index: 2; display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; cursor: pointer; line-height: 1;
+    background: rgba(0,0,0,.55); border: 1px solid var(--border); backdrop-filter: blur(2px);
+    transition: background .15s, transform .15s, border-color .15s;
+  }
+  .card-media-btn.play {
+    inset: 0; margin: auto; width: 48px; height: 48px; border-radius: 50%;
+    font-size: 16px; padding-left: 3px; background: color-mix(in srgb, var(--red) 80%, #000);
+  }
+  a.session-card:hover .card-media-btn.play { transform: scale(1.08); }
+  .card-media-btn.frames {
+    right: 8px; top: 8px; width: 28px; height: 24px; border-radius: 3px; font-size: 12px;
+  }
+  .card-media-btn.frames:hover { color: var(--red); border-color: var(--red); }
+  .card-media-btn:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  /* When a card plays inline, the shared player fills the thumbnail frame. */
+  .card-thumb .kb-media { position: absolute; inset: 0; aspect-ratio: auto; border: 0; border-radius: 0; }
+
+  /* Card body */
+  .card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .card-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card-date { font-family: var(--kb-font-mono); font-size: 11px; color: var(--muted); }
+  .ai-badge {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    color: var(--yellow); background: var(--yellow-dim);
+    border: 1px solid rgba(245,166,35,.4); border-radius: 3px; padding: 2px 8px;
+  }
+  .ai-badge.none { color: var(--dim); background: var(--surface); border-color: var(--border); }
+  .card-title {
+    font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .02em;
+    color: var(--text); line-height: 1.2;
+  }
+  a.session-card:hover .card-title { color: var(--red); }
+
+  .kp-label {
+    font-family: var(--kb-font-mono); font-size: 9px; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--dim); margin-top: 2px;
+  }
+  .kp-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .kp-item { font-size: 12px; color: var(--muted); padding-left: 13px; position: relative; line-height: 1.45; }
+  .kp-item::before { content: '›'; position: absolute; left: 0; color: var(--red); font-weight: 700; }
+  .kp-empty { font-size: 12px; color: var(--dim); font-style: italic; }
+
+  .card-foot { margin-top: auto; padding-top: 4px; display: flex; align-items: center; justify-content: space-between; }
+  .card-open { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+  a.session-card .card-arrow { color: var(--dim); font-size: 14px; transition: color .15s, transform .15s; }
+  a.session-card:hover .card-arrow { color: var(--red); transform: translateX(3px); }
+  .card-pending-note { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: rgba(58, 83, 164,.4); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .gallery, .footer { padding-left: 18px; padding-right: 18px; }
+    .card-grid { grid-template-columns: 1fr; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/render.css">
+<!-- Shared media component (#41): in-place card player + image lightbox. -->
+<link rel="stylesheet" href="/app/media-player.css">
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+<!-- Shared media component (#41): provider-detecting player + lightbox. -->
+<script src="/app/media-player.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Intelligence</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Intelligence</h1>
+  <p class="page-subtitle">Analyzed meeting recordings — summaries, key points, and action items.</p>
+  <div class="page-meta" id="page-meta"><span id="rec-count">—</span> recordings</div>
+</section>
+
+<!-- Tabs -->
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Filter recordings by label"></nav>
+
+<!-- Sort + status controls -->
+<div class="gallery-controls">
+  <div class="ctrl-group" role="group" aria-label="Filter by analysis status">
+    <span class="ctrl-label">Show</span>
+    <div class="seg" id="status-seg">
+      <button class="seg-btn active" type="button" data-status="all">All</button>
+      <button class="seg-btn" type="button" data-status="analyzed">Analyzed</button>
+      <button class="seg-btn" type="button" data-status="pending">Pending</button>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <label class="ctrl-label" for="sort-select">Sort</label>
+    <select class="ctrl-select" id="sort-select" aria-label="Sort recordings">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="actions">Most action items</option>
+      <option value="duration">Longest first</option>
+    </select>
+  </div>
+</div>
+
+<!-- Gallery -->
+<div class="gallery">
+  <div class="card-grid" id="card-grid">
+    <div class="statebox" style="grid-column:1/-1">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching recordings…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Pager -->
+<nav class="pager" id="pager" aria-label="Pagination" hidden></nav>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<brain name> — Intelligence".
+  const name = KBNav.brainName(cfg);
+  document.title = (name ? name + ' — ' : '') + 'Intelligence';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', KBNav.brainShortName(cfg));
+  set('page-eyebrow-text', name ? name + ' Intelligence' : 'Intelligence');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [KBNav.brainShortName(cfg), KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Sessions gallery (reads /app/sessions.json) ──────────────────────────────
+function durationStr(min) {
+  if (!min || min < 1) return '—';
+  return min + ' min';
+}
+
+function sessionCard(s) {
+  // Cards open the per-session detail page (keyed by id). `doc` (a repo-relative
+  // markdown path, may be "") only drives the "analysis pending" visual state.
+  const hasDoc = s.doc && String(s.doc).trim();
+  const hasId = s.id && String(s.id).trim();
+  const href = hasId ? '/app/session.html?id=' + encodeURIComponent(s.id) : null;
+
+  // `thumb` is repo-relative (e.g. "app/thumbs/<id>.jpg", may be ""); make it a
+  // site-absolute URL. Missing/broken thumbs fall back to a brand placeholder.
+  const thumb = s.thumb && String(s.thumb).trim() ? '/' + String(s.thumb).replace(/^\/+/, '') : '';
+
+  // In-place player (#41): if the session has an embeddable video, the thumbnail
+  // gets a "play" affordance that plays inline within the card (no navigation).
+  // If it has a frame set, a "frames" affordance opens the shared lightbox. Both
+  // stop the card's link from firing (see the delegated handler below).
+  const playable = !!(window.KBMedia && KBMedia.resolve(s.video_url, s.drive_url));
+  const hasFrames = Array.isArray(s.frames) && s.frames.filter(f => f && String(f).trim()).length > 0;
+  const mediaBtns =
+    (playable ? `<button class="card-media-btn play" type="button" data-media-play aria-label="Play recording"><span aria-hidden="true">▶</span></button>` : '') +
+    (hasFrames ? `<button class="card-media-btn frames" type="button" data-media-frames aria-label="View frames"><span aria-hidden="true">▦</span></button>` : '');
+
+  const thumbHtml = thumb
+    ? `<div class="card-thumb">
+        <img src="${esc(thumb)}" alt="" loading="lazy"
+             onerror="this.parentNode.classList.add('placeholder');this.remove();this.parentNode.insertAdjacentHTML('afterbegin','<span class=&quot;ph-mark&quot;>Recording</span>')">
+        <span class="card-duration">${esc(durationStr(s.duration_min))}</span>
+        ${hasDoc ? '' : '<span class="card-pending-flag">Pending</span>'}
+        ${mediaBtns}
+      </div>`
+    : `<div class="card-thumb placeholder">
+        <span class="ph-mark">Recording</span>
+        <span class="card-duration">${esc(durationStr(s.duration_min))}</span>
+        ${hasDoc ? '' : '<span class="card-pending-flag">Pending</span>'}
+        ${mediaBtns}
+      </div>`;
+
+  const aiCount = s.action_item_count || 0;
+  const aiBadge = aiCount > 0
+    ? `<span class="ai-badge">${aiCount} action item${aiCount !== 1 ? 's' : ''}</span>`
+    : `<span class="ai-badge none">No action items</span>`;
+
+  // First 2–3 key points as a short preview.
+  const points = (s.key_points || []).slice(0, 3);
+  const kpHtml = points.length
+    ? `<div class="kp-label">Key points</div>
+       <ul class="kp-list">${points.map(p => `<li class="kp-item">${esc(p)}</li>`).join('')}</ul>`
+    : `<div class="kp-empty">No key points captured.</div>`;
+
+  const foot = hasDoc
+    ? `<span class="card-open">Open analysis</span><span class="card-arrow">→</span>`
+    : `<span class="card-pending-note">Analysis pending</span>`;
+
+  // Label tag(s) → one pill each, so the split is visible within "All".
+  const labels = Array.isArray(s.labels) ? s.labels : [];
+  const labelsHtml = labels.length
+    ? `<div class="card-labels">${labels.map(p => `<span class="label-pill">${esc(p)}</span>`).join('')}</div>`
+    : '';
+
+  const inner = `
+    ${thumbHtml}
+    <div class="card-body">
+      <div class="card-meta-row">
+        <span class="card-date">${esc(s.date || '')}</span>
+        ${aiBadge}
+      </div>
+      ${labelsHtml}
+      <div class="card-title">${esc(s.title || 'Untitled recording')}</div>
+      ${kpHtml}
+      <div class="card-foot">${foot}</div>
+    </div>`;
+
+  // Every session has a detail page, so the card is clickable whenever an id is
+  // present; the `pending` class keeps the dimmed look for un-analyzed sessions.
+  // `data-session-id` lets the in-place media handler resolve this card's media.
+  if (hasId) {
+    return `<a class="session-card${hasDoc ? '' : ' pending'}" href="${esc(href)}" data-session-id="${esc(s.id)}">${inner}</a>`;
+  }
+  return `<div class="session-card pending" data-session-id="${esc(s.id || '')}">${inner}</div>`;
+}
+
+// ── Tabs + pagination state (in-page only, persisted nowhere) ─────────────────
+const PER_PAGE = 9;
+const ALL_TAB = '__all__';
+const gallery = { sessions: [], tab: ALL_TAB, page: 1, tabs: [], sort: 'newest', status: 'all' };
+
+// Apply the status filter + sort on top of the active label tab.
+function applyControls(list) {
+  const hasDoc = s => !!(s.doc && String(s.doc).trim());
+  let out = list;
+  if (gallery.status === 'analyzed') out = out.filter(hasDoc);
+  else if (gallery.status === 'pending') out = out.filter(s => !hasDoc(s));
+
+  const dateDesc = (a, b) => String(b.date || '').localeCompare(String(a.date || ''));
+  const sorted = out.slice();
+  if (gallery.sort === 'oldest') sorted.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  else if (gallery.sort === 'actions') sorted.sort((a, b) => (b.action_item_count || 0) - (a.action_item_count || 0) || dateDesc(a, b));
+  else if (gallery.sort === 'duration') sorted.sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0) || dateDesc(a, b));
+  else sorted.sort(dateDesc); // 'newest' (default)
+  return sorted;
+}
+
+// Build the tab list dynamically from the union of session.labels.
+// "All" first, then every distinct label alphabetically — labels are pure data.
+function buildTabList(sessions) {
+  const seen = new Set();
+  sessions.forEach(s => (Array.isArray(s.labels) ? s.labels : []).forEach(p => seen.add(p)));
+  const ordered = Array.from(seen).sort((a, b) => a.localeCompare(b));
+  return [{ id: ALL_TAB, label: 'All' }].concat(ordered.map(p => ({ id: p, label: p })));
+}
+
+// A session counts toward a label tab if that label is in its `labels`
+// array; "All" counts every session.
+function sessionsForTab(tab) {
+  if (tab === ALL_TAB) return gallery.sessions;
+  return gallery.sessions.filter(s => (Array.isArray(s.labels) ? s.labels : []).indexOf(tab) !== -1);
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  // Single "All" tab with no labels carries no useful filtering — hide the bar.
+  if (gallery.tabs.length <= 1) { bar.hidden = true; bar.innerHTML = ''; return; }
+  bar.hidden = false;
+  bar.innerHTML = gallery.tabs.map(t => {
+    const active = t.id === gallery.tab;
+    const count = sessionsForTab(t.id).length;
+    return '<button class="tab' + (active ? ' active' : '') + '" type="button" role="tab"' +
+      ' aria-selected="' + (active ? 'true' : 'false') + '" data-tab="' + esc(t.id) + '">' +
+      esc(t.label) + ' <span class="tab-count">(' + count + ')</span></button>';
+  }).join('');
+}
+
+function renderPager(totalPages) {
+  const pager = document.getElementById('pager');
+  if (totalPages <= 1) { pager.hidden = true; pager.innerHTML = ''; return; }
+  pager.hidden = false;
+  const page = gallery.page;
+  pager.innerHTML =
+    '<button class="pager-btn" type="button" data-nav="prev"' + (page <= 1 ? ' disabled' : '') + '>Prev</button>' +
+    '<span class="pager-status">Page <span>' + page + '</span> of <span>' + totalPages + '</span></span>' +
+    '<button class="pager-btn" type="button" data-nav="next"' + (page >= totalPages ? ' disabled' : '') + '>Next</button>';
+}
+
+function renderGallery() {
+  const grid = document.getElementById('card-grid');
+  const filtered = applyControls(sessionsForTab(gallery.tab));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  if (gallery.page > totalPages) gallery.page = totalPages;
+
+  const start = (gallery.page - 1) * PER_PAGE;
+  const pageItems = filtered.slice(start, start + PER_PAGE);
+
+  grid.innerHTML = pageItems.length
+    ? pageItems.map(sessionCard).join('')
+    : '<div class="statebox" style="grid-column:1/-1">' +
+        '<div class="st-title">No recordings</div>' +
+        '<div>No recordings match the current filters.</div>' +
+      '</div>';
+
+  renderTabs();
+  renderPager(totalPages);
+}
+
+// Tab clicks → switch tab, reset to page 1.
+document.getElementById('tabbar').addEventListener('click', e => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  const tab = btn.getAttribute('data-tab');
+  if (tab === gallery.tab) return;
+  gallery.tab = tab;
+  gallery.page = 1;
+  renderGallery();
+});
+
+// Status segment clicks → filter analyzed/pending, reset to page 1.
+document.getElementById('status-seg').addEventListener('click', e => {
+  const btn = e.target.closest('.seg-btn');
+  if (!btn) return;
+  const status = btn.getAttribute('data-status');
+  if (status === gallery.status) return;
+  gallery.status = status;
+  gallery.page = 1;
+  document.querySelectorAll('#status-seg .seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+  renderGallery();
+});
+
+// Sort select → re-sort, reset to page 1.
+document.getElementById('sort-select').addEventListener('change', e => {
+  gallery.sort = e.target.value;
+  gallery.page = 1;
+  renderGallery();
+});
+
+// Pager clicks → step a page.
+document.getElementById('pager').addEventListener('click', e => {
+  const btn = e.target.closest('.pager-btn');
+  if (!btn || btn.disabled) return;
+  const nav = btn.getAttribute('data-nav');
+  if (nav === 'prev') gallery.page--;
+  else if (nav === 'next') gallery.page++;
+  renderGallery();
+});
+
+// A repo-relative asset path → served URL; absolute URLs pass through.
+function assetUrl(path) {
+  const p = path && String(path).trim();
+  if (!p) return null;
+  if (/^(https?:|data:|\/)/i.test(p)) return p.replace(/^(?!https?:|data:)\/+/, '/');
+  return '/' + p.replace(/^\/+/, '');
+}
+
+// In-place media (#41): play a card's recording inline, or open its frame set in
+// the shared lightbox — without navigating to the detail page. Delegated on the
+// grid so it survives re-render. The media buttons stop the card link firing.
+document.getElementById('card-grid').addEventListener('click', e => {
+  const btn = e.target.closest('[data-media-play], [data-media-frames]');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const card = btn.closest('.session-card');
+  const id = card && card.getAttribute('data-session-id');
+  const s = gallery.sessions.find(x => String(x.id) === String(id));
+  if (!s) return;
+
+  if (btn.hasAttribute('data-media-frames')) {
+    const frames = (Array.isArray(s.frames) ? s.frames : []).map(assetUrl).filter(Boolean)
+      .map((src, i) => ({ src, caption: (s.title || 'Recording') + ' · frame ' + (i + 1) }));
+    if (frames.length) KBMedia.openLightbox(frames, 0);
+    return;
+  }
+
+  // Play inline: swap the thumbnail for the resolved player within the card.
+  const thumbEl = card.querySelector('.card-thumb');
+  if (!thumbEl) return;
+  const thumb = s.thumb && String(s.thumb).trim() ? '/' + String(s.thumb).replace(/^\/+/, '') : '';
+  thumbEl.classList.remove('placeholder');
+  thumbEl.innerHTML = KBMedia.playerHtml({
+    video_url: s.video_url, drive_url: s.drive_url, thumb, title: s.title || 'Recording'
+  });
+  // The player markup may itself be a click-to-play poster; auto-activate it so
+  // the single click that hit "play" starts playback immediately.
+  const poster = thumbEl.querySelector('.kb-media-poster');
+  if (poster) KBMedia.activatePoster(poster);
+});
+
+async function loadSessions() {
+  const grid = document.getElementById('card-grid');
+  let data;
+  try {
+    const r = await fetch('/app/sessions.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    grid.innerHTML =
+      '<div class="statebox" style="grid-column:1/-1">' +
+        '<div class="st-title">No recordings yet</div>' +
+        '<div>Analyzed meeting recordings will appear here as they are processed.</div>' +
+      '</div>';
+    return;
+  }
+
+  const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  const count = (typeof data.count === 'number') ? data.count : sessions.length;
+  document.getElementById('rec-count').textContent = count;
+
+  if (!sessions.length) {
+    grid.innerHTML =
+      '<div class="statebox" style="grid-column:1/-1">' +
+        '<div class="st-title">No recordings yet</div>' +
+        '<div>Analyzed meeting recordings will appear here as they are processed.</div>' +
+      '</div>';
+    return;
+  }
+
+  // sessions.json is already sorted newest-first.
+  gallery.sessions = sessions;
+  gallery.tabs = buildTabList(sessions);
+  gallery.tab = ALL_TAB;
+  gallery.page = 1;
+  renderGallery();
+}
+
+loadConfig();
+loadSessions();
+</script>
+</body>
+</html>

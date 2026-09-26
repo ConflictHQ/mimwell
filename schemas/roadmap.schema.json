@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/roadmap/v1",
+  "title": "Roadmap (app/roadmap.json)",
+  "description": "Engagement roadmap rendered by /roadmap/. status values: done | in-progress | planned.",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "app/roadmap.json"
+  },
+  "type": "object",
+  "required": [
+    "tracks"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "statusLegend": {
+      "type": "object",
+      "properties": {
+        "done": {
+          "type": "string"
+        },
+        "in-progress": {
+          "type": "string"
+        },
+        "planned": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "product"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "product": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tagline": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "phases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/section"
+            }
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/section"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/item"
+            }
+          },
+          "future": {
+            "$ref": "#/$defs/section"
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "integer"
+    },
+    "changelog": {
+      "type": "array",
+      "description": "Bump version/updated and append an entry here on every hand edit (the fill-in contract in bootstrap.md).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "done",
+        "in-progress",
+        "planned"
+      ]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "timeframe": {
+          "type": "string"
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    }
+  }
+}

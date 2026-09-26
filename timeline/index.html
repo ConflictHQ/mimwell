@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Timeline</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #3A53A4;
+    --kb-link:         #7C92D6;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    /* ── Content zone: light mode with primary-color accents. The dark
+       dark portal chrome (header/footer) re-scopes these below. ── */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  rgba(58, 83, 164,0.08);
+    --red-dark: #2F478E;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark portal chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1000px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 620px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Controls (label filter) ── */
+  .controls {
+    max-width: 1000px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  }
+  .ctrl-label { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+  .seg { display: flex; flex-wrap: wrap; gap: 2px; }
+  .seg-btn {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--dim); background: var(--surface); border: 1px solid var(--border); cursor: pointer;
+    padding: 5px 11px; transition: color .15s, border-color .15s, background .15s;
+  }
+  .seg-btn:hover { color: var(--text); }
+  .seg-btn.active { color: var(--red); border-color: var(--red); }
+  .seg-btn .seg-count { color: var(--dim); }
+  .seg-btn.active .seg-count { color: var(--red); }
+
+  /* ── Timeline body ── */
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 28px 32px 80px; }
+
+  /* Year group: a sticky year marker, then a vertical rail of entries. */
+  .year-group { margin-bottom: 8px; }
+  .year-head {
+    display: flex; align-items: baseline; gap: 12px; margin: 26px 0 6px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  }
+  .year-label { font-family: var(--kb-font-heading); font-size: 28px; letter-spacing: .04em; color: var(--text); line-height: 1; }
+  .year-count { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+  /* The rail: a single vertical line down the left, entries hang off it. */
+  .rail { position: relative; padding-left: 26px; }
+  .rail::before {
+    content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px;
+    width: 1px; background: var(--border2);
+  }
+
+  .entry { position: relative; padding: 9px 0 9px 0; }
+  .entry::before {
+    content: ''; position: absolute; left: -24px; top: 16px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--red);
+  }
+
+  a.entry-card {
+    display: block; text-decoration: none; color: inherit;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 15px; transition: border-color .15s, background .15s;
+  }
+  a.entry-card:hover { border-color: rgba(58, 83, 164,.5); background: var(--surface2); }
+  .entry-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .entry-date { font-family: var(--kb-font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  a.entry-card:hover .entry-date { color: var(--red); }
+  .entry-arrow { color: var(--dim); font-size: 14px; transition: color .15s, transform .15s; }
+  a.entry-card:hover .entry-arrow { color: var(--red); transform: translateX(3px); }
+  .entry-title { font-family: var(--kb-font-heading); font-size: 17px; letter-spacing: .02em; color: var(--text); line-height: 1.2; margin: 6px 0; }
+  a.entry-card:hover .entry-title { color: var(--red); }
+
+  .entry-labels { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .label-pill {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: .06em; white-space: nowrap; border: 1px solid; border-radius: 3px; padding: 2px 8px;
+    /* Color is data-driven: assigned at runtime from a rotating house palette,
+       keyed on the distinct labels present in the served data (see labelStyle). */
+    color: var(--lbl-fg, var(--muted));
+    background: var(--lbl-bg, var(--surface2));
+    border-color: var(--lbl-bd, var(--border2));
+  }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: rgba(58, 83, 164,.4); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .controls, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Timeline</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Timeline</h1>
+  <p class="page-subtitle">The arc of the engagement — every analyzed meeting, newest first, grouped by year. Open any entry for its full analysis.</p>
+  <div class="page-meta" id="page-meta"><span id="session-count">—</span> meetings · newest first</div>
+</section>
+
+<!-- Controls -->
+<div class="controls" role="group" aria-label="Filter by label">
+  <span class="ctrl-label">Filter</span>
+  <div class="seg" id="label-seg"></div>
+</div>
+
+<!-- Timeline -->
+<div class="wrap">
+  <div id="timeline">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching the engagement timeline…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<client.name> — Timeline".
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Timeline';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Timeline' : 'Timeline');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+
+  // Cross-link to the phase-by-phase engagement timeline (derived from the
+  // plan) when this brain registers it — engagement-overlay only, so a
+  // company/topic/personal brain (no specs/manifest.json) sees no dead link.
+  KBNav.setProfile(cfg.profile);
+  const hasEngagementTimeline = KBNav.visiblePages(cfg.pages || [], cfg.features)
+    .some(p => p.url === '/timeline/engagement/');
+  const subtitleEl = document.querySelector('.page-subtitle');
+  if (hasEngagementTimeline && subtitleEl) {
+    subtitleEl.innerHTML += ' Looking for phase-by-phase delivery progress instead? See the ' +
+      '<a href="/timeline/engagement/" style="color:var(--red)">engagement timeline</a>.';
+  }
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Timeline (reads /app/sessions.json) ──────────────────────────────────────
+// Filters are DATA-DRIVEN: the distinct labels are discovered from the sessions
+// at load time (the order they first appear), with "All" prepended. Nothing
+// client-specific is hardcoded here.
+const ALL = 'All';
+const state = { sessions: [], filters: [ALL], filter: ALL };
+
+// House palette for label pills, applied in rotation per distinct label so the
+// coloring is deterministic and consistent across renders without hardcoding
+// any product names. Each entry maps to the --lbl-* custom props on the pill.
+const LABEL_PALETTE = [
+  { fg: 'var(--red)',    bg: 'var(--red-dim)',    bd: 'rgba(58, 83, 164,.4)' },
+  { fg: 'var(--blue)',   bg: 'var(--blue-dim)',   bd: 'rgba(47,71,142,.4)' },
+  { fg: 'var(--purple)', bg: 'var(--purple-dim)', bd: 'rgba(107,70,193,.4)' },
+  { fg: 'var(--green)',  bg: 'var(--green-dim)',  bd: 'rgba(27,161,94,.4)' },
+  { fg: 'var(--yellow)', bg: 'var(--yellow-dim)', bd: 'rgba(245,166,35,.4)' },
+];
+// label → palette slot, assigned in first-seen order. Built in setFilters().
+const labelColor = {};
+
+// Inline style for a label pill, driving the --lbl-* custom props. Unknown
+// labels (none assigned) fall back to the muted defaults in .label-pill.
+function labelStyle(label) {
+  const c = labelColor[label];
+  if (!c) return '';
+  return ` style="--lbl-fg:${c.fg};--lbl-bg:${c.bg};--lbl-bd:${c.bd}"`;
+}
+
+// A session counts toward a filter if the filter is "All" or in its labels.
+function sessionMatches(s, filter) {
+  if (filter === ALL) return true;
+  return (Array.isArray(s.labels) ? s.labels : []).indexOf(filter) !== -1;
+}
+
+// YYYY from a YYYY-MM-DD date string; '—' grouping bucket if unparseable.
+function yearOf(date) {
+  const m = /^(\d{4})/.exec(String(date || ''));
+  return m ? m[1] : '—';
+}
+
+// Discover the distinct labels across all sessions (first-seen order) and assign
+// each a palette slot. Filter set is "All" plus those labels.
+function setFilters(sessions) {
+  const seen = [];
+  sessions.forEach(s => {
+    (Array.isArray(s.labels) ? s.labels : []).forEach(l => {
+      const label = String(l || '').trim();
+      if (label && seen.indexOf(label) === -1) seen.push(label);
+    });
+  });
+  seen.forEach((label, i) => { labelColor[label] = LABEL_PALETTE[i % LABEL_PALETTE.length]; });
+  state.filters = [ALL].concat(seen);
+}
+
+function entryHTML(s) {
+  const id = s.id && String(s.id).trim();
+  const href = id ? '/app/session.html?id=' + encodeURIComponent(s.id) : null;
+  const labels = Array.isArray(s.labels) ? s.labels : [];
+  const labelsHtml = labels.length
+    ? `<div class="entry-labels">${labels.map(l => `<span class="label-pill"${labelStyle(l)}>${esc(l)}</span>`).join('')}</div>`
+    : '';
+
+  const inner =
+    `<div class="entry-top">
+       <span class="entry-date">${esc(s.date || '')}</span>
+       ${href ? '<span class="entry-arrow">→</span>' : ''}
+     </div>
+     <div class="entry-title">${esc(s.title || 'Untitled meeting')}</div>
+     ${labelsHtml}`;
+
+  // Every analyzed session has a detail page; link when an id is present.
+  return href
+    ? `<div class="entry"><a class="entry-card" href="${esc(href)}">${inner}</a></div>`
+    : `<div class="entry"><div class="entry-card">${inner}</div></div>`;
+}
+
+// Build the filter segment buttons with per-filter counts.
+function renderFilters() {
+  const seg = document.getElementById('label-seg');
+  seg.innerHTML = state.filters.map(f => {
+    const count = state.sessions.filter(s => sessionMatches(s, f)).length;
+    const active = f === state.filter ? ' active' : '';
+    return `<button class="seg-btn${active}" type="button" data-filter="${esc(f)}">` +
+      esc(f) + ` <span class="seg-count">(${count})</span></button>`;
+  }).join('');
+}
+
+function render() {
+  const el = document.getElementById('timeline');
+  const list = state.sessions.filter(s => sessionMatches(s, state.filter));
+
+  if (!list.length) {
+    el.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No meetings</div>' +
+      '<div>No meetings match the current filter.</div>' +
+    '</div>';
+    renderFilters();
+    return;
+  }
+
+  // Group into years (newest first). `list` is already sorted newest-first.
+  const groups = [];
+  const byYear = {};
+  list.forEach(s => {
+    const y = yearOf(s.date);
+    if (!byYear[y]) { byYear[y] = []; groups.push(y); }
+    byYear[y].push(s);
+  });
+
+  el.innerHTML = groups.map(y => {
+    const items = byYear[y];
+    const n = items.length;
+    return `<section class="year-group">
+      <div class="year-head">
+        <span class="year-label">${esc(y)}</span>
+        <span class="year-count">${n} meeting${n !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="rail">${items.map(entryHTML).join('')}</div>
+    </section>`;
+  }).join('');
+
+  renderFilters();
+}
+
+// Filter clicks → switch filter, re-render.
+document.getElementById('label-seg').addEventListener('click', e => {
+  const btn = e.target.closest('.seg-btn');
+  if (!btn) return;
+  const filter = btn.getAttribute('data-filter');
+  if (filter === state.filter) return;
+  state.filter = filter;
+  render();
+});
+
+async function loadTimeline() {
+  const el = document.getElementById('timeline');
+  let data;
+  try {
+    const r = await fetch('/app/sessions.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    el.innerHTML = '<div class="statebox error">' +
+      '<div class="st-title">Failed to load</div>' +
+      '<div>Could not fetch <code>app/sessions.json</code> (' + esc(err.message) + ').</div>' +
+    '</div>';
+    return;
+  }
+
+  const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  // Sort newest-first by date (sessions.json is already ordered this way, but be
+  // explicit so the timeline is correct regardless of source order).
+  sessions.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  state.sessions = sessions;
+  setFilters(sessions);
+
+  const count = (typeof data.count === 'number') ? data.count : sessions.length;
+  document.getElementById('session-count').textContent = count;
+
+  if (!sessions.length) {
+    el.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No meetings yet</div>' +
+      '<div>Analyzed meetings will appear here as they are processed.</div>' +
+    '</div>';
+    renderFilters();
+    return;
+  }
+
+  render();
+}
+
+loadConfig();
+loadTimeline();
+</script>
+</body>
+</html>

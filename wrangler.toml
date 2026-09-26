@@ -1,0 +1,56 @@
+# Set name to "<client-slug>-portal" per client (matching client.config.json client.slug).
+name = "mimwell-portal"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "."
+binding = "ASSETS"
+run_worker_first = true
+
+# Access posture — workers.dev guidance. If this portal serves client
+# knowledge behind Cloudflare Access on a custom domain, remember the default
+# *.workers.dev subdomain serves the SAME worker with NO Access in front — an
+# unauthenticated side door to the entire corpus. When going live on an
+# Access-gated custom domain, close it by uncommenting (and filling the
+# domain):
+#
+# workers_dev = false
+# routes = [
+#   { pattern = "portal.example.com", custom_domain = true }
+# ]
+
+# D1 edge store (#37) — serve the compiled brain from Cloudflare D1 instead of
+# loading app/brain.json into worker memory per request. ENABLE ONLY when serving
+# from D1: features.brain_d1 = true AND brain.store = "d1" (scripts/brain-d1-deploy.py
+# enforces this precondition). Default ships COMMENTED so `wrangler
+# deploy` works with zero D1 setup and the worker stays on the JSON-in-memory
+# path. The binding name MUST be "DB" — worker.js reads env.DB.
+#
+# database_id is PER-ENGAGEMENT and lives in untracked wrangler config / secrets;
+# NEVER commit a real account/database id. Provision with:
+#   wrangler d1 create <client-slug>-brain
+# then leave this block commented: deploy.yml appends it to the runner's copy from
+# CLOUDFLARE_D1_DATABASE_ID / CLOUDFLARE_D1_DATABASE_NAME, and fails the deploy if
+# this tracked file declares d1_databases in any form (here or under env.*) or if a
+# wrangler.json, wrangler.jsonc or .wrangler/deploy/config.json is tracked. For a manual
+# `make brain-d1-push`, uncomment it in your working copy with the real id and do
+# not commit that edit.
+#
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "client-brain"
+# database_id = "00000000-0000-0000-0000-000000000000"  # placeholder — never commit a real id
+
+# Serve-time federation (#209) — a company portal reads its member brains at request
+# time. With this binding AND the BRAIN_FEDERATION_CREDENTIALS secret (a JSON map of
+# Access email -> that user's bearer secret; `wrangler secret put`), search_knowledge
+# and search_graph read the federation host instead of this portal's own index.
+# Leave it commented for a single-brain portal. The bound service must reach the
+# compose reference's TLS ingress (`--profile federation`); see
+# docs/primitives/federation-service.md.
+#
+# [[services]]
+# binding = "BRAIN_FEDERATION_SERVICE"
+# service = "<client-slug>-federation"

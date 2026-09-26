@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/kg-node/v1",
+  "title": "KG node (app/knowledge_graph.json nodes[])",
+  "description": "A single node of the conflict-kg/v1 semantic knowledge graph built by scripts/build-kg.py. Generated, not hand-authored.",
+  "x-conflict": { "version": "1", "editable": false, "source": "app/knowledge_graph.json#/nodes" },
+  "type": "object",
+  "required": ["id", "name", "type"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "type": { "type": "string" },
+    "props": { "type": "object", "description": "Portable record properties; legacy sessions/descriptions may remain at top level." },
+    "sessions": { "type": "array", "items": { "type": "string" } },
+    "descriptions": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Knowledge workbench</title>
+<!-- Optional governed workbench; requires a separately configured operations service. -->
+<link rel="stylesheet" href="/app/page-shell.css">
+<link rel="stylesheet" href="/app/knowledge-operations.css">
+<link rel="stylesheet" href="/app/review-cards.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+<script src="/app/shell.js" defer></script>
+<script src="/app/review-cards.js" defer></script>
+<script src="/app/knowledge-operations.js" defer></script>
+</head>
+<body>
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home; app/nav.js fills the slot from
+         client.config.json branding.owner (KBNav.applyOwnerBrand). -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Brains</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Knowledge workbench</h1>
+  <p class="page-subtitle">Collect source material, prepare and review changes, and publish a selected view.</p>
+</section>
+
+<!-- Body: rendered by app/knowledge-operations.js -->
+<main class="ks-wrap" data-kb-knowledge-operations></main>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+</body>
+</html>

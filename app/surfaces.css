@@ -1,0 +1,43 @@
+/* Bespoke surfaces (frontend pass 3, W1.7): federation, proposals, catalog,
+ * search. One stylesheet, one class prefix (ks-), every class the four
+ * renderers emit is styled here on the --kb-* contract. */
+.ks-wrap { max-width: 1080px; margin: 0 auto; padding: 18px 32px 48px; }
+.ks-results { display: block; }
+.ks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.ks-card { background: var(--kb-surface, #fff); border: 1px solid var(--kb-border-light, #eee); border-radius: 10px; padding: 16px 18px; }
+.ks-card-title { margin: 0 0 8px; font-family: var(--kb-font-heading, inherit); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--kb-text-muted, #666); }
+.ks-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 13px; }
+.ks-k { color: var(--kb-text-faint, #999); text-transform: uppercase; letter-spacing: .04em; font-size: 10px; align-self: center; }
+.ks-v { color: var(--kb-text, #111); font-family: var(--kb-font-mono, monospace); font-size: 12px; word-break: break-word; }
+.ks-chip { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--kb-bg-deep, #f2f2f2); color: var(--kb-text-muted, #666); margin: 2px 4px 2px 0; }
+.ks-chip-ok { background: #e6f4ea; color: #1e6b3a; }
+.ks-chip-warn { background: #fff4e0; color: #8a5a00; }
+.ks-chip-bad { background: #fde8e8; color: #9b1c1c; }
+.ks-chip-muted { opacity: .6; }
+.ks-bar { height: 6px; border-radius: 3px; background: var(--kb-bg-deep, #f2f2f2); overflow: hidden; margin-top: 4px; }
+.ks-bar-fill { height: 100%; background: var(--kb-primary, #223); }
+.ks-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ks-entry { background: var(--kb-surface, #fff); border: 1px solid var(--kb-border-light, #eee); border-radius: 10px; padding: 14px 16px; }
+.ks-entry-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; margin-bottom: 4px; }
+.ks-entry-title { margin: 0 0 4px; font-family: var(--kb-font-heading, inherit); font-size: 16px; color: var(--kb-text, #111); }
+.ks-entry-body { margin: 0; color: var(--kb-text-muted, #444); font-size: 13px; line-height: 1.55; }
+.ks-entry-foot { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--kb-text-faint, #999); margin-top: 6px; }
+.ks-mono { font-family: var(--kb-font-mono, monospace); font-size: 12px; }
+.ks-link { color: var(--kb-link, #1a56db); text-decoration: none; }
+.ks-link:hover { text-decoration: underline; }
+.ks-state { text-align: center; padding: 48px 16px; color: var(--kb-text-faint, #999); }
+.ks-state-title { font-family: var(--kb-font-heading, inherit); font-size: 16px; color: var(--kb-text-muted, #666); margin-bottom: 4px; }
+.ks-tree { list-style: none; margin: 0; padding: 0; }
+.ks-tree ul { list-style: none; margin: 4px 0 4px 18px; padding: 0; border-left: 1px solid var(--kb-border-light, #eee); }
+.ks-tree li { padding: 3px 0 3px 10px; font-size: 13px; }
+.ks-tree-name { font-family: var(--kb-font-mono, monospace); color: var(--kb-text, #111); }
+.ks-tree-meta { color: var(--kb-text-faint, #999); font-size: 11px; margin-left: 8px; }
+.ks-toggle { cursor: pointer; user-select: none; }
+.ks-toggle::before { content: '▸ '; color: var(--kb-text-faint, #999); }
+.ks-toggle.open::before { content: '▾ '; }
+.ks-input { width: 100%; font: inherit; font-size: 15px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--kb-border, #ddd); background: var(--kb-surface, #fff); color: var(--kb-text, #111); }
+.ks-input:focus { outline: 2px solid var(--kb-primary, #223); outline-offset: 1px; }
+.ks-res { display: inline-block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; background: var(--kb-accent, #e8eef7); color: var(--kb-text, #111); }
+.ks-section { margin: 22px 0 10px; font-family: var(--kb-font-heading, inherit); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--kb-text-faint, #999); }
+.ks-note { font-size: 12px; color: var(--kb-text-faint, #999); margin: 8px 0 0; }
+@media (max-width: 720px) { .ks-wrap { padding-left: 16px; padding-right: 16px; } }

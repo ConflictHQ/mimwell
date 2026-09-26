@@ -1,0 +1,32 @@
+/* Disclosure only: no authorization or mutation behavior is selected by this CSS. */
+.kb-easy-only { display:none; }
+html[data-kb-view="easy"] .kb-easy-only { display:block; }
+html[data-kb-view="easy"] [data-kb-advanced],
+html[data-kb-view="easy"] #kb-chat-mode,
+html[data-kb-view="easy"] .recent-hash,
+html[data-kb-view="easy"] .recent-files,
+html[data-kb-view="easy"] .kp-meta-item { display:none !important; }
+#kb-view-toggle, [data-kb-show-advanced] { font:inherit; color:var(--kb-text,inherit); background:var(--kb-surface,transparent); border:1px solid var(--kb-border,#888); border-radius:6px; padding:10px 12px; min-height:44px; cursor:pointer; }
+#kb-view-toggle { flex-shrink:0; }
+#kb-view-toggle:focus-visible, [data-kb-show-advanced]:focus-visible, .kb-easy-tasks a:focus-visible { outline:3px solid var(--kb-link,#327bd9); outline-offset:3px; }
+.kb-easy-home { max-width:1100px; margin:12px auto; padding:16px 24px; color:var(--kb-text,inherit); }
+.kb-easy-tasks { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.kb-easy-tasks a { color:var(--kb-link,inherit); padding:12px; min-height:44px; border:1px solid var(--kb-border,#888); border-radius:6px; }
+.kb-record-summary { font-size:14px; }
+.kb-view-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+@media(max-width:600px) {
+  .kb-easy-tasks { display:flex; flex-direction:column; align-items:stretch; }
+  .kb-easy-home { padding:12px; }
+  #kb-view-toggle { font-size:12px; padding:8px; }
+  html[data-kb-view="easy"] .topbar { flex-wrap:wrap; height:auto; min-height:54px; }
+  html[data-kb-view="easy"] .recent-row { flex-wrap:wrap; }
+  html[data-kb-view="easy"] .ko-panel button { min-height:44px; }
+}
+
+html[data-kb-view="easy"] .stats-strip, html[data-kb-view="easy"] .brain-section, html[data-kb-view="easy"] .whatsnext-section { display:none !important; }
+html[data-kb-view="easy"] .hero { padding:20px 16px; }
+html[data-kb-view="easy"] .hero .hero-mark, html[data-kb-view="easy"] .hero-meta { display:none; }
+html[data-kb-view="easy"] #nav-grid summary { cursor:pointer; min-height:44px; padding:12px; }
+html[data-kb-view="easy"] input, html[data-kb-view="easy"] textarea, html[data-kb-view="easy"] button { scroll-margin-top:120px; }
+.kb-easy-home, .kb-record-summary { color:var(--text,var(--kb-text,inherit)); }
+html[data-kb-view="easy"] .recent-body { display:none; }

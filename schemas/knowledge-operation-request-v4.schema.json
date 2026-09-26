@@ -1,0 +1,443 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation-request/v4",
+  "title": "Governed intake history and local delivery request",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.history-propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record",
+            "expectedRevision",
+            "item",
+            "intent",
+            "requestId",
+            "reason"
+          ],
+          "properties": {
+            "record": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "expectedRevision": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "item": {
+              "anyOf": [
+                {
+                  "$ref": "conflict:schema/intake/v1#/$defs/item"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "intent": {
+              "anyOf": [
+                {
+                  "$ref": "conflict:schema/intake/v1#/$defs/intent"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.delivery-propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "history",
+            "historyRevision",
+            "destination",
+            "record",
+            "expectedRevision",
+            "requestId",
+            "reason"
+          ],
+          "properties": {
+            "history": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "historyRevision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "destination": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "record": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "expectedRevision": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.processed-delivery-propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "history",
+            "historyRevision",
+            "destination",
+            "record",
+            "expectedRevision",
+            "requestId",
+            "reason",
+            "processing"
+          ],
+          "properties": {
+            "history": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "historyRevision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "destination": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "record": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "expectedRevision": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "processing": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.source-review"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal",
+            "expectedProposalSha256",
+            "reason"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "expectedProposalSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.source-revoke"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal",
+            "expectedProposalSha256",
+            "reason"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "expectedProposalSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.completion-plan"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request"
+          ],
+          "properties": {
+            "request": {
+              "oneOf": [
+                {
+                  "$ref": "conflict:schema/intake/v1#/$defs/request"
+                },
+                {
+                  "$ref": "conflict:schema/classified-intake/v1#/$defs/request"
+                },
+                {
+                  "$ref": "conflict:schema/projected-intake/v1#/$defs/request"
+                },
+                {
+                  "$ref": "conflict:schema/projected-intake/v2#/$defs/request"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v4"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "intake.completion-refresh"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxEvents",
+            "maxBytes"
+          ],
+          "properties": {
+            "maxEvents": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16777216
+            }
+          }
+        }
+      }
+    }
+  ]
+}

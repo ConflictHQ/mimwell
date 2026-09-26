@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operations-host/v2",
+  "title": "Private host-selected native operations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "principalsByUid",
+    "authorities"
+  ],
+  "properties": {
+    "format": {
+      "const": "knowledge-operations-host/v2"
+    },
+    "principalsByUid": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "authorities": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 64,
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "binding",
+          "grants"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^_internal/"
+          },
+          "binding": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "grants": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "authority.inspect",
+                  "source.inspect",
+                  "source.capture",
+                  "source.extraction-preview",
+                  "source.extract",
+                  "publication.preview",
+                  "publication.deliver",
+                  "record.get",
+                  "proposal.propose",
+                  "proposal.inspect",
+                  "proposal.review",
+                  "proposal.dispose",
+                  "proposal.commit",
+                  "record.patch-propose",
+                  "transfer.preview",
+                  "transfer.download"
+                ]
+              }
+            }
+          },
+          "sources": {
+            "type": "object",
+            "maxProperties": 1000,
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "registration",
+                "root",
+                "scopes",
+                "maxBytes",
+                "extraction"
+              ],
+              "properties": {
+                "registration": {
+                  "$ref": "conflict:schema/intake-capture/v1#/$defs/registration"
+                },
+                "root": {
+                  "type": "string",
+                  "pattern": "^/"
+                },
+                "scopes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "maxBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 16777216
+                },
+                "extraction": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "adapter",
+                        "maxSourceBytes",
+                        "maxTextBytes",
+                        "maxPages",
+                        "timeoutSeconds"
+                      ],
+                      "properties": {
+                        "adapter": {
+                          "const": "utf8-text/v1"
+                        },
+                        "maxSourceBytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 16777216
+                        },
+                        "maxTextBytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2097152
+                        },
+                        "maxPages": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        },
+                        "timeoutSeconds": {
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "maximum": 60
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "adapter",
+                        "maxSourceBytes",
+                        "maxTextBytes",
+                        "maxPages",
+                        "timeoutSeconds",
+                        "binary",
+                        "binarySha256",
+                        "libraryDirectories"
+                      ],
+                      "properties": {
+                        "adapter": {
+                          "const": "poppler-text/v1"
+                        },
+                        "maxSourceBytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 16777216
+                        },
+                        "maxTextBytes": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2097152
+                        },
+                        "maxPages": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000
+                        },
+                        "timeoutSeconds": {
+                          "type": "number",
+                          "exclusiveMinimum": 0,
+                          "maximum": 60
+                        },
+                        "binary": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "binarySha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "libraryDirectories": {
+                          "type": "array",
+                          "maxItems": 8,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "consumers": {
+            "type": "object",
+            "maxProperties": 1000,
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "principal"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "^_internal/projections/.+\\.json$"
+                },
+                "principal": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

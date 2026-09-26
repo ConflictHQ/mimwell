@@ -1,0 +1,11 @@
+{
+ "overlay": "activity",
+ "revision": "1.0.0",
+ "$comment": "Optional frozen activity projection. Refresh explicitly; the live homepage feed is rolling, not append-only. Select brain.sourceAdapters activity separately.",
+ "patches": {
+  "activity-event": {
+   "node": "ActivityEvent",
+   "artifact": "activity-snapshot.json"
+  }
+ }
+}

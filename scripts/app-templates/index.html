@@ -1,0 +1,7 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>__TITLE__</title><link rel="stylesheet" href="shell.css"></head><body>
+<header><h1>__TITLE__</h1><label for="theme">Theme</label><select id="theme"><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select><label for="presentation">Presentation</label><select id="presentation"><option value="neutral">Neutral</option><option value="conflict">CONFLICT</option></select></header>
+<main><p id="state" role="status" aria-live="polite">Loading</p>
+<form id="query"><label for="kind">Record kind</label><input id="kind" required autocomplete="off"><label for="scope">Revision scope</label><input id="scope" required autocomplete="off"><button>Load records</button></form>
+<p id="freshness"></p><section id="records" aria-label="Records"></section>
+<form id="write" hidden><h2>Create record or proposal</h2><label for="record">Record JSON</label><textarea id="record" required rows="7">{}</textarea><label for="reason">Reason</label><input id="reason" required><label for="evidence">Evidence JSON</label><textarea id="evidence" required rows="3">[]</textarea><button id="save">Submit</button><button id="clear" type="button">Discard form edits</button><p>Shared records remain pending until an owner reviews the proposal.</p></form>
+</main><script src="poll.js"></script><script src="app.js"></script></body></html>

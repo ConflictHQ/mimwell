@@ -1,0 +1,21 @@
+[package]
+name = "brain-classifier"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[lib]
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[dependencies]
+model2vec-rs = { git = "https://github.com/MinishLab/model2vec-rs", rev = "a66e495a49fe1a22c87a87774d889301ae1cdbab", default-features = false, features = ["onig", "local-only"] }
+rayon = "1.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+strip = true
+lto = "thin"
+

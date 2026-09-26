@@ -1,0 +1,306 @@
+{
+ "overlay": "engagement",
+ "$comment": "The engagement overlay: the plan DAG and delivery records a client engagement runs on — RAID, stakeholders, mirrored issues, dependencies, action items, user stories, spec nodes, deliverables, roadmap items — plus the work-graph edges (depends_on, derives_from). Composed as core + engagement this reproduces the template's original single-profile ontology. It also REFINES core: `patches` and `edgePatches` restore the engagement meaning of purpose-neutral core kinds and edges (a session is a meeting/recording analysed by the PlanOpticon pipeline; the activity feed is a rolling Git projection; contains is the phase > epic > feature > story hierarchy; owns, escalates_to and affiliated_with name stakeholders, deliverables and RAID items), and `contextRecipes.default` replaces core's identity-only traversal with the plan-DAG task-pack traversal (#204).",
+ "idConventions": {
+  "path": [
+   "spec-node"
+  ],
+  "slug": [
+   "raid-item",
+   "stakeholder",
+   "dependency",
+   "action-item",
+   "user-story",
+   "deliverable",
+   "roadmap-item"
+  ],
+  "external": [
+   "issue"
+  ]
+ },
+ "kinds": [
+  {
+   "id": "raid-item",
+   "title": "RAID Item",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": "Risk",
+   "artifact": "app/raid.json",
+   "page": "raid",
+   "description": "Risk / assumption / issue / dependency register entry; escalation channel alongside open questions."
+  },
+  {
+   "id": "stakeholder",
+   "title": "Stakeholder",
+   "class": "record",
+   "mutability": "slow",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": "Stakeholder",
+   "artifact": "app/stakeholders.json",
+   "page": "stakeholders",
+   "description": "A person or group with a role in the engagement; owns decisions, questions, and work."
+  },
+  {
+   "id": "issue",
+   "title": "Issue",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "mirrored",
+   "node": null,
+   "artifact": "issues.json",
+   "page": "issues",
+   "description": "Committed snapshot of the external issue tracker (make issues); history in app/issues-history.json."
+  },
+  {
+   "id": "dependency",
+   "title": "Dependency",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "generated",
+   "node": "Dependency",
+   "artifact": "app/dependencies.json",
+   "page": "dependencies",
+   "description": "Dependency edges across the plan, derived from the specs tree; the work graph's edge list."
+  },
+  {
+   "id": "action-item",
+   "title": "Action Item",
+   "class": "work",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "generated",
+   "node": "ActionItem",
+   "artifact": "app/action-items.json",
+   "page": "action-items",
+   "description": "Executable follow-up extracted from sessions; the smallest dispatchable unit besides a story."
+  },
+  {
+   "id": "user-story",
+   "title": "User Story",
+   "class": "work",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": "Story",
+   "artifact": "app/user-stories.json",
+   "page": "user-stories",
+   "description": "A story with acceptance criteria; work-class and dispatchable under #55.",
+   "idPrefixes": [
+    "story:"
+   ]
+  },
+  {
+   "id": "spec-node",
+   "title": "Spec Node",
+   "class": "work",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "markdown",
+   "node": [
+    "Spec",
+    "Story"
+   ],
+   "storage": "specs",
+   "artifact": "specs/manifest.json",
+   "page": "specs",
+   "description": "A node of the plan tree (phase > epic > feature > story). The work graph's node set; stories are the dispatch unit.",
+   "idPrefixes": [
+    "spec:"
+   ]
+  },
+  {
+   "id": "deliverable",
+   "title": "Deliverable",
+   "class": "work",
+   "mutability": "slow",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": "Deliverable",
+   "artifact": "app/deliverables.json",
+   "page": "deliverables",
+   "description": "A committed output with status; closing work nodes moves deliverables."
+  },
+  {
+   "id": "roadmap-item",
+   "title": "Roadmap Item",
+   "class": "work",
+   "mutability": "slow",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": "Roadmap",
+   "artifact": "app/roadmap.json",
+   "page": "roadmap",
+   "description": "Strategy-cadence work. Owned by the slow loop: fast-tier agents escalate to it, never edit it (#55)."
+  }
+ ],
+ "edges": [
+  {
+   "id": "depends_on",
+   "description": "Work-graph ordering: source cannot complete before target."
+  },
+  {
+   "id": "derives_from",
+   "description": "A work node's provenance to the decision or open question it cites (a story's references: frontmatter -> gen-brain.py's record_links linker, #55)."
+  },
+  {
+   "id": "child_of",
+   "description": "A work node has this immediate parent in the plan DAG.",
+   "domain": [
+    "spec-node",
+    "user-story"
+   ],
+   "range": [
+    "spec-node"
+   ]
+  },
+  {
+   "id": "blocked_by",
+   "description": "Readiness evidence that this work node is blocked by another work node.",
+   "domain": [
+    "spec-node"
+   ],
+   "range": [
+    "spec-node"
+   ]
+  },
+  {
+   "id": "critical_path",
+   "description": "Consecutive work nodes on the computed critical dependency path.",
+   "domain": [
+    "spec-node"
+   ],
+   "range": [
+    "spec-node"
+   ]
+  }
+ ],
+ "patches": {
+  "memory-note": {
+   "description": "Authored engagement memory compiled as Memory nodes. Tracker records remain in their declared JSON authorities; frontmatter migration requires an explicit adapter."
+  },
+  "session": {
+   "description": "A meeting/recording and its analyses (PlanOpticon pipeline). A record of what happened: append-only, never retuned."
+  },
+  "activity-event": {
+   "description": "An activity event derived from a producer log; retention and refresh policy belong to its source. The default homepage feed is a rolling Git projection."
+  },
+  "organization": {
+   "description": "A register entry for an organization (client, partner, vendor, the owner itself): the scope-level entity table that lets two brains name the same company without merging their data. Stakeholders affiliate to it; equivalences across brains resolve to it. Authored and reviewed, never extracted."
+  }
+ },
+ "edgePatches": {
+  "contains": {
+   "description": "Hierarchy: phase contains epic contains feature contains story; group contains member."
+  },
+  "owns": {
+   "description": "A stakeholder owns a decision, question, deliverable, or work node."
+  },
+  "escalates_to": {
+   "description": "Reserved (#55): a fast-tier signal (open question, RAID item) raised against a slow-tier target."
+  },
+  "affiliated_with": {
+   "description": "Membership in an organization: a person (stakeholder) is affiliated with an Organization register entry. Populated from stakeholder.org when a matching organization exists; a name matching no register entry emits nothing."
+  },
+  "raised_in": {
+   "description": "A question or action was raised in a recorded session."
+  }
+ },
+ "contextRecipes": {
+  "$comment": "Agent dispatch (#55 slice 1): a declared graph traversal that assembles a work node's task pack — context assembly is a traversal, not a grep. Keyed by the compiled brain node's `kind` field (Story, ActionItem, ...); `default` covers any kind with no override. scripts/gen-task-pack.py walks each hop's rel/direction from the task node (or transitively, repeating the hop until nothing new resolves) and assembles the result under the hop's `as` key.",
+  "default": {
+   "hops": [
+    {
+     "rel": "child_of",
+     "direction": "out",
+     "as": "parent_chain",
+     "transitive": true,
+     "optional": true
+    },
+    {
+     "rel": "depends_on",
+     "direction": "out",
+     "as": "dependencies",
+     "optional": true
+    },
+    {
+     "rel": "derives_from",
+     "direction": "out",
+     "as": "linked_records",
+     "optional": true
+    },
+    {
+     "rel": "implemented_in",
+     "direction": "out",
+     "as": "code_targets"
+    },
+    {
+     "rel": "references",
+     "direction": "out",
+     "as": "related_docs"
+    },
+    {
+     "rel": "owns",
+     "direction": "in",
+     "as": "owner"
+    }
+   ]
+  }
+ },
+ "revision": "1.0.0",
+ "generators": {
+  "$comment": "What `make build` runs for a brain composing this layer (scripts/build_plan.py, #202). `make` lists build targets; `stage` orders them across layers (ties keep layer, then list, order); `artifacts` are the deterministic outputs the drift gate (GENERATED) compares. `brain` names the gen-brain.py adapters this layer's records feed.",
+  "make": [
+   {
+    "target": "specs",
+    "stage": 2,
+    "artifacts": [
+     "specs/manifest.json"
+    ]
+   },
+   {
+    "target": "dependencies",
+    "stage": 2,
+    "artifacts": [
+     "app/dependencies.json"
+    ]
+   },
+   {
+    "target": "estimates",
+    "stage": 2,
+    "artifacts": [
+     "specs/estimates.json"
+    ]
+   },
+   {
+    "target": "spec-stats-json",
+    "stage": 2,
+    "artifacts": [
+     "specs/stats.json"
+    ]
+   },
+   {
+    "target": "build-readiness",
+    "stage": 2,
+    "artifacts": [
+     "app/build-readiness.json"
+    ]
+   }
+  ],
+  "brain": [
+   "action_items",
+   "specs",
+   "raid",
+   "roadmap",
+   "deliverables",
+   "user_stories",
+   "stakeholders",
+   "dependencies",
+   "build_readiness"
+  ]
+ }
+}

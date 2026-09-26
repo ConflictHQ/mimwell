@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation/v4",
+  "title": "Governed intake operation preserving the native receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "authority",
+    "operation",
+    "contract",
+    "authorization",
+    "state",
+    "native",
+    "nativeSha256",
+    "nativeWire",
+    "requestWire",
+    "requestSha256"
+  ],
+  "properties": {
+    "format": {
+      "const": "knowledge-operation/v4"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "operation": {
+      "enum": [
+        "intake.history-propose",
+        "intake.delivery-propose",
+        "intake.processed-delivery-propose",
+        "intake.source-review",
+        "intake.source-revoke",
+        "intake.completion-plan",
+        "intake.completion-refresh"
+      ]
+    },
+    "contract": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "evaluatedAt",
+        "revalidatedAt"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revalidatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "state": {
+      "const": "completed"
+    },
+    "native": {},
+    "nativeSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nativeWire": {
+      "type": "string",
+      "description": "Exact UTF-8 canonical native result; SHA-256 equals nativeSha256 without numeric reserialization."
+    },
+    "requestWire": {
+      "type": "string"
+    },
+    "requestSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

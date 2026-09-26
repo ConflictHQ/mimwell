@@ -1,0 +1,250 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Shared theme stylesheet for the client portal template.
+
+   Each page defines its own :root with the --kb-* config "seam" vars (brand /
+   accent / fonts, overwritten at runtime from /client.config.json) and a set of
+   LOCAL ALIAS vars (--bg, --surface, --text, …) that the page's CSS references.
+
+   This file overrides those local aliases per theme using a HIGHER-specificity
+   selector (:root[data-theme="…"]) so it wins over each page's plain :root
+   defaults without editing any page. The theme is selected by the data-theme
+   attribute on <html>, managed by theme.js.
+
+   The ACCENT aliases (--red, --green, --blue) are intentionally left pointing at
+   the config seam in both themes so the client's brand accent always applies.
+   Only the neutral surface/text aliases and the low-alpha accent TINTS flip.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Brand fonts load at RUNTIME: theme.js reads branding.fonts from
+   /client.config.json and injects one Google Fonts stylesheet for the declared
+   families, so every page renders in the brand faces without hand-editing the
+   per-page placeholder <link>s. ── */
+
+/* ── LIGHT: the "white cards" base ── */
+:root[data-theme="light"] {
+  --bg:        #F4F5F8;
+  --surface:   #FFFFFF;
+  --surface2:  #EDEFF5;
+  --border:    #E2E8F0;
+  --border2:   #D7DEEC;
+  --text:      #231F20;
+  --muted:     #56575D;
+  --dim:       #86868B;
+
+  /* Brand accents stay config-driven; only their faint fills change so tints
+     read correctly on a white surface. color-mix keeps them tied to the seam. */
+  --red:        var(--kb-primary);
+  --green:      var(--kb-accent);
+  --blue:       var(--kb-link);
+  --red-dim:    color-mix(in srgb, var(--kb-primary) 8%, #FFFFFF);
+  --green-dim:  color-mix(in srgb, var(--kb-accent)  8%, #FFFFFF);
+  --blue-dim:   color-mix(in srgb, var(--kb-link)    8%, #FFFFFF);
+  --yellow:     #C8860B;
+  --yellow-dim: color-mix(in srgb, #C8860B 8%, #FFFFFF);
+  --purple:     #6B4C97;
+  --purple-dim: color-mix(in srgb, #6B4C97 8%, #FFFFFF);
+}
+
+/* ── DARK: neutral aliases resolve to the --kb-* seam (branding.colors) instead
+   of fixed grays, so dark mode reads as the BRAND's dark palette. Fallbacks are
+   the template's stock values for any page whose seam hasn't loaded yet.
+   surface2 lifts the surface a touch toward the brand link color for
+   nested/hover surfaces. ── */
+:root[data-theme="dark"] {
+  --bg:        var(--kb-bg, #0B1619);
+  --surface:   var(--kb-surface, rgba(255,255,255,0.05));
+  --surface2:  color-mix(in srgb, var(--kb-surface, #262626) 84%, var(--kb-link, #2F97BF));
+  --border:    var(--kb-border, #1D3238);
+  --border2:   var(--kb-border-light, #27414A);
+  --text:      var(--kb-text, #E6EFEE);
+  --muted:     var(--kb-text-muted, #93A9AB);
+  --dim:       var(--kb-text-faint, #667D80);
+
+  --red:        var(--kb-primary);
+  --green:      var(--kb-accent);
+  --blue:       var(--kb-link);
+  --red-dim:    color-mix(in srgb, var(--kb-primary) 14%, transparent);
+  --green-dim:  color-mix(in srgb, var(--kb-accent)  14%, transparent);
+  --blue-dim:   color-mix(in srgb, var(--kb-link)    14%, transparent);
+  --yellow:     #F5A623;
+  --yellow-dim: rgba(245,166,35,0.10);
+  --purple:     #7A5BA8;
+  --purple-dim: rgba(122,91,168,0.10);
+}
+
+/* Smooth the flip between themes (skip color-only props that would flash). */
+:root[data-theme] body { transition: background-color .2s ease, color .2s ease; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Theme-aware brand mark.
+
+   A brand may ship two mark variants: one that reads on light chrome
+   (branding.heroMark) and one for dark chrome (branding.heroMarkDark).
+   Pages whose chrome flips with data-theme (topbar background follows --bg, e.g.
+   the home page) carry BOTH marks as a .logo-on-dark / .logo-on-light pair and
+   let CSS reveal the one that reads against the current theme. The default (no
+   data-theme yet, and dark) shows the white mark; light theme swaps to navy.
+   Display is set on the class (not the tag) so the swap always wins over an img's
+   default inline display.
+
+   Permanently-dark-chrome pages (topbar forced to --kb-bg regardless of theme,
+   e.g. the section/list pages) ship a single white mark and never opt into these
+   classes, so these rules leave them untouched.
+   ────────────────────────────────────────────────────────────────────────── */
+.logo-on-light { display: none; }
+.logo-on-dark  { display: block; }
+:root[data-theme="light"] .logo-on-dark  { display: none; }
+:root[data-theme="light"] .logo-on-light { display: block; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Existing-library theme seam.
+
+   #40 establishes the MECHANISM by which render libraries map the central
+   --kb-* / local-alias palette instead of shipping a fixed light- or dark-only
+   theme. Each library here maps the same neutral aliases, so a data-theme flip
+   reskins it with no per-library JS:
+
+   - highlight.js: render.js lazy-loads one CDN stylesheet (github-dark) for the
+     token grammar classes; these higher-specificity rules (:root[data-theme] …)
+     win over it so code blocks read correctly in BOTH modes from the palette,
+     including before the page's own JS runs (worker sets data-theme pre-paint).
+   - Mermaid: themed in JS via themeVariables off these same aliases (render.js
+     mermaidThemeVars), re-themed on flip — no CSS needed here.
+   - CodeMirror: editor chrome maps the aliases below when present (authoring
+     feature, off by default); absent pages pay nothing.
+
+   Phase-6 viewers (Plotly/PDF.js/mammoth/SheetJS, #41–#44) map this SAME seam
+   in their own viewer CSS — #40 does not theme them here.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* highlight.js — surface + base text from the neutral palette. */
+:root[data-theme] .hljs {
+  background: var(--surface);
+  color: var(--text);
+}
+/* Token grammar mapped to the brand-accent + neutral aliases (both themes). */
+:root[data-theme] .hljs-comment,
+:root[data-theme] .hljs-quote { color: var(--dim); font-style: italic; }
+:root[data-theme] .hljs-keyword,
+:root[data-theme] .hljs-selector-tag,
+:root[data-theme] .hljs-literal,
+:root[data-theme] .hljs-type,
+:root[data-theme] .hljs-name { color: var(--red); }
+:root[data-theme] .hljs-string,
+:root[data-theme] .hljs-meta-string,
+:root[data-theme] .hljs-regexp,
+:root[data-theme] .hljs-addition { color: var(--green); }
+:root[data-theme] .hljs-number,
+:root[data-theme] .hljs-symbol,
+:root[data-theme] .hljs-bullet,
+:root[data-theme] .hljs-attr,
+:root[data-theme] .hljs-attribute,
+:root[data-theme] .hljs-variable,
+:root[data-theme] .hljs-template-variable { color: var(--yellow); }
+:root[data-theme] .hljs-title,
+:root[data-theme] .hljs-section,
+:root[data-theme] .hljs-function .hljs-title,
+:root[data-theme] .hljs-built_in { color: var(--blue); }
+:root[data-theme] .hljs-meta,
+:root[data-theme] .hljs-deletion,
+:root[data-theme] .hljs-link { color: var(--purple); }
+:root[data-theme] .hljs-emphasis { font-style: italic; }
+:root[data-theme] .hljs-strong { font-weight: 700; }
+
+/* CodeMirror (authoring editor, optional) — chrome from the neutral palette so
+   the editor isn't dark-only when the authoring feature is enabled. */
+:root[data-theme] .cm-editor,
+:root[data-theme] .CodeMirror {
+  background: var(--surface);
+  color: var(--text);
+}
+:root[data-theme] .cm-gutters,
+:root[data-theme] .CodeMirror-gutters {
+  background: var(--bg);
+  color: var(--dim);
+  border-right: 1px solid var(--border);
+}
+:root[data-theme] .cm-activeLine { background: var(--surface2); }
+:root[data-theme] .cm-cursor,
+:root[data-theme] .CodeMirror-cursor { border-left-color: var(--text); }
+:root[data-theme] .cm-selectionBackground,
+:root[data-theme] .CodeMirror-selected {
+  background: color-mix(in srgb, var(--blue) 28%, transparent);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Theme toggle button — injected by theme.js into the page's .topbar (header).
+   Styled with the local aliases so it themes itself in both palettes.
+   ────────────────────────────────────────────────────────────────────────── */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: 12px;
+  padding: 0;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 0;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--surface2);
+  border-color: var(--border2);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+/* Show the sun in dark mode (click → go light), the moon in light mode. */
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"]  .theme-toggle .icon-sun  { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: block; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Text-size scaler — injected by theme.js next to the theme toggle. Same shape
+   as .theme-toggle; content is the conventional small-A / large-A affordance.
+   Styled with the local aliases so it themes itself in both palettes.
+   ────────────────────────────────────────────────────────────────────────── */
+.font-scale-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1px;
+  height: 30px;
+  min-width: 30px;
+  margin-left: 12px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 6px);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--kb-font-heading, inherit);
+  line-height: 1;
+  transition: color .15s, background .15s, border-color .15s;
+}
+.font-scale-toggle:hover {
+  color: var(--text);
+  background: var(--surface2);
+  border-color: var(--border2);
+}
+.font-scale-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.font-scale-toggle .fs-a-sm { font-size: 11px; }
+.font-scale-toggle .fs-a-lg { font-size: 16px; }

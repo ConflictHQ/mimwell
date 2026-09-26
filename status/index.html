@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the stylesheet rules below reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --red-dark: #B02A3A;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  /* ── Breadcrumb back-to-home ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1500px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 680px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Status legend ── */
+  .legend {
+    max-width: 1500px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-dot.done { background: var(--green); }
+  .legend-dot.in-progress { background: var(--yellow); }
+  .legend-dot.planned { background: var(--dim); }
+
+  /* ── Board ── */
+  .board { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; }
+
+  /* ── Headline summary row ── */
+  .summary {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 26px;
+  }
+  .summary-tile {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-top: 3px solid var(--border2); padding: 18px 20px;
+  }
+  .summary-tile.accent-green { border-top-color: var(--green); }
+  .summary-tile.accent-yellow { border-top-color: var(--yellow); }
+  .summary-tile.accent-red { border-top-color: var(--red); }
+  .summary-tile.accent-blue { border-top-color: var(--blue); }
+  .summary-num { font-family: var(--kb-font-heading); font-size: 38px; line-height: 1; color: var(--text); }
+  .summary-num.green { color: var(--green); }
+  .summary-num.yellow { color: var(--yellow); }
+  .summary-num.red { color: var(--red); }
+  .summary-num.blue { color: var(--blue); }
+  .summary-lbl { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-top: 10px; }
+  .summary-sub { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+  /* ── Cards grid ── */
+  .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .card-head { padding: 18px 20px 16px; border-bottom: 1px solid var(--border); }
+  .card-eyebrow { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card-source { color: var(--dim); opacity: .8; text-transform: none; letter-spacing: .02em; }
+  .card-title { font-family: var(--kb-font-heading); font-size: 24px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); }
+  .card-title a { color: inherit; text-decoration: none; }
+  .card-title a:hover { color: var(--red); }
+  .card-headline { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; }
+  .card-headline .big { font-family: var(--kb-font-heading); font-size: 30px; line-height: 1; color: var(--text); }
+  .card-headline .big.green { color: var(--green); }
+  .card-headline .big.yellow { color: var(--yellow); }
+  .card-headline .big.red { color: var(--red); }
+  .card-headline .of { font-family: var(--kb-font-mono); font-size: 11px; letter-spacing: .04em; color: var(--dim); }
+
+  .card-body { padding: 16px 20px 20px; }
+
+  /* ── Progress bar ── */
+  .bar { height: 8px; border-radius: 999px; background: var(--surface2); border: 1px solid var(--border); overflow: hidden; display: flex; margin: 4px 0 14px; }
+  .bar-seg { height: 100%; }
+  .bar-seg.done { background: var(--green); }
+  .bar-seg.in-progress { background: var(--yellow); }
+  .bar-seg.planned { background: var(--dim); opacity: .55; }
+
+  /* ── Status breakdown rows ── */
+  .breakdown { display: flex; flex-direction: column; gap: 9px; }
+  .bd-row { display: flex; align-items: center; gap: 10px; }
+  .bd-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .bd-dot.done { background: var(--green); }
+  .bd-dot.in-progress { background: var(--yellow); }
+  .bd-dot.planned { background: var(--dim); }
+  .bd-label { font-size: 12px; color: var(--text); flex: 1; min-width: 0; }
+  .bd-count { font-family: var(--kb-font-mono); font-size: 13px; font-weight: 500; color: var(--text); }
+  .bd-pct { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); width: 42px; text-align: right; }
+
+  /* ── Mini stat row (open/done style) ── */
+  .ministats { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 4px; }
+  .ministat { display: flex; flex-direction: column; gap: 3px; }
+  .ministat .n { font-family: var(--kb-font-heading); font-size: 26px; line-height: 1; color: var(--text); }
+  .ministat.open .n { color: var(--red); }
+  .ministat.done .n { color: var(--green); }
+  .ministat .l { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+
+  /* ── Per-card empty / missing note ── */
+  .card-empty { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .card-empty code { font-family: var(--kb-font-mono); font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+  .card-missing { font-size: 12px; color: var(--dim); font-style: italic; }
+
+  /* ── Unanswered agent queries (#30) — one full-width card under the board.
+       Only rendered when app/unanswered.json exists; the section stays hidden
+       when observability was never turned on. ── */
+  .obs { max-width: 1500px; margin: 0 auto; padding: 0 32px 80px; }
+  .obs .card { border-top: 3px solid var(--yellow); }
+  .q-list { display: flex; flex-direction: column; }
+  .q-row { display: flex; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .q-row:last-child { border-bottom: 0; }
+  .q-tag {
+    font-family: var(--kb-font-mono); font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase;
+    border-radius: 3px; padding: 2px 6px; flex: none; border: 1px solid var(--border2); color: var(--muted);
+  }
+  .q-tag.unanswered { color: var(--red); border-color: var(--red); background: var(--red-dim); }
+  .q-tag.low { color: var(--yellow); border-color: var(--yellow); background: var(--yellow-dim); }
+  .q-text { font-size: 12.5px; color: var(--text); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .q-meta { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); flex: none; text-align: right; }
+  .q-note { font-size: 11.5px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+  .q-note code { font-family: var(--kb-font-mono); font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 920px) {
+    .cards { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .topbar, .page-head, .legend, .board, .obs, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+    .summary { grid-template-columns: 1fr; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Breadcrumb -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<!-- Page head -->
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Status</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Status</h1>
+  <p class="page-subtitle">A single "where are we" view. Every tile below is aggregated live from the committed engagement artifacts — plan, action items, open questions, deliverables, roadmap, and RAID.</p>
+  <div class="page-meta" id="page-meta">Aggregated from <span>6 sources</span></div>
+</section>
+
+<!-- Status legend -->
+<div class="legend" aria-label="Status legend">
+  <div class="legend-item"><span class="legend-dot done"></span><span>Done / delivered</span></div>
+  <div class="legend-item"><span class="legend-dot in-progress"></span><span>In progress</span></div>
+  <div class="legend-item"><span class="legend-dot planned"></span><span>Planned / open</span></div>
+</div>
+
+<!-- Board -->
+<div class="board">
+  <div id="summary" class="summary" hidden></div>
+  <div class="cards" id="cards">
+    <div class="statebox" style="grid-column:1/-1">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Aggregating engagement status…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Knowledge gaps: what the agent was asked and could not answer (#30).
+     Fed by app/unanswered.json (scripts/gen-unanswered.py). Stays hidden when
+     that artifact is absent — an engagement that never enabled observability
+     sees no trace of this section. -->
+<div class="obs" id="obs" hidden></div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Status';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Status' : 'Status');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  if (window.KBNav) KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+}
+
+// ── Status normalization ─────────────────────────────────────────────────────
+// Every source uses its own status vocabulary. Map each into one of three
+// buckets so the tiles + bars stay visually consistent across cards.
+//   done        → shipped / delivered / closed-complete (green)
+//   in-progress → actively being worked (amber)
+//   planned     → not started, open, backlog (muted)
+const DONE_WORDS    = ['done','complete','completed','delivered','shipped','published','final','closed','resolved','answered','accepted','merged','mitigated','live'];
+const PROG_WORDS    = ['in-progress','in progress','inprogress','active','wip','doing','building','review','in-review','started','ongoing'];
+
+function bucket(status) {
+  const s = String(status || '').trim().toLowerCase();
+  if (!s) return 'planned';
+  if (DONE_WORDS.indexOf(s) !== -1) return 'done';
+  if (PROG_WORDS.indexOf(s) !== -1) return 'in-progress';
+  return 'planned';
+}
+
+// Open vs done for two-state trackers (action items, questions, RAID).
+// "Open" = anything not in a terminal/done state. Dropped/cancelled is excluded
+// from both counts (it's neither open nor done).
+const CLOSED_WORDS  = ['done','complete','completed','closed','resolved','answered','accepted','mitigated','delivered'];
+const DROPPED_WORDS = ['dropped','cancelled','canceled','wontfix','wont-fix','obsolete','superseded','duplicate'];
+function openState(status) {
+  const s = String(status || '').trim().toLowerCase();
+  if (DROPPED_WORDS.indexOf(s) !== -1) return 'dropped';
+  if (CLOSED_WORDS.indexOf(s) !== -1) return 'done';
+  return 'open'; // includes empty / "open" / "todo" / "in-progress"
+}
+
+const STATUS_LABEL = { 'done': 'Done', 'in-progress': 'In progress', 'planned': 'Planned' };
+const ORDER = ['done', 'in-progress', 'planned'];
+
+function asArray(v) { return Array.isArray(v) ? v : []; }
+
+// First defined array under any of the given keys on `obj`.
+function pickArray(obj, keys) {
+  if (!obj || typeof obj !== 'object') return [];
+  for (const k of keys) if (Array.isArray(obj[k])) return obj[k];
+  return [];
+}
+
+// ── Fetch a JSON artifact. Returns { ok, missing, data, err }. A 404/network
+// error is treated as "missing" (graceful) rather than a hard failure. ───────
+async function loadJSON(path) {
+  try {
+    const r = await fetch(path, { cache: 'no-cache' });
+    if (r.status === 404) return { ok: false, missing: true };
+    if (!r.ok) return { ok: false, err: 'HTTP ' + r.status };
+    return { ok: true, data: await r.json() };
+  } catch (e) {
+    // Static hosts sometimes serve an HTML 404 page (parse error) — treat as missing.
+    return { ok: false, missing: true };
+  }
+}
+
+// ── Renderers ────────────────────────────────────────────────────────────────
+
+// Three-bucket progress card: stacked bar + per-status breakdown rows.
+function bucketCard(opts) {
+  const counts = opts.counts;                 // { done, 'in-progress', planned }
+  const total = ORDER.reduce((a, k) => a + (counts[k] || 0), 0);
+  const labels = opts.labels || STATUS_LABEL;
+  const segs = ORDER.filter(k => counts[k])
+    .map(k => `<div class="bar-seg ${k}" style="width:${(counts[k] / total * 100).toFixed(1)}%" title="${esc(labels[k])}: ${counts[k]}"></div>`)
+    .join('');
+  const rows = ORDER.map(k => {
+    const n = counts[k] || 0;
+    const pct = total ? Math.round(n / total * 100) : 0;
+    return `<div class="bd-row">
+      <span class="bd-dot ${k}"></span>
+      <span class="bd-label">${esc(labels[k])}</span>
+      <span class="bd-count">${n}</span>
+      <span class="bd-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+  const doneN = counts.done || 0;
+  const doneCls = doneN === total && total > 0 ? 'green' : '';
+  return cardShell(opts, `
+    <div class="card-headline"><span class="big ${doneCls}">${doneN}</span><span class="of">of ${total} ${esc(opts.unit || 'items')} done</span></div>
+    <div class="bar">${segs || '<div class="bar-seg planned" style="width:100%"></div>'}</div>
+    <div class="breakdown">${rows}</div>
+  `);
+}
+
+// Open vs done card: two mini-stats + a done/total bar.
+function openDoneCard(opts) {
+  const open = opts.open, done = opts.done, dropped = opts.dropped || 0;
+  const total = open + done;
+  const pct = total ? (done / total * 100) : 0;
+  const droppedNote = dropped ? `<div class="card-empty" style="margin-top:12px">${dropped} ${esc(opts.unit || 'item')}${dropped === 1 ? '' : 's'} dropped / out of scope.</div>` : '';
+  return cardShell(opts, `
+    <div class="bar"><div class="bar-seg done" style="width:${pct.toFixed(1)}%"></div><div class="bar-seg planned" style="width:${(100 - pct).toFixed(1)}%"></div></div>
+    <div class="ministats">
+      <div class="ministat open"><span class="n">${open}</span><span class="l">Open</span></div>
+      <div class="ministat done"><span class="n">${done}</span><span class="l">Done</span></div>
+    </div>
+    ${droppedNote}
+  `);
+}
+
+// Empty-but-present card (artifact loaded, no items yet).
+function emptyCard(opts, msg) {
+  return cardShell(opts, `<div class="card-empty">${msg}</div>`);
+}
+
+// Missing-artifact card (file not committed yet) — soft, optional.
+function missingCard(opts) {
+  return cardShell(opts, `<div class="card-missing">Not tracked yet — add <code>${esc(opts.source)}</code> to populate this tile.</div>`, true);
+}
+
+function cardShell(opts, bodyHTML, missing) {
+  const title = opts.href ? `<a href="${esc(opts.href)}">${esc(opts.title)}</a>` : esc(opts.title);
+  const headline = (!missing && opts.headline != null)
+    ? `<div class="card-headline"><span class="big ${esc(opts.headlineCls || '')}">${esc(opts.headline)}</span>${opts.headlineSub ? `<span class="of">${esc(opts.headlineSub)}</span>` : ''}</div>`
+    : '';
+  return `<section class="card">
+    <div class="card-head">
+      <div class="card-eyebrow"><span>${esc(opts.eyebrow || '')}</span><span class="card-source">${esc(opts.source)}</span></div>
+      <h2 class="card-title">${title}</h2>
+      ${headline}
+    </div>
+    <div class="card-body">${bodyHTML}</div>
+  </section>`;
+}
+
+// ── Per-source aggregation → a card ──────────────────────────────────────────
+
+// 1. Plan progress (specs/manifest.json: items[].status).
+function planCard(res) {
+  const opts = { eyebrow: 'Plan', title: 'Plan progress', source: 'specs/manifest.json', href: '/specs/', unit: 'specs' };
+  if (res.missing) return missingCard(opts);
+  if (!res.ok) return emptyCard(opts, `Could not read <code>${esc(opts.source)}</code> (${esc(res.err || 'error')}).`);
+  const items = pickArray(res.data, ['items']);
+  if (!items.length) return emptyCard(opts, 'No spec items yet. Author specs under <code>specs/</code> and regenerate the manifest.');
+  const counts = {};
+  items.forEach(it => { const b = bucket(it.status); counts[b] = (counts[b] || 0) + 1; });
+  return bucketCard(Object.assign(opts, { counts }));
+}
+
+// 2. Action items (app/action-items.json: items[]; open vs done).
+function actionItemsCard(res) {
+  const opts = { eyebrow: 'Delivery', title: 'Action items', source: 'app/action-items.json', href: '/action-items/', unit: 'action item' };
+  if (res.missing) return missingCard(opts);
+  if (!res.ok) return emptyCard(opts, `Could not read <code>${esc(opts.source)}</code> (${esc(res.err || 'error')}).`);
+  const items = pickArray(res.data, ['items']);
+  if (!items.length) return emptyCard(opts, 'No action items captured yet — they accrue from session notes.');
+  let open = 0, done = 0, dropped = 0;
+  items.forEach(it => { const st = openState(it.status); if (st === 'done') done++; else if (st === 'dropped') dropped++; else open++; });
+  return openDoneCard(Object.assign(opts, { open, done, dropped }));
+}
+
+// 3. Open questions (app/open-questions.json: questions[]; open vs resolved).
+function questionsCard(res) {
+  const opts = { eyebrow: 'Intelligence', title: 'Open questions', source: 'app/open-questions.json', unit: 'question' };
+  if (res.missing) return missingCard(opts);
+  if (!res.ok) return emptyCard(opts, `Could not read <code>${esc(opts.source)}</code> (${esc(res.err || 'error')}).`);
+  const items = pickArray(res.data, ['questions', 'items']);
+  if (!items.length) return emptyCard(opts, 'No open questions — nothing blocking on clarification right now.');
+  let open = 0, done = 0, dropped = 0;
+  items.forEach(it => { const st = openState(it.status); if (st === 'done') done++; else if (st === 'dropped') dropped++; else open++; });
+  return openDoneCard(Object.assign(opts, { open, done, dropped, unit: 'question' }));
+}
+
+// 4. Deliverables (app/deliverables.json: deliverables[].status).
+function deliverablesCard(res) {
+  const opts = { eyebrow: 'Delivery', title: 'Deliverables', source: 'app/deliverables.json', href: '/deliverables/', unit: 'deliverables' };
+  if (res.missing) return missingCard(opts);
+  if (!res.ok) return emptyCard(opts, `Could not read <code>${esc(opts.source)}</code> (${esc(res.err || 'error')}).`);
+  const items = pickArray(res.data, ['deliverables', 'items']);
+  if (!items.length) return emptyCard(opts, 'No deliverables defined yet. List them in <code>app/deliverables.json</code>.');
+  const counts = {};
+  items.forEach(it => { const b = bucket(it.status); counts[b] = (counts[b] || 0) + 1; });
+  const labels = { 'done': 'Delivered', 'in-progress': 'In progress', 'planned': 'Planned' };
+  return bucketCard(Object.assign(opts, { counts, labels }));
+}
+
+// 5. Roadmap phase status (app/roadmap.json: tracks[].phases/modules[].status).
+function roadmapCard(res) {
+  const opts = { eyebrow: 'Plan', title: 'Roadmap phases', source: 'app/roadmap.json', href: '/roadmap/', unit: 'phases' };
+  if (res.missing) return missingCard(opts);
+  if (!res.ok) return emptyCard(opts, `Could not read <code>${esc(opts.source)}</code> (${esc(res.err || 'error')}).`);
+  const tracks = pickArray(res.data, ['tracks']);
+  if (!tracks.length) return emptyCard(opts, 'No roadmap tracks yet. Author them in <code>app/roadmap.json</code>.');
+  const counts = {};
+  let phaseN = 0;
+  tracks.forEach(t => {
+    asArray(t.phases).forEach(p => { counts[bucket(p.status)] = (counts[bucket(p.status)] || 0) + 1; phaseN++; });
+    asArray(t.modules).forEach(m => { counts[bucket(m.status)] = (counts[bucket(m.status)] || 0) + 1; phaseN++; });
+  });
+  if (!phaseN) return emptyCard(opts, `${tracks.length} track${tracks.length === 1 ? '' : 's'} defined, but no phases or modules carry a status yet.`);
+  const labels = { 'done': 'Done', 'in-progress': 'In progress', 'planned': 'Planned' };
+  return bucketCard(Object.assign(opts, { counts, labels, unit: 'phases / modules' }));
+}
+
+// 6. RAID open items (app/raid.json — optional; risks/assumptions/issues/deps).
+function raidCard(res) {
+  const opts = { eyebrow: 'Tracking', title: 'RAID', source: 'app/raid.json', unit: 'RAID item' };
+  if (res.missing) return missingCard(opts);
+  if (!res.ok) return emptyCard(opts, `Could not read <code>${esc(opts.source)}</code> (${esc(res.err || 'error')}).`);
+  // Accept either a flat items[] or the classic R/A/I/D buckets.
+  let items = pickArray(res.data, ['items', 'raid']);
+  if (!items.length && res.data && typeof res.data === 'object') {
+    ['risks', 'assumptions', 'issues', 'dependencies'].forEach(k => { items = items.concat(asArray(res.data[k])); });
+  }
+  if (!items.length) return emptyCard(opts, 'No RAID items logged — no open risks, assumptions, issues, or dependencies.');
+  let open = 0, done = 0, dropped = 0;
+  items.forEach(it => { const st = openState(it.status); if (st === 'done') done++; else if (st === 'dropped') dropped++; else open++; });
+  return openDoneCard(Object.assign(opts, { open, done, dropped, unit: 'RAID item' }));
+}
+
+// ── Headline summary tiles (top-of-page) ─────────────────────────────────────
+function summaryTiles(agg) {
+  const tiles = [
+    { num: agg.specDone, of: agg.specTotal, lbl: 'Specs done', cls: 'green', accent: 'accent-green', sub: agg.specTotal ? Math.round(agg.specDone / agg.specTotal * 100) + '% of plan' : 'no specs yet' },
+    { num: agg.openWork, lbl: 'Open work', cls: agg.openWork ? 'red' : 'green', accent: 'accent-red', sub: 'action items + RAID + questions' },
+    { num: agg.delivDone, of: agg.delivTotal, lbl: 'Deliverables shipped', cls: 'blue', accent: 'accent-blue', sub: agg.delivTotal ? agg.delivTotal + ' total' : 'none defined' },
+    { num: agg.phaseProg, lbl: 'Phases in progress', cls: 'yellow', accent: 'accent-yellow', sub: agg.phaseTotal + ' phases / modules' }
+  ];
+  return tiles.map(t => `<div class="summary-tile ${t.accent}">
+    <div class="summary-num ${t.cls}">${t.num}${t.of != null ? `<span style="font-size:18px;color:var(--dim)"> / ${t.of}</span>` : ''}</div>
+    <div class="summary-lbl">${esc(t.lbl)}</div>
+    <div class="summary-sub">${esc(t.sub)}</div>
+  </div>`).join('');
+}
+
+// ── Knowledge gaps: unanswered / low-confidence agent queries (#30) ──────────
+// Source: app/unanswered.json, compiled by scripts/gen-unanswered.py from the
+// capture records worker.js emits behind features.observability. Every number
+// below comes out of that artifact — nothing about it is typed into this page.
+// Three quiet states: artifact absent or observability off -> the section never
+// appears; on but nothing captured yet -> a short how-to-feed-it note; captures
+// with gaps -> the ranked list.
+function unansweredCard(data) {
+  const counts = (data && data.counts) || {};
+  const rows = asArray(data && data.unanswered);
+  const opts = {
+    eyebrow: 'Intelligence', title: 'Knowledge gaps', source: 'app/unanswered.json',
+  };
+  if (!rows.length) {
+    const captures = counts.captures || 0;
+    return cardShell(opts, `<div class="card-empty">${
+      captures
+        ? `${captures} agent quer${captures === 1 ? 'y' : 'ies'} captured, and every one was answered from the knowledge base.`
+        : 'Query observability is on, but no captures have been compiled yet. Export the worker log stream into <code>observability/</code> and run <code>make unanswered</code>.'
+    }</div>`);
+  }
+  const list = rows.map(r => {
+    const cls = r.confidence === 'unanswered' ? 'unanswered' : 'low';
+    const label = r.confidence === 'unanswered' ? 'Unanswered' : 'Low confidence';
+    const asked = r.count || 0;
+    const seen = r.last_seen ? ` · last ${esc(r.last_seen)}` : '';
+    return `<div class="q-row">
+      <span class="q-tag ${cls}">${esc(label)}</span>
+      <span class="q-text">${esc(r.query)}</span>
+      <span class="q-meta">asked ${asked}×${seen}</span>
+    </div>`;
+  }).join('');
+  const gaps = (counts.unanswered || 0) + (counts.low_confidence || 0);
+  const note = (data.truncated ? `${data.truncated} more below the cut. ` : '')
+    + 'Each row is a question the agent could not ground in a source; fill the gap in memory, wiki, or specs, then recompile.';
+  return cardShell(Object.assign(opts, {
+    headline: gaps,
+    headlineCls: 'red',
+    headlineSub: `of ${counts.queries || 0} distinct queries · ${counts.degraded || 0} of ${counts.captures || 0} answers degraded`,
+  }), `<div class="q-list">${list}</div><div class="q-note">${note}</div>`);
+}
+
+async function loadUnanswered() {
+  const res = await loadJSON('/app/unanswered.json');
+  // Not compiled, unreadable, or the feature is off -> the section stays hidden.
+  if (!res.ok || !res.data || res.data.enabled === false) return;
+  const el = document.getElementById('obs');
+  el.innerHTML = unansweredCard(res.data);
+  el.hidden = false;
+}
+
+// ── Orchestrate ──────────────────────────────────────────────────────────────
+async function loadStatus() {
+  const root = document.getElementById('cards');
+  const [plan, ai, q, deliv, rm, raid] = await Promise.all([
+    loadJSON('/specs/manifest.json'),
+    loadJSON('/app/action-items.json'),
+    loadJSON('/app/open-questions.json'),
+    loadJSON('/app/deliverables.json'),
+    loadJSON('/app/roadmap.json'),
+    loadJSON('/app/raid.json')
+  ]);
+
+  // Headline aggregation (only from sources that actually loaded with data).
+  const agg = { specDone: 0, specTotal: 0, openWork: 0, delivDone: 0, delivTotal: 0, phaseProg: 0, phaseTotal: 0 };
+
+  if (plan.ok) {
+    const items = pickArray(plan.data, ['items']);
+    agg.specTotal = items.length;
+    items.forEach(it => { if (bucket(it.status) === 'done') agg.specDone++; });
+  }
+  [['questions', q, ['questions', 'items']], ['ai', ai, ['items']], ['raid', raid, ['items', 'raid']]].forEach(([, res, keys]) => {
+    if (!res.ok) return;
+    let items = pickArray(res.data, keys);
+    if (res === raid && !items.length && res.data && typeof res.data === 'object') {
+      ['risks', 'assumptions', 'issues', 'dependencies'].forEach(k => { items = items.concat(asArray(res.data[k])); });
+    }
+    items.forEach(it => { if (openState(it.status) === 'open') agg.openWork++; });
+  });
+  if (deliv.ok) {
+    const items = pickArray(deliv.data, ['deliverables', 'items']);
+    agg.delivTotal = items.length;
+    items.forEach(it => { if (bucket(it.status) === 'done') agg.delivDone++; });
+  }
+  if (rm.ok) {
+    const tracks = pickArray(rm.data, ['tracks']);
+    tracks.forEach(t => {
+      asArray(t.phases).concat(asArray(t.modules)).forEach(p => {
+        agg.phaseTotal++;
+        if (bucket(p.status) === 'in-progress') agg.phaseProg++;
+      });
+    });
+  }
+
+  const anyData = agg.specTotal || agg.delivTotal || agg.phaseTotal || agg.openWork
+    || (ai.ok && pickArray(ai.data, ['items']).length) || (q.ok && pickArray(q.data, ['questions']).length);
+
+  const sumEl = document.getElementById('summary');
+  if (anyData) { sumEl.innerHTML = summaryTiles(agg); sumEl.hidden = false; }
+
+  root.innerHTML = [
+    planCard(plan),
+    roadmapCard(rm),
+    actionItemsCard(ai),
+    deliverablesCard(deliv),
+    questionsCard(q),
+    raidCard(raid)
+  ].join('');
+
+  // Whole-portal empty state: every source missing or empty.
+  const allMissing = [plan, ai, q, deliv, rm, raid].every(r => r.missing || (r.ok && !r.data));
+  if (allMissing && !anyData) {
+    root.innerHTML = '<div class="statebox" style="grid-column:1/-1">' +
+      '<div class="st-title">Nothing to report yet</div>' +
+      '<div>No engagement artifacts are populated. As specs, action items, deliverables, roadmap, and RAID fill in, this dashboard lights up automatically.</div>' +
+    '</div>';
+    sumEl.hidden = true;
+  }
+}
+
+loadConfig();
+loadStatus();
+loadUnanswered();
+</script>
+</body>
+</html>

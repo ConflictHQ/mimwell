@@ -1,0 +1,2 @@
+# Optional protected-record reference adapter. No key storage or network service.
+cryptography==50.0.1

@@ -1,0 +1,2601 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/client.config/v1",
+  "title": "client.config.json",
+  "description": "The single seam for all client-specific portal values (see docs/primitives/client-config.md). Loaded + validated against this schema by scripts/config.py on import and by the portal-verify gate. Key surface owned by #17; this schema mirrors it key-for-key.",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "client.config.json"
+  },
+  "type": "object",
+  "required": [
+    "branding",
+    "assistant",
+    "pages"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "$pages_comment": {
+      "type": "string"
+    },
+    "$access_comment": {
+      "$comment": "Documentation-only sibling of the optional `access` block (#53); the engine never reads it.",
+      "type": "string"
+    },
+    "client": {
+      "$comment": "Purpose-neutral owner seam (#206, Phase 2: canonical). `brain.*` is the documented, canonical form; `name`/`shortName`/`engagement` below are DEPRECATED read aliases for `brain.name`/`brain.shortName`/`brain.owner.name`/`brain.purpose`, accepted through one more release (2026-09-24 decision) and flagged by `make template-update`'s preview for an instance that still sets them, then removed. `scripts/init.py` no longer stamps them into a new scaffold. `slug`/`domain` are deploy identity, not part of the seam, and are not deprecated. `client` itself is optional, so a brain declared entirely under `brain.*` needs no `client` block at all. `client.config.json` stays the file name.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "deprecated": true
+        },
+        "shortName": {
+          "type": "string",
+          "deprecated": true
+        },
+        "slug": {
+          "type": "string"
+        },
+        "engagement": {
+          "type": "string",
+          "deprecated": true
+        },
+        "domain": {
+          "type": "string"
+        }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "colors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "headerLabel": {
+          "type": "string"
+        },
+        "headerSub": {
+          "type": "string"
+        },
+        "portalTitle": {
+          "type": "string"
+        },
+        "kgViewerTitle": {
+          "type": "string"
+        },
+        "greeting": {
+          "type": "string"
+        },
+        "inputPlaceholder": {
+          "type": "string"
+        },
+        "heroMark": {
+          "type": "string",
+          "description": "Optional hero-mark image path (swapped for the inline generic mark at runtime on the home page)"
+        },
+        "heroMarkDark": {
+          "type": "string",
+          "description": "Optional mark variant for dark chrome (e.g. a white wordmark); shown via the theme-aware logo-on-dark class while heroMark covers light chrome. Falls back to heroMark when absent."
+        },
+        "heroMarkWidth": {
+          "type": [
+            "integer",
+            "string"
+          ],
+          "description": "Optional hero-mark width (px int or CSS length)"
+        },
+        "owner": {
+          "description": "Owner / co-brand seam (#47): the party running the engagement, co-branded with the client across the portal chrome \u2014 topbar wordmark, home hero eyebrow, the co-brand stat, and every page footer. Accepts either the legacy string form (the owner name) or an object carrying name + artwork. Default name 'ACME'; set '' (or {\"name\": \"\"}) to drop the owner brand entirely. With no mark configured the chrome renders the owner NAME as a text wordmark, so an unbranded install carries no company's artwork.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Owner name used in the footer, hero eyebrow, co-brand stat, and as the text wordmark when no mark is set."
+                },
+                "mark": {
+                  "type": "string",
+                  "description": "Optional owner wordmark/logo image path used in the topbar and footer mark slots. Empty -> the name renders as a text wordmark."
+                },
+                "markDark": {
+                  "type": "string",
+                  "description": "Optional owner mark variant for dark chrome; shown via the theme-aware logo-on-dark class while `mark` covers light chrome. Falls back to `mark` when absent."
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "assistant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "maxAgentTurns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxDocChars": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "identity": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "maxToolOutputChars": {
+          "$comment": "Caps the TOTAL tool-result text fed back per chat request (one document is capped by maxDocChars). Over budget, results truncate with a visible marker; the request never fails. Default 600000 when absent.",
+          "type": "integer",
+          "minimum": 1000
+        },
+        "docRoots": {
+          "$comment": "Top-level directories read_doc may read. Absent/empty = the whole served corpus.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "theming": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "default": {
+          "type": "string",
+          "enum": [
+            "light",
+            "dark"
+          ]
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "url",
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "group": {
+            "type": "string"
+          },
+          "requires": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Page-set: the profile overlay this page belongs to. The page is registered only when profile.overlays selects it (or it is the base); a config with no overlays registers every page."
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "repos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "org": {
+          "type": "string"
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "number": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "doctor": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "requiredTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optionalTools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "trackers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "github",
+            "linear",
+            "jira",
+            "fossil"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "state_file": {
+          "type": "string"
+        },
+        "cooldown_seconds": {
+          "type": "number"
+        },
+        "max_retries": {
+          "type": "integer"
+        },
+        "backoff_base_seconds": {
+          "type": "number"
+        },
+        "snapshot_dir": {
+          "type": "string"
+        },
+        "snapshot_label_prefixes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "github": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repos": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "default_repo": {
+              "type": "string"
+            },
+            "projects": {
+              "type": "array"
+            },
+            "status_field": {
+              "type": "string"
+            }
+          }
+        },
+        "linear": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "team": {
+              "type": "string"
+            },
+            "api_key_env": {
+              "type": "string"
+            }
+          }
+        },
+        "jira": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "base_url": {
+              "type": "string"
+            },
+            "project_key": {
+              "type": "string"
+            },
+            "email_env": {
+              "type": "string"
+            },
+            "token_env": {
+              "type": "string"
+            }
+          }
+        },
+        "fossil": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "repo_url": {
+              "type": "string"
+            },
+            "user_env": {
+              "type": "string"
+            },
+            "token_env": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "recordings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "driveFolders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diarization": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "module": {
+              "type": "string"
+            },
+            "class": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "apiKeyEnv": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "semantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "embedder": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "module": {
+              "type": "string"
+            },
+            "class": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "apiKeyEnv": {
+              "type": "string"
+            },
+            "dim": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "substrate": {
+          "type": "string",
+          "enum": [
+            "local",
+            "edge-db",
+            "external"
+          ],
+          "description": "Vector substrate, graduating independently of brain.store."
+        }
+      }
+    },
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "storage_mode": {
+          "type": "string",
+          "description": "The files-cell writer: json-commit edits a source JSON record and commits it through the GitHub Contents API. A brain with a declared brain.authority is written only by that authority's governed writer and delivered through its projections (docs/design/adr-authority-per-brain-kind.md); the Worker never writes it.",
+          "enum": [
+            "json-commit"
+          ]
+        },
+        "editorial": {
+          "type": "string",
+          "enum": [
+            "direct",
+            "pr"
+          ]
+        },
+        "branch": {
+          "type": "string"
+        },
+        "bot": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "email": {
+              "type": "string"
+            }
+          }
+        },
+        "editor_role": {
+          "type": "string"
+        },
+        "governance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "ontologySha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "ontologySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "ttlSeconds": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 3600
+            }
+          }
+        }
+      }
+    },
+    "brain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "name": {
+          "$comment": "Purpose-neutral owner seam (#206, Phase 2: canonical). The brain's own display name — the documented, canonical field; `scripts/init.py` stamps it directly for a new scaffold. Falls back to the deprecated `client.name` alias via scripts/config.py / config.js when absent (accepted for one more release).",
+          "type": "string"
+        },
+        "shortName": {
+          "$comment": "Compact form for tight UI (headers/footers), read by app/nav.js's brainShortName(). Canonical (#206, Phase 2); falls back to the deprecated `client.shortName` alias, then to `brain`/`client` `name`, when absent.",
+          "type": "string"
+        },
+        "purpose": {
+          "$comment": "What this brain is for, e.g. what `init --purpose` will stamp (#200). Canonical (#206, Phase 2); falls back to the deprecated `client.engagement` alias when absent.",
+          "type": "string"
+        },
+        "owner": {
+          "$comment": "Who the brain belongs to: a person (an individual's brain) or an organization (a company/client brain) — distinct from `branding.owner`, the co-brand identity of whoever RUNS the portal (#47). Canonical (#206, Phase 2); falls back to {kind: organization, name: client.name} — the deprecated alias — when absent.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "person",
+                "organization"
+              ]
+            },
+            "name": {
+              "type": "string"
+            }
+          }
+        },
+        "store": {
+          "type": "string",
+          "enum": [
+            "json",
+            "sqlite",
+            "both",
+            "d1"
+          ]
+        },
+        "graduate_at_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ci_sync": {
+          "type": "string",
+          "enum": [
+            "enforce",
+            "autofix"
+          ]
+        },
+        "autosync_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "precommit"
+            ]
+          }
+        },
+        "blobs": {
+          "type": "string",
+          "enum": [
+            "git",
+            "lfs",
+            "s3",
+            "efs",
+            "external"
+          ],
+          "description": "Where non-markdown artifacts live. Graduates independently of `store`; reported in the manifest's substrate block."
+        },
+        "stores": {
+          "type": "array",
+          "description": "Where this environment finds each store the adopted contract.json declares (docs/design/substrate-matrix.md). contract.json owns the topology; `id` matches a contract `stores[].id` and `dsn` is a reference, never a literal location.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "dsn"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dsn": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "env"
+                    ],
+                    "properties": {
+                      "env": {
+                        "type": "string",
+                        "pattern": "^[A-Z_][A-Z0-9_]*$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "secret"
+                    ],
+                    "properties": {
+                      "secret": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "store",
+            "binding",
+            "principalsByUid",
+            "operatorUids"
+          ],
+          "properties": {
+            "store": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The adopted contract's authority store id; its connection comes from the matching `brain.stores[].dsn`. A sqlite or files store resolves to a path under _internal/."
+            },
+            "binding": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "principalsByUid": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "operatorUids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9]+$"
+              }
+            },
+            "projections": {
+              "description": "CI freshness mode for delivered projections (docs/design/adr-authority-per-brain-kind.md). committed: receipted app/projections/<consumer>.json are committed and verified by check-projection-receipts. live: nothing delivered is committed; the authority is read at request time.",
+              "enum": [
+                "committed",
+                "live"
+              ]
+            }
+          }
+        },
+        "sourceAdapters": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "docs",
+              "wiki",
+              "issues",
+              "activity"
+            ]
+          },
+          "description": "Explicit generic projections; matching documents/tracker/activity ontology overlays required. Activity reads only an explicitly frozen snapshot. Defaults to none. Does not grant read access."
+        }
+      }
+    },
+    "staleness": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "point_in_time_window_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_question_window_days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decision_cadence_days": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "goldenRecords": {
+      "type": "array",
+      "description": "Golden-record verifiability gate (#65): a curated set of must-be-true assertions about the corpus, checked on every build (scripts/check-golden-records.py). Empty/absent -> clean no-op, same convention as access/staleness. Each entry names a JSON artifact, a dot-path field within it, and the exact value that field must equal.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "field",
+          "equals"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Human-readable name for this assertion, shown in a failure."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path to the JSON artifact, e.g. 'app/decisions.json'."
+          },
+          "field": {
+            "type": "string",
+            "description": "Dot-path into the parsed JSON, e.g. 'decisions.0.status' or 'count'. Array indices are plain integers in the path."
+          },
+          "equals": {
+            "description": "The exact value the field must equal (deep-equal; any JSON type)."
+          }
+        }
+      }
+    },
+    "terminologyCanon": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Terminology canon gate (#65): a config-driven deprecated-term lint over the same knowledge.sources roots gen-knowledge-pack.py/gen-docs-manifest.py already walk (scripts/check-terminology-canon.py). Empty/absent -> clean no-op, same convention as access/staleness/goldenRecords.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "deprecated": {
+          "type": "object",
+          "description": "term/phrase -> why it's banned (what replaces it, shown in a failure). Case-insensitive, word-boundary matched.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "contentConsistency": {
+      "type": "array",
+      "description": "Cross-file content-consistency gate (#65): the same fact stated in more than one artifact must agree (scripts/check-content-consistency.py). Unlike goldenRecords (a field must equal a FIXED declared value), this checks two declared fact sites against each other. Empty/absent -> clean no-op, same convention as access/staleness/goldenRecords/terminologyCanon.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "field",
+          "matches"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Human-readable name for this pair, shown in a failure."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repo-relative path to the first JSON artifact."
+          },
+          "field": {
+            "type": "string",
+            "description": "Dot-path into the first artifact's parsed content. Array indices are plain integers in the path."
+          },
+          "matches": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "field"
+            ],
+            "description": "The second fact site, same shape as path/field above.",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "field": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "estimation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "bands": {
+          "type": "string"
+        },
+        "roles": {
+          "type": "string"
+        }
+      }
+    },
+    "generators": {
+      "type": "object",
+      "description": "Per-generator toggle (boolean) or options object.",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "object"
+          }
+        ]
+      },
+      "properties": {
+        "$comment": {
+          "type": "string"
+        }
+      }
+    },
+    "access": {
+      "$comment": "Identity-aware read scoping (#53), enforced by access.js + worker.js on an Access-authenticated host. OPTIONAL and OFF by default: with no `access` key the engine serves exactly what it always did. Model: a DENYLIST of path globs (`restricted`) that only `owners` may read, plus per-entry `owners` when one restricted set has its own readers. An owner spec is either a full email (exact match) or a bare local-part, which matches that local-part at ANY domain \u2014 prefer full addresses. Matching is normalized first (percent-encoding, backslashes, `.`/`..` segments, `_site/` mirror) then matched case-insensitively; a rule that names a directory covers everything beneath it, `*` stays inside a segment and `**` crosses segments. Overlapping rules only narrow: a reader must be granted by EVERY rule that matches the path. FAIL CLOSED \u2014 a block this engine cannot parse puts it in lockdown (nobody is an owner, everything is restricted), and a restricted path with no owner able to read it is denied to everyone rather than opened. Enforced at every choke point: static asset serving, per-user filtering of the served compiled artifacts (knowledge-pack items AND its #49 link graph; brain nodes, data.path and `references` edges), the chat agent's tool results, read_doc, and the served client.config.json (the access block itself is never shipped to a browser). `restricted_tools` withholds a whole tool from non-owners for output that is aggregate or entity-led and so cannot be path-redacted. LEGACY ALIASES: `admins` (= owners) and `owner_only` / `privateDocs` (= restricted) are accepted so an existing fork's config validates and runs unchanged; new engagements use `owners` + `restricted`.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "owners": {
+          "$comment": "Full emails, or bare local-parts to match that local-part at any domain.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "admins": {
+          "$comment": "Legacy alias for `owners`; merged with it.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "restricted": {
+          "$comment": "Repo-relative path globs readable only by owners. A string entry is owners-only; an object entry additionally grants the readers it names.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/accessRule"
+          }
+        },
+        "owner_only": {
+          "$comment": "Legacy alias for `restricted`; merged with it.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/accessRule"
+          }
+        },
+        "privateDocs": {
+          "$comment": "Legacy alias for `restricted`; merged with it.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/accessRule"
+          }
+        },
+        "restricted_tools": {
+          "$comment": "Chat-agent tool names withheld from non-owners, e.g. \"search_graph\" when entity output cannot be path-redacted.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "owner_only_tools": {
+          "$comment": "Legacy alias for `restricted_tools`; merged with it.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "authoring": {
+          "type": "boolean"
+        },
+        "authoring_agent": {
+          "type": "boolean"
+        },
+        "authoring_wysiwyg": {
+          "type": "boolean"
+        },
+        "authoring_wysiwyg_agent": {
+          "type": "boolean"
+        },
+        "authoring_access_gate": {
+          "type": "boolean"
+        },
+        "brain_d1": {
+          "type": "boolean"
+        },
+        "corpus_d1": {
+          "type": "boolean"
+        },
+        "semantic_search": {
+          "type": "boolean"
+        },
+        "observability": {
+          "type": "boolean"
+        },
+        "staleness": {
+          "type": "boolean"
+        },
+        "autosync": {
+          "type": "boolean"
+        }
+      }
+    },
+    "knowledge": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$pointers_comment": {
+          "type": "string"
+        },
+        "curation": {
+          "type": "string"
+        },
+        "enrichment": {
+          "type": "string"
+        },
+        "recordings": {
+          "type": "string"
+        },
+        "wikiDir": {
+          "type": "string"
+        },
+        "keepEmailDomains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "recursive": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "skipNames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "excludeFromBrain": {
+          "$comment": "Repo-relative globs kept OUT of the compiled brain (app/brain.json is a served artifact; an engagement that scopes some documents to a subset of readers points this at those paths so their titles/summaries are not published to everyone). Empty/absent = nothing excluded.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jsonDocs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "roadmap": {
+      "type": "object",
+      "description": "Live GitHub Projects (v2) portfolio for /roadmap/ (scripts/gen-roadmap.py -> app/roadmap-live.json). Separate from issues.projects so the portfolio can span every product board. Best-effort; clean no-op when empty or gh is unavailable.",
+      "additionalProperties": false,
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "org": {
+          "type": "string",
+          "description": "GitHub org that owns the Projects boards"
+        },
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "number": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "number"
+            ]
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Optional telemetry-pull seam for a metrics collector (scripts/gen-metrics.py style): per-source base URLs and tenant slugs the nightly pull reads. Auth never lives here (CI secrets only). Engagement-defined sources; kept permissive by design.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "string"
+          },
+          "tenant": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where this brain sits on the scope spine (federation > company > domain > project > workspace > person; agent for an autonomous node). A person scope owns its own canon and publishes upward only by consent. Ownership flows down, abstraction flows up, access narrows on the way up. Absent = a project-scope root named for client.slug.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "federation",
+            "company",
+            "domain",
+            "project",
+            "workspace",
+            "person",
+            "agent"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^(federation|company|domain|project|workspace|person|agent):[A-Za-z0-9._-]+$",
+          "description": "Scope address `<level>:<id>` of the parent brain, or null for a root."
+        },
+        "peers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(federation|company|domain|project|workspace|person|agent):[A-Za-z0-9._-]+$"
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Ontology composition: `base` plus ORDERED `overlays`. Empty overlays fall back to brain-schema.json's legacy single-string profile.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "base": {
+          "type": "string"
+        },
+        "overlays": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "federation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The publish-upward contract. CLOSED by default: nothing declared here means nothing leaves this scope. `publishes`/`withholds` are kind ids from brain-schema.json; `children` are the child brains this metarepo folds in via aggregate-brains.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "publishes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "withholds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enrollments": {
+          "description": "Signed consent to publish upward (#213), one entry per parent. Checked in full by scripts/federation_enrollment.py; `issued`/`signature` are written by `brain-publish-up.py sign`.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["parent", "publishes", "audience", "withdrawn"],
+            "properties": {
+              "$comment": {"type": "string"},
+              "parent": {"type": "string", "pattern": "^[^:]+:[^:]+$"},
+              "publishes": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kinds", "records", "rules"],
+                "properties": {
+                  "kinds": {"type": "array", "items": {"type": "string"}},
+                  "records": {"type": "array", "items": {"type": "string"}},
+                  "rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["id", "kind", "label"],
+                      "properties": {"id": {"type": "string"}, "kind": {"type": "string"}, "label": {"type": "string"}}
+                    }
+                  }
+                }
+              },
+              "audience": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+              "expires": {"type": ["string", "null"], "description": "Optional. No expiry unless set; past it the parent keeps what it holds and pauses intake until renewed."},
+              "withdrawn": {"type": "boolean"},
+              "issued": {"type": "string"},
+              "signature": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["algorithm", "keyId", "digest", "value"],
+                "properties": {"algorithm": {"const": "ed25519/v1"}, "keyId": {"type": "string"}, "digest": {"type": "string"}, "value": {"type": "string"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "deploy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Where the brain runs and which persistence is attached there. The target decides which projections are ALLOWED to exist, never what the brain is.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "cloudflare-worker",
+            "astrolift",
+            "container",
+            "static",
+            "local"
+          ]
+        },
+        "persistence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "none",
+              "d1",
+              "s3",
+              "efs",
+              "postgres",
+              "sqlite-volume",
+              "kv"
+            ]
+          }
+        },
+        "replicas": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "public": {
+          "type": "boolean",
+          "description": "Astrolift: true only for a brain safe to serve without login; with no volume it renders a CDN static_site. Default false: a container behind the install's login gate."
+        },
+        "image": {
+          "type": "string",
+          "description": "Astrolift: the container image that serves a private brain (e.g. the context service), pinned by tag or digest."
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Astrolift: the container port (default 8080)."
+        }
+      }
+    },
+    "portal": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Presentation profile: which portal template (app/portal-templates.json) frames this brain. Independent of `profile` (the ontology).",
+      "properties": {
+        "view": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Easy/advanced presentation only. Remembered kb_prefs.views choice for the authenticated viewer wins over the selected recipe scope default, then default (easy). Does not change permissions or writers.",
+          "properties": {
+            "default": {"enum": ["easy", "advanced"]},
+            "scopeDefaults": {
+              "type": "object",
+              "propertyNames": {"enum": ["person", "workspace", "project", "company", "product", "initiative", "component"]},
+              "additionalProperties": {"enum": ["easy", "advanced"]}
+            }
+          }
+        },
+        "$comment": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "engagement",
+            "company",
+            "topic",
+            "personal",
+            "wiki",
+            "catalog",
+            "federation",
+            "console"
+          ]
+        },
+        "experience": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "protocolVersion": {
+                  "const": "1.0"
+                },
+                "selection": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "lineage": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "version",
+                      "sha256"
+                    ]
+                  },
+                  "maxItems": 16
+                },
+                "packages": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "design": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "brand": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "layout": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "navigation": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "ia": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "design",
+                    "brand",
+                    "layout",
+                    "navigation",
+                    "ia"
+                  ]
+                },
+                "components": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "version",
+                      "sha256"
+                    ]
+                  },
+                  "maxItems": 30
+                },
+                "design": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "light": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "bg": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "surface": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "text": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "muted": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "primary": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "link": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "accent": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [
+                        "bg",
+                        "surface",
+                        "text",
+                        "muted",
+                        "border",
+                        "primary",
+                        "link",
+                        "accent"
+                      ]
+                    },
+                    "dark": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "bg": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "surface": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "text": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "muted": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "primary": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "link": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "accent": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [
+                        "bg",
+                        "surface",
+                        "text",
+                        "muted",
+                        "border",
+                        "primary",
+                        "link",
+                        "accent"
+                      ]
+                    },
+                    "radius": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20
+                    }
+                  },
+                  "required": [
+                    "light",
+                    "dark",
+                    "radius"
+                  ]
+                },
+                "layout": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "reading",
+                        "workbench"
+                      ]
+                    },
+                    "density": {
+                      "enum": [
+                        "comfortable",
+                        "compact"
+                      ]
+                    },
+                    "width": {
+                      "enum": [
+                        "standard",
+                        "wide"
+                      ]
+                    },
+                    "responsive": {
+                      "enum": [
+                        "auto",
+                        "stacked"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "density",
+                    "width",
+                    "responsive"
+                  ]
+                },
+                "navigation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "top",
+                        "rail"
+                      ]
+                    },
+                    "search": {
+                      "type": "boolean"
+                    },
+                    "breadcrumbs": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "search",
+                    "breadcrumbs"
+                  ]
+                },
+                "fontMode": {
+                  "enum": [
+                    "system",
+                    "local"
+                  ]
+                },
+                "localFonts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "family": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9 ]{0,79}$"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "^assets/fonts/[a-zA-Z0-9_-]+\\.woff2?$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "weight": {
+                        "enum": [
+                          "400",
+                          "500",
+                          "600",
+                          "700"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "family",
+                      "path",
+                      "sha256",
+                      "weight"
+                    ]
+                  },
+                  "maxItems": 6
+                },
+                "entryFromVisiblePages": {
+                  "const": true
+                }
+              },
+              "required": [
+                "protocolVersion",
+                "selection",
+                "lineage",
+                "packages",
+                "components",
+                "design",
+                "layout",
+                "navigation",
+                "fontMode",
+                "localFonts",
+                "entryFromVisiblePages"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "protocolVersion": {
+                  "const": "1.1"
+                },
+                "selection": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version",
+                    "sha256"
+                  ]
+                },
+                "lineage": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "version",
+                      "sha256"
+                    ]
+                  },
+                  "maxItems": 16
+                },
+                "packages": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "design": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "brand": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "layout": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "navigation": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    },
+                    "ia": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                        },
+                        "version": {
+                          "type": "string",
+                          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "version",
+                        "sha256"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "design",
+                    "brand",
+                    "layout",
+                    "navigation",
+                    "ia"
+                  ]
+                },
+                "components": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                      },
+                      "version": {
+                        "type": "string",
+                        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "version",
+                      "sha256"
+                    ]
+                  },
+                  "maxItems": 30
+                },
+                "design": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "light": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "bg": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "surface": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "text": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "muted": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "primary": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "link": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "accent": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [
+                        "bg",
+                        "surface",
+                        "text",
+                        "muted",
+                        "border",
+                        "primary",
+                        "link",
+                        "accent"
+                      ]
+                    },
+                    "dark": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "bg": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "surface": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "text": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "muted": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "border": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "primary": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "link": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "accent": {
+                          "type": "string",
+                          "pattern": "^#[0-9a-fA-F]{6}$"
+                        }
+                      },
+                      "required": [
+                        "bg",
+                        "surface",
+                        "text",
+                        "muted",
+                        "border",
+                        "primary",
+                        "link",
+                        "accent"
+                      ]
+                    },
+                    "radius": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20
+                    }
+                  },
+                  "required": [
+                    "light",
+                    "dark",
+                    "radius"
+                  ]
+                },
+                "layout": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "reading",
+                        "workbench"
+                      ]
+                    },
+                    "density": {
+                      "enum": [
+                        "comfortable",
+                        "compact"
+                      ]
+                    },
+                    "width": {
+                      "enum": [
+                        "standard",
+                        "wide"
+                      ]
+                    },
+                    "responsive": {
+                      "enum": [
+                        "auto",
+                        "stacked"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "density",
+                    "width",
+                    "responsive"
+                  ]
+                },
+                "navigation": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "top",
+                        "rail"
+                      ]
+                    },
+                    "search": {
+                      "type": "boolean"
+                    },
+                    "breadcrumbs": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "search",
+                    "breadcrumbs"
+                  ]
+                },
+                "fontMode": {
+                  "enum": [
+                    "system",
+                    "local"
+                  ]
+                },
+                "localFonts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "family": {
+                        "type": "string",
+                        "pattern": "^[a-zA-Z][a-zA-Z0-9 ]{0,79}$"
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "^assets/fonts/[a-zA-Z0-9_-]+\\.woff2?$"
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      },
+                      "weight": {
+                        "enum": [
+                          "400",
+                          "500",
+                          "600",
+                          "700"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "family",
+                      "path",
+                      "sha256",
+                      "weight"
+                    ]
+                  },
+                  "maxItems": 6
+                },
+                "entryFromVisiblePages": {
+                  "const": true
+                },
+                "recordViews": {
+                  "description": "Presentation of an already authorized flat record collection; view scope is not access policy. Keys are explicit source-local identities and must be unique.",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "protocolVersion": {
+                      "const": "1.0"
+                    },
+                    "pages": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "url": {
+                            "type": "string",
+                            "pattern": "^/(?!/)[a-zA-Z0-9_/-]+/$",
+                            "maxLength": 300
+                          },
+                          "entry": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                          },
+                          "pinned": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                            },
+                            "minItems": 0,
+                            "maxItems": 20,
+                            "uniqueItems": true
+                          },
+                          "views": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 160
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                                },
+                                "key": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                  },
+                                  "minItems": 1,
+                                  "maxItems": 3,
+                                  "uniqueItems": true
+                                },
+                                "scope": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                      },
+                                      "op": {
+                                        "enum": [
+                                          "eq",
+                                          "contains",
+                                          "in",
+                                          "exists"
+                                        ]
+                                      },
+                                      "value": {
+                                        "oneOf": [
+                                          {
+                                            "type": [
+                                              "string",
+                                              "number",
+                                              "boolean",
+                                              "null"
+                                            ],
+                                            "maxLength": 300,
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          {
+                                            "type": "array",
+                                            "items": {
+                                              "type": [
+                                                "string",
+                                                "number",
+                                                "boolean",
+                                                "null"
+                                              ],
+                                              "maxLength": 300,
+                                              "minimum": -9007199254740991,
+                                              "maximum": 9007199254740991
+                                            },
+                                            "minItems": 1,
+                                            "maxItems": 32
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "field",
+                                      "op",
+                                      "value"
+                                    ]
+                                  },
+                                  "minItems": 0,
+                                  "maxItems": 16
+                                },
+                                "facets": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                      },
+                                      "label": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 160
+                                      }
+                                    },
+                                    "required": [
+                                      "field",
+                                      "label"
+                                    ]
+                                  },
+                                  "minItems": 0,
+                                  "maxItems": 8
+                                },
+                                "groupBy": {
+                                  "oneOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "order": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "field": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                      },
+                                      "direction": {
+                                        "enum": [
+                                          "asc",
+                                          "desc"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "field",
+                                      "direction"
+                                    ]
+                                  },
+                                  "minItems": 0,
+                                  "maxItems": 4
+                                },
+                                "search": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,79}$"
+                                  },
+                                  "minItems": 0,
+                                  "maxItems": 12,
+                                  "uniqueItems": true
+                                },
+                                "layout": {
+                                  "enum": [
+                                    "list",
+                                    "detail",
+                                    "workbench"
+                                  ]
+                                },
+                                "density": {
+                                  "enum": [
+                                    "comfortable",
+                                    "compact"
+                                  ]
+                                },
+                                "responsive": {
+                                  "enum": [
+                                    "auto",
+                                    "stacked"
+                                  ]
+                                },
+                                "pageSize": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 100
+                                },
+                                "breadcrumbs": {
+                                  "type": "boolean"
+                                },
+                                "defaultSelection": {
+                                  "enum": [
+                                    "none",
+                                    "first"
+                                  ]
+                                },
+                                "artifact": {
+                                  "type": "string",
+                                  "pattern": "^app/[A-Za-z0-9_-]+\\.json$",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "label",
+                                "kind",
+                                "key",
+                                "scope",
+                                "facets",
+                                "groupBy",
+                                "order",
+                                "search",
+                                "layout",
+                                "density",
+                                "responsive",
+                                "pageSize",
+                                "breadcrumbs",
+                                "defaultSelection",
+                                "artifact"
+                              ]
+                            },
+                            "minItems": 1,
+                            "maxItems": 20
+                          }
+                        },
+                        "required": [
+                          "url",
+                          "entry",
+                          "pinned",
+                          "views"
+                        ]
+                      },
+                      "minItems": 1,
+                      "maxItems": 32
+                    }
+                  },
+                  "required": [
+                    "protocolVersion",
+                    "pages"
+                  ]
+                },
+                "recordViewDescriptors": {
+                  "type": "object",
+                  "maxProperties": 64,
+                  "propertyNames": {
+                    "pattern": "^[a-z][a-z0-9.-]{0,79}$"
+                  },
+                  "additionalProperties": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "required": [
+                "protocolVersion",
+                "selection",
+                "lineage",
+                "packages",
+                "components",
+                "design",
+                "layout",
+                "navigation",
+                "fontMode",
+                "localFonts",
+                "entryFromVisiblePages"
+              ],
+              "dependentRequired": {
+                "recordViews": [
+                  "recordViewDescriptors"
+                ],
+                "recordViewDescriptors": [
+                  "recordViews"
+                ]
+              }
+            }
+          ]
+        },
+        "federationNavigation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocolVersion": {
+              "const": "1.0"
+            },
+            "roots": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "\\S"
+              },
+              "maxItems": 32,
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "budget": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "maxParticipants": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                },
+                "maxLinks": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1024
+                },
+                "maxDepth": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 16
+                },
+                "maxPaths": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 16
+                },
+                "maxExpansions": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "maxBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "maxParticipants",
+                "maxLinks",
+                "maxDepth",
+                "maxPaths",
+                "maxExpansions",
+                "maxBytes"
+              ]
+            }
+          },
+          "required": [
+            "protocolVersion",
+            "roots"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "accessRule": {
+      "$comment": "One restricted-path entry (#53). A bare string is the path glob, owners-only. The object form takes `path` (or `glob`) plus optional `owners` who may read that entry in addition to the global owners.",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "$comment": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "glob": {
+              "type": "string",
+              "minLength": 1
+            },
+            "owners": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "path"
+              ]
+            },
+            {
+              "required": [
+                "glob"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

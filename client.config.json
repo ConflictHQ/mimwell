@@ -1,0 +1,394 @@
+{
+  "client": {
+    "name": "Mimwell",
+    "shortName": "MIMWELL",
+    "slug": "mimwell",
+    "engagement": "Knowledge brain",
+    "domain": "localhost"
+  },
+  "branding": {
+    "colors": {
+      "primary": "#1E9C8F",
+      "link": "#2F97BF",
+      "accent": "#B98536",
+      "bg": "#0B1619",
+      "bgDeep": "#060D0F",
+      "surface": "#0F1E22",
+      "border": "#1D3238",
+      "borderLight": "#27414A",
+      "text": "#E6EFEE",
+      "textMuted": "#93A9AB",
+      "textFaint": "#667D80"
+    },
+    "fonts": {
+      "heading": "'Fraunces', Georgia, serif",
+      "body": "'Inter', system-ui, sans-serif",
+      "mono": "'JetBrains Mono', monospace"
+    },
+    "headerLabel": "MIMWELL",
+    "headerSub": "knowledge brain",
+    "portalTitle": "Mimwell",
+    "kgViewerTitle": "Mimwell Graph",
+    "greeting": "Ask Mimwell about the knowledge in this brain.",
+    "inputPlaceholder": "Ask Mimwell\u2026",
+    "owner": {
+      "name": "ACME",
+      "mark": "/assets/brand/mimwell-mark-dark.svg"
+    },
+    "heroMark": "/assets/brand/mimwell-mark.svg",
+    "heroMarkDark": "/assets/brand/mimwell-mark-dark.svg",
+    "heroMarkWidth": 96
+  },
+  "assistant": {
+    "model": "claude-sonnet-4-6",
+    "maxAgentTurns": 8,
+    "maxDocChars": 300000,
+    "identity": "Answer questions using the current portal knowledge and cite the available sources.",
+    "audience": "The people authorized to use this brain."
+  },
+  "pages": [
+    {
+      "url": "/",
+      "label": "Command Center",
+      "description": "portal home with recent activity"
+    },
+    {
+      "url": "/intelligence/",
+      "label": "Intelligence",
+      "group": "Intelligence",
+      "description": "gallery of analyzed meeting recordings \u2014 summaries, key points, action items, transcripts"
+    },
+    {
+      "url": "/timeline/",
+      "label": "Timeline",
+      "group": "Intelligence",
+      "description": "chronological engagement timeline of all meetings"
+    },
+    {
+      "url": "/timeline/engagement/",
+      "label": "Engagement Timeline",
+      "group": "Intelligence",
+      "requires": "engagement",
+      "description": "phase-by-phase delivery progress, derived from the plan (specs/manifest.json) \u2014 distinct from the chronological meeting timeline above"
+    },
+    {
+      "url": "/roadmap/",
+      "label": "Roadmap",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "product roadmaps"
+    },
+    {
+      "url": "/specs/",
+      "label": "Plan",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "the project plan \u2014 phases, epics, features, and stories"
+    },
+    {
+      "url": "/specs/present.html",
+      "label": "Presenter",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "walk the plan one delivery unit at a time \u2014 a slideshow over specs/manifest.json"
+    },
+    {
+      "url": "/specs/estimates.html",
+      "label": "Estimates",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "the activity timetable \u2014 per-activity effort and owner-role splits (specs/estimates.json)"
+    },
+    {
+      "url": "/specs/stats.html",
+      "label": "Spec Stats",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "live plan counts, size distribution, and critical path (specs/stats.json)"
+    },
+    {
+      "url": "/dependencies/",
+      "label": "Dependencies",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "how plan items depend on each other \u2014 derived from each spec's depends_on"
+    },
+    {
+      "url": "/deliverables/",
+      "label": "Deliverables",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "engagement deliverables and their status"
+    },
+    {
+      "url": "/user-stories/",
+      "label": "User Stories",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "product user stories grouped by epic, with acceptance criteria"
+    },
+    {
+      "url": "/status/",
+      "label": "Status",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "where-are-we dashboard \u2014 plan, action items, questions, deliverables, roadmap, and RAID at a glance"
+    },
+    {
+      "url": "/action-items/",
+      "label": "Action Items",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "action items across all meetings"
+    },
+    {
+      "url": "/decisions/",
+      "label": "Decisions",
+      "group": "Plan & Delivery",
+      "description": "decisions log and open questions distilled from the meetings"
+    },
+    {
+      "url": "/issues/",
+      "label": "Issues",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "live GitHub issue tracker across the project repos, grouped by board status"
+    },
+    {
+      "url": "/raid/",
+      "label": "RAID Log",
+      "group": "Plan & Delivery",
+      "requires": "engagement",
+      "description": "engagement risk log \u2014 risks, assumptions, issues, and dependencies"
+    },
+    {
+      "url": "/library/",
+      "label": "Library",
+      "group": "Knowledge",
+      "description": "browse the full knowledge base: wiki, analyses, transcripts, roadmaps, prior docs"
+    },
+    {
+      "url": "/media/",
+      "label": "Media",
+      "group": "Knowledge",
+      "description": "all non-markdown uploads; images, video, documents, audio"
+    },
+    {
+      "url": "/app/brain.html",
+      "label": "Brain",
+      "group": "Knowledge",
+      "description": "compiled brain viewer \u2014 search, filter by kind, and follow edges (app/brain.json)"
+    },
+    {
+      "url": "/app/",
+      "label": "Knowledge Graph",
+      "group": "Knowledge",
+      "description": "interactive knowledge graph viewer"
+    },
+    {
+      "url": "/app/deck.html",
+      "label": "Deck",
+      "group": "Knowledge",
+      "description": "keyboard-navigable slide deck artifact (app/deck.json)"
+    },
+    {
+      "url": "/stakeholders/",
+      "label": "Stakeholders",
+      "group": "Reference",
+      "description": "the people on the engagement \u2014 client stakeholders and delivery team, grouped by organization or role"
+    },
+    {
+      "url": "/glossary/",
+      "label": "Glossary",
+      "group": "Reference",
+      "description": "domain, product, and role terms with definitions, aliases, and related links"
+    },
+    {
+      "url": "/search/",
+      "label": "Search",
+      "group": "Knowledge",
+      "description": "resolution-aware search across the brain and the knowledge pack \u2014 every hit says which resolution answered"
+    },
+    {
+      "url": "/catalog/",
+      "label": "Catalog",
+      "group": "Knowledge",
+      "description": "source catalog \u2014 systems of record, their entities and fields; catalogued, not copied"
+    },
+    {
+      "url": "/proposals/",
+      "label": "Proposals",
+      "group": "Intelligence",
+      "description": "organizer proposals awaiting curation, with evidence and confidence"
+    },
+    {
+      "url": "/federation/",
+      "label": "Federation",
+      "group": "Reference",
+      "description": "this brain's manifest and its children's: scope, profile, engine generation, inventory, projection lag, substrate, publish policy"
+    },
+    {
+      "url": "/sensemaking/",
+      "group": "Knowledge",
+      "requires": "sensemaking",
+      "label": "Sensemaking",
+      "description": "concepts, evidence, situational assessments and strategic maps"
+    }
+  ],
+  "issues": {
+    "repos": [],
+    "org": "",
+    "projects": []
+  },
+  "trackers": {
+    "provider": "github",
+    "sources": [
+      "specs",
+      "user-stories",
+      "action-items",
+      "roadmap"
+    ],
+    "github": {
+      "repos": [],
+      "default_repo": "",
+      "projects": [],
+      "status_field": "Status"
+    },
+    "linear": {
+      "team": "",
+      "api_key_env": "LINEAR_API_KEY"
+    },
+    "jira": {
+      "base_url": "",
+      "project_key": "",
+      "email_env": "JIRA_EMAIL",
+      "token_env": "JIRA_TOKEN"
+    },
+    "fossil": {
+      "repo_url": "",
+      "user_env": "FOSSIL_USER",
+      "token_env": "FOSSIL_TOKEN"
+    }
+  },
+  "recordings": {
+    "driveFolders": [],
+    "diarization": {
+      "module": "",
+      "class": "",
+      "model": "",
+      "apiKeyEnv": ""
+    }
+  },
+  "knowledge": {
+    "keepEmailDomains": [],
+    "sources": [
+      {
+        "path": "knowledge/docs",
+        "recursive": true
+      }
+    ],
+    "skipNames": [
+      "readme.md",
+      "claude.md",
+      "agents.md",
+      "memory.md"
+    ],
+    "jsonDocs": [],
+    "curation": "knowledge/curation.json",
+    "enrichment": "knowledge/enrichment.json",
+    "recordings": "knowledge/session-recordings.json"
+  },
+  "features": {
+    "authoring": false,
+    "authoring_agent": false,
+    "authoring_wysiwyg": false,
+    "authoring_wysiwyg_agent": false,
+    "authoring_access_gate": false,
+    "brain_d1": false,
+    "corpus_d1": false,
+    "semantic_search": false,
+    "observability": false,
+    "staleness": false,
+    "autosync": false
+  },
+  "brain": {
+    "store": "json",
+    "graduate_at_nodes": 20000,
+    "ci_sync": "enforce",
+    "autosync_on": [
+      "stop",
+      "precommit"
+    ]
+  },
+  "scope": {
+    "level": "project",
+    "id": "public-example",
+    "parent": null,
+    "peers": []
+  },
+  "profile": {
+    "base": "core",
+    "overlays": [
+      "engagement",
+      "data"
+    ]
+  },
+  "portal": {
+    "template": "engagement",
+    "view": {
+      "default": "easy"
+    }
+  },
+  "federation": {
+    "publishes": [],
+    "withholds": [],
+    "children": [],
+    "enrollments": []
+  },
+  "deploy": {
+    "target": "cloudflare-worker",
+    "persistence": [],
+    "replicas": null
+  },
+  "estimation": {
+    "bands": "specs/estimate-bands.json",
+    "roles": "specs/roles.json"
+  },
+  "generators": {
+    "issues": true,
+    "sessions": true,
+    "transcripts": true,
+    "specs": true,
+    "action_items": true,
+    "analyses": true,
+    "dependencies": true,
+    "activity": true
+  },
+  "semantic": {
+    "embedder": {
+      "module": "",
+      "class": "",
+      "model": "",
+      "apiKeyEnv": "",
+      "dim": 1024
+    }
+  },
+  "staleness": {
+    "point_in_time_window_days": 180,
+    "open_question_window_days": 90,
+    "decision_cadence_days": 365
+  },
+  "theming": {
+    "default": "dark"
+  },
+  "authoring": {
+    "storage_mode": "json-commit",
+    "editorial": "direct",
+    "branch": "main",
+    "bot": {
+      "name": "",
+      "email": ""
+    },
+    "editor_role": ""
+  }
+}

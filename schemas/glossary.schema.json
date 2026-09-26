@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/glossary/v1",
+  "title": "Glossary (app/glossary.json)",
+  "description": "Glossary of domain, product, and role terms rendered by /glossary/.",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "app/glossary.json"
+  },
+  "type": "object",
+  "required": [
+    "terms"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "terms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "term",
+          "definition"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "term": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "related": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "integer"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "changelog": {
+      "type": "array",
+      "description": "Bump version/updated and append an entry here on every hand edit (the fill-in contract in bootstrap.md).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Activity Timetable</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the stylesheet rules below reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  .crumb { max-width: 1240px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  .page-head { max-width: 1240px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 640px; line-height: 1.7; }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 32px 80px; display: flex; flex-direction: column; gap: 32px; }
+
+  .section-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  }
+  .section-title { font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); }
+  .section-sub { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  /* ── Totals stat row ── */
+  .totals { display: flex; flex-wrap: wrap; gap: 14px; }
+  .stat-card { flex: 1; min-width: 140px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 14px 16px; }
+  .stat-num { font-family: var(--kb-font-heading); font-size: 24px; color: var(--text); line-height: 1; }
+  .stat-lbl { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin-top: 6px; }
+
+  /* ── Rollup bars (shared by role/phase/workstream) ── */
+  .rollups { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+  .rollup-list { display: flex; flex-direction: column; gap: 8px; }
+  .rollup-row { display: flex; align-items: center; gap: 10px; }
+  .rollup-label { flex: none; width: 120px; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rollup-track { flex: 1; height: 14px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .rollup-fill { height: 100%; background: var(--blue); border-radius: 3px; }
+  .rollup-range { flex: none; font-family: var(--kb-font-mono); font-size: 10px; color: var(--text); width: 96px; text-align: right; }
+
+  /* ── Activities, grouped by phase ── */
+  .phase-group + .phase-group { margin-top: 20px; }
+  .phase-label { font-family: var(--kb-font-heading); font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--text); margin-bottom: 10px; }
+  .activity-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); margin-bottom: 6px;
+  }
+  .activity-title { flex: 1; min-width: 160px; font-size: 12.5px; color: var(--text); }
+  .chip {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em; color: var(--muted);
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 7px;
+    white-space: nowrap; flex: none;
+  }
+  .chip.range { color: var(--text); }
+  .chip.owner { color: var(--blue); border-color: rgba(47,71,142,.3); background: var(--blue-dim); }
+
+  /* ── Overhead ── */
+  .overhead-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .overhead-row:last-child { border-bottom: none; }
+  .overhead-label { flex: 1; min-width: 160px; font-size: 12.5px; color: var(--text); }
+  .overhead-note { font-size: 11px; color: var(--dim); width: 100%; }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 32px 28px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 6px; }
+  .statebox.error { border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. Not baked here: app/nav.js fills this
+         slot from client.config.json branding.owner (KBNav.applyOwnerBrand),
+         falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<nav class="crumb" aria-label="Breadcrumb"><a href="/specs/">← Plan</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Activity Timetable</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Activity Timetable</h1>
+  <p class="page-subtitle">Per-activity effort, owner splits, and rollups by role, phase, and workstream — derived from the plan's T-shirt sizes and <code>specs/roles.json</code>. Individual names stay internal; this view carries roles only.</p>
+</section>
+
+<div class="wrap" id="wrap">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Fetching the activity timetable…</div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  const name = KBNav.brainName(cfg);
+  document.title = (name ? name + ' — ' : '') + 'Activity Timetable';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', KBNav.brainShortName(cfg));
+  set('page-eyebrow-text', name ? name + ' Activity Timetable' : 'Activity Timetable');
+  set('footer-text', [KBNav.brainShortName(cfg), KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+}
+
+// ── Activity Timetable (reads /specs/estimates.json) ─────────────────────────
+function totalsHTML(totals, unit) {
+  return `<section>
+    <div class="totals">
+      <div class="stat-card"><div class="stat-num">${totals.activities}</div><div class="stat-lbl">Activities</div></div>
+      <div class="stat-card"><div class="stat-num">${totals.sized}</div><div class="stat-lbl">Sized</div></div>
+      <div class="stat-card"><div class="stat-num">${totals.unsized}</div><div class="stat-lbl">Unsized</div></div>
+      <div class="stat-card"><div class="stat-num">${totals.low}–${totals.high}</div><div class="stat-lbl">${esc(unit)}</div></div>
+    </div>
+  </section>`;
+}
+
+function rollupListHTML(rows) {
+  if (!rows.length) return '';
+  const max = Math.max(...rows.map(r => r.high || 0), 1);
+  return rows.map(r => `<div class="rollup-row">
+    <span class="rollup-label" title="${esc(r.label)}">${esc(r.label)}</span>
+    <span class="rollup-track"><span class="rollup-fill" style="width:${Math.round((r.high || 0) / max * 100)}%"></span></span>
+    <span class="rollup-range">${r.low}–${r.high}${r.unsized ? ' (+' + r.unsized + ' unsized)' : ''}</span>
+  </div>`).join('');
+}
+
+function rollupsHTML(byRole, byPhase, byWorkstream) {
+  const groups = [
+    { title: 'By Role', rows: byRole },
+    { title: 'By Phase', rows: byPhase },
+    { title: 'By Workstream', rows: byWorkstream },
+  ].filter(g => g.rows.length);
+  if (!groups.length) return '';
+  const cols = groups.map(g => `<div>
+    <div class="section-sub" style="margin-bottom:8px">${esc(g.title)}</div>
+    <div class="rollup-list">${rollupListHTML(g.rows)}</div>
+  </div>`).join('');
+  return `<section>
+    <div class="section-head"><span class="section-title">Rollups</span></div>
+    <div class="rollups">${cols}</div>
+  </section>`;
+}
+
+function ownerChip(o) {
+  const range = (o.low != null && o.high != null) ? `${o.low}–${o.high}` : 'unsized';
+  return `<span class="chip owner">${esc(o.role)} ${o.pct}% · ${range}</span>`;
+}
+
+function activityRow(a) {
+  const range = (a.low != null && a.high != null) ? `${a.low}–${a.high}` : 'unsized';
+  return `<div class="activity-row">
+    <span class="activity-title">${esc(a.activity)}</span>
+    ${a.size ? `<span class="chip range">${esc(a.size)}</span>` : ''}
+    <span class="chip range">${range}</span>
+    ${(a.owners || []).map(ownerChip).join('')}
+  </div>`;
+}
+
+function activitiesHTML(activities) {
+  if (!activities.length) return '';
+  const order = [];
+  const byPhase = new Map();
+  activities.forEach(a => {
+    const key = a.phase || '(no phase)';
+    if (!byPhase.has(key)) { byPhase.set(key, []); order.push(key); }
+    byPhase.get(key).push(a);
+  });
+  const groups = order.map(phase => `<div class="phase-group">
+    <div class="phase-label">${esc(phase)}</div>
+    ${byPhase.get(phase).map(activityRow).join('')}
+  </div>`).join('');
+  return `<section>
+    <div class="section-head">
+      <span class="section-title">Activities</span>
+      <span class="section-sub">${activities.length} activit${activities.length === 1 ? 'y' : 'ies'}</span>
+    </div>
+    ${groups}
+  </section>`;
+}
+
+function overheadHTML(overhead) {
+  if (!overhead.length) return '';
+  const rows = overhead.map(o => `<div class="overhead-row">
+    <span class="overhead-label">${esc(o.label)}</span>
+    <span class="chip owner">${esc(o.role)} · ${o.pct}%</span>
+    <span class="chip range">${o.low}–${o.high}</span>
+    ${o.note ? `<span class="overhead-note">${esc(o.note)}</span>` : ''}
+  </div>`).join('');
+  return `<section>
+    <div class="section-head"><span class="section-title">Overhead</span><span class="section-sub">cross-cutting, additive on top of activity splits</span></div>
+    ${rows}
+  </section>`;
+}
+
+function render(data) {
+  const wrap = document.getElementById('wrap');
+  const meta = data.meta || {};
+  const totals = meta.totals || {};
+
+  if (!(totals.activities > 0)) {
+    wrap.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No sized activities yet</div>' +
+      '<div>Size stories in <code>specs/</code> with an <code>estimate</code>, then run <code>make estimates</code>.</div>' +
+    '</div>';
+    return;
+  }
+
+  wrap.innerHTML = [
+    totalsHTML(totals, meta.unit || 'engineer-days'),
+    rollupsHTML(data.rollup_by_role || [], data.rollup_by_phase || [], data.rollup_by_workstream || []),
+    activitiesHTML(data.activities || []),
+    overheadHTML(data.overhead || []),
+  ].filter(Boolean).join('');
+}
+
+async function loadEstimates() {
+  const wrap = document.getElementById('wrap');
+  let data;
+  try {
+    const r = await fetch('/specs/estimates.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    wrap.innerHTML = '<div class="statebox error">' +
+      '<div class="st-title">Failed to load</div>' +
+      '<div>Could not fetch <code>specs/estimates.json</code> (' + esc(err.message) + ').</div>' +
+      '<div style="margin-top:10px">Run <code>make estimates</code> to generate it.</div>' +
+    '</div>';
+    return;
+  }
+  render(data);
+}
+
+loadConfig();
+loadEstimates();
+</script>
+</body>
+</html>

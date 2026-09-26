@@ -1,0 +1,668 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/federation-navigation/v1",
+  "title": "Governed federation navigation",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "\\S"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "focus": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxParticipants": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "maxLinks": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "maxDepth": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16
+            },
+            "maxPaths": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            "maxExpansions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "maxParticipants",
+            "maxLinks",
+            "maxDepth",
+            "maxPaths",
+            "maxExpansions",
+            "maxBytes"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "roots",
+        "focus",
+        "budget"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "graph": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocolVersion": {
+              "const": "1.0"
+            },
+            "federation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "authorization": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "principal": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "evaluatedAt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "principal",
+                "evaluatedAt"
+              ]
+            },
+            "participants": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "\\S"
+                  },
+                  "manifest": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "identity": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    },
+                    "required": [
+                      "identity",
+                      "sha256"
+                    ]
+                  },
+                  "realms": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "realm": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "authority": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "revision": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "store": {
+                          "enum": [
+                            "files",
+                            "journal",
+                            "structured",
+                            "code"
+                          ]
+                        },
+                        "transport": {
+                          "enum": [
+                            "local",
+                            "remote",
+                            "offline"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "realm",
+                        "authority",
+                        "revision",
+                        "store",
+                        "transport"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "manifest",
+                  "realms"
+                ]
+              },
+              "maxItems": 256
+            },
+            "links": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "\\S"
+                  },
+                  "target": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "\\S"
+                  },
+                  "relation": {
+                    "enum": [
+                      "owned_by",
+                      "member",
+                      "peer"
+                    ]
+                  }
+                },
+                "required": [
+                  "source",
+                  "target",
+                  "relation"
+                ]
+              },
+              "maxItems": 1024
+            },
+            "unavailable": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "participant": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "\\S"
+                  },
+                  "reason": {
+                    "const": "unavailable"
+                  }
+                },
+                "required": [
+                  "participant",
+                  "reason"
+                ]
+              },
+              "maxItems": 32
+            },
+            "truncation": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "maxParticipants",
+                  "maxLinks",
+                  "maxDepth",
+                  "maxBytes"
+                ]
+              },
+              "maxItems": 4,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "protocolVersion",
+            "federation",
+            "authorization",
+            "participants",
+            "links",
+            "unavailable",
+            "truncation"
+          ]
+        },
+        "focus": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "participant": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "pattern": "\\S"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "state": {
+              "enum": [
+                "none",
+                "available",
+                "unavailable"
+              ]
+            }
+          },
+          "required": [
+            "participant",
+            "state"
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "participants": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "pattern": "\\S"
+                },
+                "maxItems": 17,
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "links": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "maxItems": 16
+              },
+              "relations": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "enum": [
+                    "member",
+                    "peer",
+                    "owned_by"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "participants",
+              "links",
+              "relations"
+            ]
+          },
+          "maxItems": 16
+        },
+        "cycleLinks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "maxItems": 1024,
+          "uniqueItems": true
+        },
+        "truncation": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "maxDepth",
+              "maxPaths",
+              "maxExpansions",
+              "maxBytes"
+            ]
+          },
+          "maxItems": 4,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "graph",
+        "focus",
+        "paths",
+        "cycleLinks",
+        "truncation"
+      ]
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "ontologySha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "ontologySha256"
+          ]
+        },
+        "bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ]
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "discovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "policy",
+        "bindings",
+        "scopes",
+        "discovery"
+      ]
+    },
+    "discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "catalog": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ]
+        },
+        "inventory": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ]
+        },
+        "manifests": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ]
+          }
+        },
+        "discoveryBindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ]
+        },
+        "reviewedSubjects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "path",
+            "sha256"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "catalog",
+        "inventory",
+        "manifests",
+        "discoveryBindings",
+        "reviewedSubjects"
+      ]
+    },
+    "portal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "\\S"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxParticipants": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "maxLinks": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "maxDepth": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 16
+            },
+            "maxPaths": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            "maxExpansions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "maxParticipants",
+            "maxLinks",
+            "maxDepth",
+            "maxPaths",
+            "maxExpansions",
+            "maxBytes"
+          ]
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "roots"
+      ]
+    }
+  },
+  "$ref": "#/$defs/request"
+}

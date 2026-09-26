@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/proposal-disposition/v1",
+  "title": "Native proposal disposition receipt",
+  "description": "A native proposal transition bound to its exact prior body and immutable intent; no canonical mutation or continuing access grant. Hash chain and current authority are runtime checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "proposal",
+    "intentSha256",
+    "sequence",
+    "previous",
+    "action",
+    "actor",
+    "reason",
+    "at",
+    "proposalSha256",
+    "sha256",
+    "priorReviews"
+  ],
+  "properties": {
+    "format": {
+      "const": "proposal-disposition/v1"
+    },
+    "proposal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "intentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "previous": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "action": {
+      "enum": [
+        "approve",
+        "reject",
+        "defer",
+        "withdraw"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "pattern": "\\S"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proposalSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "priorReviews": {
+      "type": "object",
+      "required": [
+        "review"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "review": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "actor",
+                "reason",
+                "at"
+              ],
+              "properties": {
+                "actor": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          ]
+        },
+        "sourceReview": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "actor",
+                "reason",
+                "at"
+              ],
+              "properties": {
+                "actor": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          ]
+        },
+        "sourceRevocation": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "actor",
+                "reason",
+                "at"
+              ],
+              "properties": {
+                "actor": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

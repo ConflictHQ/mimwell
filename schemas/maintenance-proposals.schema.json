@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "maintenance-proposals.schema.json",
+  "title": "Scoped semantic maintenance report",
+  "description": "Diagnostics only, not a canonical mutation or authenticated approval. The existing context request validator additionally validates basis; re-inspect current host context before relying on an imported report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "generator",
+    "basis",
+    "authorization",
+    "contextSha256",
+    "coverage",
+    "proposals",
+    "truncation"
+  ],
+  "properties": {
+    "format": {
+      "const": "maintenance-proposals/v1"
+    },
+    "generator": {
+      "const": "semantic-maintenance/1.0"
+    },
+    "basis": {
+      "type": "object"
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "evaluatedAt"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "contextSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "semanticCompleteness",
+        "contextTruncation"
+      ],
+      "properties": {
+        "scope": {
+          "const": "selected-authorized-context"
+        },
+        "semanticCompleteness": {
+          "const": "not-assessed"
+        },
+        "contextTruncation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "rule",
+          "records",
+          "assertions",
+          "detail",
+          "family",
+          "status",
+          "confidence",
+          "requiresReview",
+          "action",
+          "citations",
+          "originalLineages"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^maintenance:[0-9a-f]{64}$"
+          },
+          "rule": {
+            "enum": [
+              "claim-record-mismatch",
+              "collection-gap",
+              "competing-claims",
+              "contradicting-evidence",
+              "declared-contradiction",
+              "evidence-gap",
+              "obsolete-record-value",
+              "superseded-active-claim",
+              "unavailable-reference",
+              "unlinked-record",
+              "unresolved-assertion"
+            ]
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "participant",
+                    "realm",
+                    "address",
+                    "revision"
+                  ],
+                  "properties": {
+                    "participant": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "realm": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "address": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "edge"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "edge": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  }
+                }
+              ]
+            },
+            "uniqueItems": true
+          },
+          "assertions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "detail": {
+            "type": "object"
+          },
+          "family": {
+            "enum": [
+              "collection",
+              "contradiction",
+              "cross-reference",
+              "evidence",
+              "orphan",
+              "supersession"
+            ]
+          },
+          "status": {
+            "const": "proposed"
+          },
+          "confidence": {
+            "type": "null"
+          },
+          "requiresReview": {
+            "const": true
+          },
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "assertion",
+                "attestation",
+                "representation",
+                "href",
+                "locator",
+                "status",
+                "lineages",
+                "derived",
+                "sourceRevisions",
+                "reviewState",
+                "extractionConfidence"
+              ],
+              "properties": {
+                "assertion": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "attestation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "representation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "href": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "locator": {
+                  "type": "object"
+                },
+                "status": {
+                  "enum": [
+                    "available",
+                    "stale",
+                    "missing",
+                    "unknown"
+                  ]
+                },
+                "lineages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "derived": {
+                  "type": "boolean"
+                },
+                "sourceRevisions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256",
+                      "lineage"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "revision": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "sha256": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "lineage": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                },
+                "reviewState": {
+                  "enum": [
+                    "unknown",
+                    "unreviewed",
+                    "reviewed",
+                    "disputed",
+                    "retracted"
+                  ]
+                },
+                "extractionConfidence": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          "originalLineages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "truncation": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "maxBytes",
+          "maxFindings"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}

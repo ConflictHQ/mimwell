@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/execution-budget/v1",
+  "title": "Local intake execution budget",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/config"
+    },
+    {
+      "$ref": "#/$defs/report"
+    },
+    {
+      "$ref": "#/$defs/operation"
+    }
+  ],
+  "$defs": {
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "id",
+        "maxConcurrentOperations",
+        "maxOperations",
+        "maxStages",
+        "maxProcessAttempts",
+        "maxModelAttempts"
+      ],
+      "properties": {
+        "format": {
+          "const": "execution-budget/v1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "maxConcurrentOperations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "maxOperations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "maxStages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "maxProcessAttempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "maxModelAttempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "configSha256",
+        "config",
+        "operations",
+        "activeOperations",
+        "stages",
+        "processAttemptsReserved",
+        "modelAttemptsReserved",
+        "knownProcessCalls",
+        "knownModelCalls",
+        "pendingOrUnknownProcessAttempts",
+        "pendingOrUnknownModelAttempts"
+      ],
+      "properties": {
+        "format": {
+          "const": "execution-budget-report/v1"
+        },
+        "configSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "config": {
+          "$ref": "#/$defs/config"
+        },
+        "operations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "activeOperations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "stages": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "processAttemptsReserved": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "modelAttemptsReserved": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "knownProcessCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "knownModelCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "pendingOrUnknownProcessAttempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "pendingOrUnknownModelAttempts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "operation",
+        "stages",
+        "recovery",
+        "stateSha256"
+      ],
+      "properties": {
+        "format": {
+          "const": "execution-budget-operation/v1"
+        },
+        "operation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "actor",
+            "request",
+            "state",
+            "created",
+            "closed",
+            "sequence"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "actor": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "request": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "state": {
+              "enum": [
+                "open",
+                "completed",
+                "failed",
+                "recovered"
+              ]
+            },
+            "created": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "closed": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "stages": {
+          "type": "array",
+          "maxItems": 1000000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "operation",
+              "kind",
+              "subject",
+              "admitted",
+              "terminal",
+              "audit_failure",
+              "processes",
+              "models",
+              "state",
+              "created",
+              "closed"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "operation": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "kind": {
+                "enum": [
+                  "classifier",
+                  "extraction",
+                  "media.decode",
+                  "media.transcribe",
+                  "recording.decode",
+                  "recording.transcribe"
+                ]
+              },
+              "subject": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "admitted": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "terminal": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "audit_failure": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "processes": {
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "models": {
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              "state": {
+                "enum": [
+                  "active",
+                  "completed",
+                  "failed",
+                  "recovered-unknown"
+                ]
+              },
+              "created": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "closed": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation",
+                "actor",
+                "reason",
+                "evidence",
+                "previous",
+                "quiescent",
+                "created"
+              ],
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "actor": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "reason": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "evidence": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "previous": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "quiescent": {
+                  "const": 1
+                },
+                "created": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stateSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

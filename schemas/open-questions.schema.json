@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/open-questions/v1",
+  "title": "Open questions (app/open-questions.json)",
+  "description": "Open questions raised across the engagement, rendered by /decisions/ (Open Questions view).",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "app/open-questions.json"
+  },
+  "type": "object",
+  "required": [
+    "questions"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1
+          },
+          "context": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "deferred",
+              "closed"
+            ]
+          },
+          "date": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "session": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "integer"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "changelog": {
+      "type": "array",
+      "description": "Bump version/updated and append an entry here on every hand edit (the fill-in contract in bootstrap.md).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

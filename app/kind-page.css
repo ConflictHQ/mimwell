@@ -1,0 +1,96 @@
+/* Schema-rendered kind page (app/kind-page.js). Every class the renderer emits
+ * is styled here, on the --kb-* variable contract (docs/primitives/theming.md),
+ * so a page shell carries no list/entry/tab/pager CSS of its own. */
+.kind-page { display: block; }
+
+/* view toggle (multi-kind pages) */
+.kp-toggle { display: flex; gap: 8px; padding: 18px 32px 12px; flex-wrap: wrap; max-width: 1080px; margin: 0 auto; }
+.kp-view-btn { font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--kb-border, #ddd);
+  background: var(--kb-surface, #fff); color: var(--kb-text-muted, #666); cursor: pointer; }
+.kp-view-btn.active { background: var(--kb-primary, #223); color: #fff; border-color: var(--kb-primary, #223); }
+.kp-count { opacity: .7; font-variant-numeric: tabular-nums; }
+
+/* label tabs */
+.kp-tabs { display: flex; gap: 6px; padding: 0 32px 16px; flex-wrap: wrap; max-width: 1080px; margin: 0 auto; }
+.kp-tabs:empty { display: none; }
+.kp-tab { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--kb-border-light, #eee);
+  background: transparent; color: var(--kb-text-muted, #666); cursor: pointer; }
+.kp-tab.active { background: var(--kb-accent, #e8eef7); color: var(--kb-text, #111); border-color: var(--kb-border, #ddd); }
+.kp-tab-count { opacity: .6; font-variant-numeric: tabular-nums; }
+
+/* list */
+.kp-wrap { padding: 0 32px 48px; max-width: 1080px; margin: 0 auto; }
+.kp-results { display: block; }
+.kp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.kp-entry { background: var(--kb-surface, #fff); border: 1px solid var(--kb-border-light, #eee); border-radius: 10px; padding: 16px 18px; }
+.kp-entry-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; font-size: 12px; }
+.kp-date { color: var(--kb-text-faint, #999); font-family: var(--kb-font-mono, monospace); }
+.kp-status { padding: 2px 8px; border-radius: 999px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--kb-bg-deep, #f2f2f2); color: var(--kb-text-muted, #666); }
+.kp-status-open { background: #e6f4ea; color: #1e6b3a; }
+.kp-status-closed { background: #ececec; color: #555; }
+.kp-status-deferred { background: #fff4e0; color: #8a5a00; }
+.kp-status-high { background: #fde8e8; color: #9b1c1c; }
+.kp-status-other { }
+.kp-title { margin: 0 0 6px; font-family: var(--kb-font-heading, inherit); font-size: 17px; line-height: 1.3; color: var(--kb-text, #111); }
+.kp-body { margin: 0 0 8px; color: var(--kb-text-muted, #444); line-height: 1.55; white-space: pre-wrap; }
+.kp-sub { margin: 6px 0; }
+.kp-sub-key { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--kb-text-faint, #999); }
+.kp-sub-list { margin: 2px 0 0 18px; padding: 0; color: var(--kb-text-muted, #444); font-size: 14px; }
+.kp-labels { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.kp-label { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--kb-bg-deep, #f2f2f2); color: var(--kb-text-muted, #666); }
+.kp-entry-foot { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--kb-text-faint, #999); margin-top: 6px; }
+.kp-owner { color: var(--kb-text-muted, #666); }
+.kp-meta-item { }
+.kp-meta-key { text-transform: uppercase; letter-spacing: .04em; font-size: 10px; opacity: .8; }
+.kp-link, .kp-session { color: var(--kb-link, #1a56db); text-decoration: none; }
+.kp-link:hover, .kp-session:hover { text-decoration: underline; }
+
+/* pager */
+.kp-pager { display: flex; gap: 12px; align-items: center; justify-content: center; padding: 20px 0 0; }
+.kp-pager-btn { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--kb-border, #ddd);
+  background: var(--kb-surface, #fff); color: var(--kb-text, #111); cursor: pointer; }
+.kp-pager-btn[disabled] { opacity: .4; cursor: default; }
+.kp-pager-info { font-size: 12px; color: var(--kb-text-faint, #999); font-variant-numeric: tabular-nums; }
+
+/* states */
+.kp-state { text-align: center; padding: 48px 16px; color: var(--kb-text-faint, #999); }
+.kp-state-title { font-family: var(--kb-font-heading, inherit); font-size: 16px; color: var(--kb-text-muted, #666); margin-bottom: 4px; }
+.kp-spinner { width: 22px; height: 22px; margin: 0 auto 10px; border-radius: 50%; border: 2px solid var(--kb-border-light, #eee);
+  border-top-color: var(--kb-primary, #223); animation: kp-spin .8s linear infinite; }
+@keyframes kp-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 720px) {
+  .kp-toggle, .kp-tabs, .kp-wrap { padding-left: 16px; padding-right: 16px; }
+}
+
+/* Opt-in named record views reuse the shell palette and schema detail cards. */
+.kind-page[data-record-layout] { max-width:1080px; margin:0 auto; padding:0 32px 48px; }
+:root[data-kb-layout-width="wide"] .kind-page[data-record-layout] { max-width:1440px; }
+.kind-page[data-record-layout] a { color:var(--kb-link, var(--link, #2755aa)); text-underline-offset:3px; }
+.rv-views a { padding:.45rem .6rem; border:1px solid var(--kb-border, #ddd); border-radius:4px; }
+.rv-views, .rv-controls { display:flex; flex-wrap:wrap; gap:.75rem; margin-block:1rem; align-items:center; }
+.rv-views a[aria-current="page"] { font-weight:700; text-decoration:underline; }
+.rv-views a[data-pinned="true"]::before { content:'• '; }
+.rv-controls label { display:flex; gap:.4rem; align-items:center; }
+.rv-controls input, .rv-controls select, .kind-page[data-record-layout] button {
+  font:inherit; color:var(--kb-text); background:var(--kb-surface); border:1px solid var(--kb-border); padding:.5rem; border-radius:4px; max-width:100%;
+}
+.kind-page[data-record-layout] :focus-visible { outline:2px solid var(--kb-primary); outline-offset:3px; }
+.rv-workspace { display:block; }
+.kind-page[data-record-layout="workbench"][data-record-responsive="auto"] .rv-workspace { display:grid; grid-template-columns:minmax(15rem,1fr) minmax(0,2fr); gap:1.25rem; }
+.rv-master, .rv-detail { min-width:0; overflow-wrap:anywhere; }
+.rv-list, .rv-record { list-style:none; padding:0; margin:0; }
+.rv-list > li { padding:.85rem .5rem; border-bottom:1px solid var(--kb-border); }
+.rv-list a[aria-current="true"] { font-weight:700; }
+.kind-page[data-record-density="compact"] .rv-list > li { padding:.35rem .5rem; }
+.rv-detail { padding:1rem; border:1px solid var(--kb-border); border-radius:4px; }
+.kind-page[data-record-density="compact"] .rv-detail { padding:.5rem; }
+.rv-count { color:var(--kb-text-muted); }
+@media (max-width:760px) {
+  .kind-page[data-record-layout] { padding-inline:20px; }
+  .kind-page[data-record-layout="workbench"][data-record-responsive="auto"] .rv-workspace { display:block; }
+  .rv-controls label { flex-wrap:wrap; }
+  .rv-detail { margin-top:1rem; }
+}
+@media print { .rv-controls, .rv-views, .rv-master nav { display:none; } .rv-workspace { display:block!important; } }

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the stylesheet rules below reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --red-dark: #B02A3A;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1500px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 640px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Status legend ── */
+  .legend {
+    max-width: 1500px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-dot.done { background: var(--green); }
+  .legend-dot.in-progress { background: var(--yellow); }
+  .legend-dot.blocked { background: var(--red); }
+  .legend-dot.planned { background: var(--dim); }
+
+  /* ── View toggle ── */
+  .viewbar { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; display: flex; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .seg button {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    background: transparent; color: var(--dim); border: none; border-right: 1px solid var(--border);
+    padding: 7px 16px; cursor: pointer; transition: background .15s, color .15s;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { color: var(--text); }
+  .seg button.active { background: var(--red-dim); color: var(--red); }
+
+  /* ── Board ── */
+  .board { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; display: flex; flex-direction: column; gap: 24px; }
+
+  /* ── Gantt ── */
+  .gantt { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; }
+  .gantt-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  #ganttSvg { display: block; min-width: 900px; }
+  #ganttSvg text { font-family: var(--kb-font-mono); fill: var(--muted); }
+  #ganttSvg .g-epic-label { font-family: var(--kb-font-heading); fill: var(--text); letter-spacing: .04em; }
+  #ganttSvg .g-axis { fill: var(--dim); }
+  #ganttSvg .g-bar { cursor: default; }
+  #ganttSvg .g-bar:hover { opacity: .85; }
+  #ganttSvg .g-swimrule { stroke: var(--border); stroke-width: 1; }
+  #ganttSvg .g-grid { stroke: var(--border); stroke-width: 1; opacity: .5; stroke-dasharray: 2 4; }
+  #ganttSvg .g-dep { stroke: var(--red); stroke-width: 1.5; fill: none; opacity: .6; }
+  #ganttSvg .g-dep-head { fill: var(--red); opacity: .6; }
+
+  /* ── Phase lane ── */
+  .phase {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--dim); overflow: hidden;
+  }
+  .phase.done { border-left-color: var(--green); }
+  .phase.in-progress { border-left-color: var(--yellow); }
+  .phase.blocked { border-left-color: var(--red); }
+  .phase.planned { border-left-color: var(--dim); }
+  .phase-head { padding: 20px 22px 18px; border-bottom: 1px solid var(--border); }
+  .phase-eyebrow { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+  .phase-titlerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .phase-title { font-family: var(--kb-font-heading); font-size: 26px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); }
+  .phase-summary { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin-top: 12px; }
+  .phase-progress { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; }
+  .stat { display: flex; align-items: baseline; gap: 6px; }
+  .stat .num { font-family: var(--kb-font-heading); font-size: 20px; line-height: 1; }
+  .stat.done .num { color: var(--green); }
+  .stat.in-progress .num { color: var(--yellow); }
+  .stat.blocked .num { color: var(--red); }
+  .stat.planned .num { color: var(--muted); }
+  .stat .lbl { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+  .phase-body { padding: 8px 22px 22px; }
+
+  /* ── Epic ── */
+  .epic {
+    border: 1px solid var(--border); border-radius: var(--radius); border-left: 3px solid var(--dim);
+    background: var(--surface2); padding: 16px 18px; margin-top: 14px;
+  }
+  .epic:first-of-type { margin-top: 8px; }
+  .epic.done { border-left-color: var(--green); }
+  .epic.in-progress { border-left-color: var(--yellow); }
+  .epic.blocked { border-left-color: var(--red); }
+  .epic-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+  .epic-title { font-family: var(--kb-font-heading); font-size: 17px; letter-spacing: .06em; text-transform: uppercase; color: var(--text); line-height: 1.15; }
+  .node-summary { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 6px 0 12px; }
+
+  /* ── Feature grid ── */
+  .features { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+  .feature-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .feature-title { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.3; flex: 1; min-width: 0; }
+
+  /* ── Stories ── */
+  .stories { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .story { display: flex; gap: 9px; align-items: flex-start; }
+  .story-marker { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-top: 5px; }
+  .story-marker.done { background: var(--green); }
+  .story-marker.in-progress { background: var(--yellow); }
+  .story-marker.blocked { background: var(--red); }
+  .story-marker.planned { background: var(--dim); }
+  .story-main { flex: 1; min-width: 0; }
+  .story-title { font-size: 12px; color: var(--text); line-height: 1.4; }
+  .story-title.done { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--border2); }
+
+  /* ── Badges + meta ── */
+  .badge {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid; border-radius: 3px; padding: 1px 7px; white-space: nowrap; flex: none;
+  }
+  .badge.status.done { color: var(--green); background: var(--green-dim); border-color: rgba(27,161,94,.4); }
+  .badge.status.in-progress { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(245,166,35,.4); }
+  .badge.status.blocked { color: var(--red); background: var(--red-dim); border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .badge.status.planned { color: var(--dim); background: var(--surface); border-color: var(--border2); }
+  .badge.status { margin-left: auto; }
+  .badge.prio.critical, .badge.prio.high { color: var(--red); border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); background: var(--red-dim); }
+  .badge.prio.medium { color: var(--blue); border-color: rgba(47,71,142,.35); background: var(--blue-dim); }
+  .badge.prio.low { color: var(--dim); border-color: var(--border2); background: var(--surface); }
+  .meta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+  .chip { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
+  .chip.est { color: var(--text); }
+  .deps { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em; color: var(--dim); margin-top: 3px; }
+  .deps b { color: var(--muted); font-weight: 500; }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .legend, .board, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Plan</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Plan</h1>
+  <p class="page-subtitle">The project plan — phases broken down into epics, features, and stories. Every node is read from the spec files under <code>specs/</code>.</p>
+  <div class="page-meta" id="page-meta"><span id="node-count">—</span> nodes</div>
+</section>
+
+<!-- Status legend -->
+<div class="legend" id="legend" aria-label="Status legend">
+  <div class="legend-item"><span class="legend-dot done"></span><span>Done</span></div>
+  <div class="legend-item"><span class="legend-dot in-progress"></span><span>In progress</span></div>
+  <div class="legend-item"><span class="legend-dot blocked"></span><span>Blocked</span></div>
+  <div class="legend-item"><span class="legend-dot planned"></span><span>Planned</span></div>
+</div>
+
+<!-- View toggle -->
+<div class="viewbar">
+  <div class="seg" id="view-seg" role="tablist" aria-label="Plan view">
+    <button data-view="board" class="active" role="tab" aria-selected="true">Plan</button>
+    <button data-view="gantt" role="tab" aria-selected="false">Gantt</button>
+  </div>
+</div>
+
+<!-- Board -->
+<div class="board" id="board">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Fetching the plan…</div>
+  </div>
+</div>
+
+<!-- Gantt -->
+<div class="gantt" id="gantt" hidden></div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  const name = KBNav.brainName(cfg);
+  document.title = (name ? name + ' — ' : '') + 'Plan';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', KBNav.brainShortName(cfg));
+  set('page-eyebrow-text', name ? name + ' Plan' : 'Plan');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [KBNav.brainShortName(cfg), KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Plan (reads /specs/manifest.json) ────────────────────────────────────────
+const STATUS_LABEL = { 'done': 'Done', 'in-progress': 'In progress', 'blocked': 'Blocked', 'planned': 'Planned' };
+function statusClass(s) { return STATUS_LABEL[s] ? s : 'planned'; }
+function statusLabel(s) { return STATUS_LABEL[s] || 'Planned'; }
+
+// Build a parent->children index so we can render the tree from the flat list.
+function indexChildren(items) {
+  const kids = {};
+  items.forEach(it => {
+    const p = it.parent || '';
+    (kids[p] = kids[p] || []).push(it);
+  });
+  return kids;
+}
+
+function childrenOf(kids, id, type) {
+  return (kids[id] || []).filter(c => !type || c.type === type);
+}
+
+function badges(node) {
+  const out = [];
+  if (node.priority) out.push(`<span class="badge prio ${esc(node.priority)}" title="Priority">${esc(node.priority)}</span>`);
+  return out.join('');
+}
+
+function metaRow(node) {
+  const chips = [];
+  if (node.estimate) chips.push(`<span class="chip est" title="Estimate">${esc(node.estimate)}</span>`);
+  if (node.date) chips.push(`<span class="chip" title="Date">${esc(node.date)}</span>`);
+  (node.labels || []).forEach(l => chips.push(`<span class="chip">${esc(l)}</span>`));
+  const deps = (node.depends_on || []).length
+    ? `<div class="deps"><b>depends on</b> ${node.depends_on.map(esc).join(', ')}</div>`
+    : '';
+  const row = chips.length ? `<div class="meta-row">${chips.join('')}</div>` : '';
+  return row + deps;
+}
+
+function storyHTML(st) {
+  const sc = statusClass(st.status);
+  return `<li class="story">
+    <span class="story-marker ${sc}" title="${esc(statusLabel(st.status))}"></span>
+    <div class="story-main">
+      <div class="story-title ${sc}">${esc(st.title)}</div>
+      ${metaRow(st)}
+    </div>
+  </li>`;
+}
+
+function featureHTML(ft, kids) {
+  const sc = statusClass(ft.status);
+  const stories = childrenOf(kids, ft.id, 'story');
+  const list = stories.length
+    ? `<ul class="stories">${stories.map(storyHTML).join('')}</ul>`
+    : '';
+  return `<div class="feature">
+    <div class="feature-head">
+      <span class="feature-title">${esc(ft.title)}</span>
+      ${badges(ft)}
+      <span class="badge status ${sc}">${esc(statusLabel(ft.status))}</span>
+    </div>
+    ${metaRow(ft)}
+    ${list}
+  </div>`;
+}
+
+function epicHTML(ep, kids) {
+  const sc = statusClass(ep.status);
+  const features = childrenOf(kids, ep.id, 'feature');
+  const grid = features.length
+    ? `<div class="features">${features.map(f => featureHTML(f, kids)).join('')}</div>`
+    : '';
+  return `<div class="epic ${sc}">
+    <div class="epic-head">
+      <span class="epic-title">${esc(ep.title)}</span>
+      ${badges(ep)}
+      <span class="badge status ${sc}">${esc(statusLabel(ep.status))}</span>
+    </div>
+    ${metaRow(ep)}
+    ${grid}
+  </div>`;
+}
+
+// Tally descendant statuses (epics + features + stories) for the phase header.
+function tally(kids, id, acc) {
+  (kids[id] || []).forEach(c => {
+    acc[statusClass(c.status)] = (acc[statusClass(c.status)] || 0) + 1;
+    tally(kids, c.id, acc);
+  });
+  return acc;
+}
+
+function phaseProgress(ph, kids) {
+  const acc = tally(kids, ph.id, {});
+  const order = ['done', 'in-progress', 'blocked', 'planned'];
+  const stats = order.filter(k => acc[k]).map(k =>
+    `<div class="stat ${k}"><span class="num">${acc[k]}</span><span class="lbl">${esc(statusLabel(k))}</span></div>`
+  ).join('');
+  return stats ? `<div class="phase-progress">${stats}</div>` : '';
+}
+
+function phaseHTML(ph, kids) {
+  const sc = statusClass(ph.status);
+  const epics = childrenOf(kids, ph.id, 'epic');
+  // Features/stories declared directly under a phase (no epic) still render.
+  const looseFeatures = childrenOf(kids, ph.id, 'feature');
+  const body = epics.map(e => epicHTML(e, kids)).join('') +
+               looseFeatures.map(f =>
+                 `<div class="features">${featureHTML(f, kids)}</div>`).join('');
+  return `<section class="phase ${sc}">
+    <div class="phase-head">
+      <div class="phase-eyebrow">Phase</div>
+      <div class="phase-titlerow">
+        <h2 class="phase-title">${esc(ph.title)}</h2>
+        ${badges(ph)}
+        <span class="badge status ${sc}">${esc(statusLabel(ph.status))}</span>
+      </div>
+      ${metaRow(ph)}
+      ${phaseProgress(ph, kids)}
+    </div>
+    <div class="phase-body">${body || '<div class="node-summary">No epics yet.</div>'}</div>
+  </section>`;
+}
+
+async function loadPlan() {
+  const board = document.getElementById('board');
+  let data;
+  try {
+    const r = await fetch('/specs/manifest.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    board.innerHTML =
+      '<div class="statebox error">' +
+        '<div class="st-title">Failed to load</div>' +
+        '<div>Could not fetch <code>specs/manifest.json</code> (' + esc(err.message) + ').</div>' +
+        '<div style="margin-top:10px">Run <code>make specs</code> to generate it.</div>' +
+      '</div>';
+    return;
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+  document.getElementById('node-count').textContent = items.length;
+
+  if (!items.length) {
+    board.innerHTML =
+      '<div class="statebox">' +
+        '<div class="st-title">No plan yet</div>' +
+        '<div>Author the plan as markdown under <code>specs/</code>, then run <code>make specs</code>.</div>' +
+        '<div style="margin-top:10px">See <code>specs/README.md</code> for the structure.</div>' +
+      '</div>';
+    PLAN.items = []; PLAN.ready = true;
+    if (PLAN.view === 'gantt') renderGantt();
+    return;
+  }
+
+  const kids = indexChildren(items);
+  const phases = childrenOf(kids, '', 'phase');
+  // Fallback: if nothing is typed as a phase, treat every top-level node as one.
+  const roots = phases.length ? phases : childrenOf(kids, '');
+  board.innerHTML = roots.map(p => phaseHTML(p, kids)).join('');
+
+  // Stash the parsed plan so the Gantt view can render from the same model.
+  PLAN.items = items;
+  PLAN.byId = new Map(items.map(it => [it.id, it]));
+  PLAN.kids = kids;
+  PLAN.roots = roots;
+  PLAN.ready = true;
+  if (PLAN.view === 'gantt') renderGantt();
+}
+
+// ── Gantt (renders from the same flat item list) ─────────────────────────────
+// Layout: one swimlane per top-level node (phase/epic). Within a lane each
+// epic|feature is a row with a bar positioned on a date axis and sized by its
+// estimate; child stories appear as ticks. Undated items are sequenced to the
+// right of the dated range so they never overlap. Dependency arrows connect
+// each item to the things it depends_on. Status drives color via the theme.
+const PLAN = { items: [], byId: new Map(), kids: {}, roots: [], ready: false, view: 'board' };
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+// Parse an estimate like "3d", "2w", "4h", "1mo" into days (best effort).
+function estimateDays(est) {
+  const m = String(est || '').trim().match(/^(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mos|month|months)?$/i);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  const u = (m[2] || 'd').toLowerCase();
+  if (u[0] === 'h') return n / 8;
+  if (u[0] === 'w') return n * 5;
+  if (u.startsWith('mo')) return n * 22;
+  return n; // days
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function itemDate(it) { return (it.date && DATE_RE.test(it.date)) ? new Date(it.date + 'T00:00:00') : null; }
+
+function statusColor(s) {
+  const sc = statusClass(s);
+  return sc === 'done' ? 'var(--green)'
+    : sc === 'in-progress' ? 'var(--yellow)'
+    : sc === 'blocked' ? 'var(--red)'
+    : 'var(--dim)';
+}
+
+// SVG element helpers.
+function svgEl(name, attrs, parent) {
+  const el = document.createElementNS(SVGNS, name);
+  for (const k in attrs) if (attrs[k] != null) el.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+function svgText(parent, x, y, txt, cls, anchor, size, fill) {
+  const t = svgEl('text', { x, y, class: cls || '', 'text-anchor': anchor || 'start', 'font-size': size || 11, fill }, parent);
+  t.textContent = txt;
+  return t;
+}
+function svgTitle(parent, txt) { const t = svgEl('title', {}, parent); t.textContent = txt; return t; }
+function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+
+function renderGantt() {
+  const root = document.getElementById('gantt');
+  root.innerHTML = '';
+
+  if (!PLAN.items.length) {
+    root.innerHTML =
+      '<div class="statebox">' +
+        '<div class="st-title">No plan yet</div>' +
+        '<div>Author the plan as markdown under <code>specs/</code>, then run <code>make specs</code>.</div>' +
+      '</div>';
+    return;
+  }
+
+  const kids = PLAN.kids;
+
+  // Each top-level root (phase) is a lane; its rows are epics + loose features.
+  // If a phase has epics, we also pull the epics' features in as indented rows.
+  const lanes = [];
+  for (const ph of PLAN.roots) {
+    const rows = [];
+    for (const ep of childrenOf(kids, ph.id, 'epic')) {
+      rows.push({ item: ep, indent: 0 });
+      for (const ft of childrenOf(kids, ep.id, 'feature')) rows.push({ item: ft, indent: 1 });
+    }
+    for (const ft of childrenOf(kids, ph.id, 'feature')) rows.push({ item: ft, indent: 0 });
+    // A phase with no epics/features still gets one row for itself.
+    if (!rows.length) rows.push({ item: ph, indent: 0 });
+    lanes.push({ phase: ph, rows });
+  }
+
+  // ── Time scale ── collect real dates across all items, accounting for estimate
+  // so the axis covers bar end dates too.
+  let minT = Infinity, maxT = -Infinity;
+  for (const it of PLAN.items) {
+    const d = itemDate(it);
+    if (!d) continue;
+    minT = Math.min(minT, +d);
+    maxT = Math.max(maxT, +d + estimateDays(it.estimate) * 86400000);
+  }
+  const hasDates = minT !== Infinity;
+
+  const PAD_L = 240, PAD_R = 50, PAD_T = 38, ROW_H = 34, LANE_GAP = 22;
+  const BAR_H = 16, MIN_BAR = 10, TICK_R = 4.5;
+
+  const svgWidth = Math.max(900, PAD_L + 720 + PAD_R);
+  const plotW = svgWidth - PAD_L - PAD_R;
+  const datedW = hasDates ? Math.round(plotW * 0.62) : 0;
+  const datedX0 = PAD_L;
+  const datedX1 = PAD_L + datedW;
+  const seqW = plotW - datedW;
+  const spanMs = (maxT - minT) || 86400000;
+  const dayPx = hasDates ? (datedW - 30) / (spanMs / 86400000) : 0;
+
+  const dateToX = (ms) => datedX0 + ((ms - minT) / spanMs) * (datedW - 30);
+
+  // Sequence undated items left→right in document order, right of the dated band.
+  const undated = PLAN.items.filter(it => !itemDate(it));
+  const seqIndex = new Map(undated.map((it, i) => [it.id, i]));
+  const seqStep = Math.min(seqW / (undated.length + 1), 90);
+  const seqToX = (id) => datedX1 + 24 + (seqIndex.get(id) ?? 0) * seqStep;
+
+  const itemX = (it) => { const d = itemDate(it); return d ? dateToX(+d) : seqToX(it.id); };
+
+  const totalRows = lanes.reduce((n, l) => n + l.rows.length, 0);
+  const totalHeight = PAD_T + lanes.length * (LANE_GAP + 12) + totalRows * ROW_H + 24;
+
+  const svg = svgEl('svg', {
+    id: 'ganttSvg', width: svgWidth, height: totalHeight,
+    viewBox: `0 0 ${svgWidth} ${totalHeight}`
+  });
+
+  // arrow marker for dependency heads
+  const defs = svgEl('defs', {}, svg);
+  const marker = svgEl('marker', {
+    id: 'gantt-arrow', viewBox: '0 0 8 8', refX: 7, refY: 4,
+    markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse'
+  }, defs);
+  svgEl('path', { d: 'M0,0 L8,4 L0,8 Z', class: 'g-dep-head' }, marker);
+
+  // Axis labels + the dated|sequenced divider.
+  if (hasDates) {
+    svgText(svg, datedX0, 22, new Date(minT).toISOString().slice(0, 10), 'g-axis', 'start', 9);
+    svgText(svg, datedX1 - 30, 22, new Date(maxT).toISOString().slice(0, 10), 'g-axis', 'end', 9);
+    if (undated.length) svgText(svg, datedX1 + 24, 22, 'sequenced (TBD →)', 'g-axis', 'start', 9);
+    svgEl('line', { x1: datedX1, y1: PAD_T - 8, x2: datedX1, y2: totalHeight - 14, class: 'g-swimrule' }, svg);
+  } else {
+    svgText(svg, datedX0, 22, 'No dates set — items sequenced by document order', 'g-axis', 'start', 9);
+  }
+
+  const geom = new Map(); // id -> { x0, x1, y } for dependency arrows
+
+  let y = PAD_T + 12;
+  for (const lane of lanes) {
+    // Lane (phase) label + status pip.
+    svgEl('circle', { cx: 16, cy: y - 4, r: 4, fill: statusColor(lane.phase.status) }, svg);
+    svgText(svg, 26, y, truncate(lane.phase.title, 22), 'g-epic-label', 'start', 14);
+    geom.set(lane.phase.id, { x0: PAD_L - 10, x1: PAD_L - 10, y });
+    y += 8;
+
+    for (const { item, indent } of lane.rows) {
+      const rowY = y + ROW_H / 2;
+      const stories = childrenOf(kids, item.id, 'story');
+
+      // Bar start = item date (or sequenced x). Width from estimate, widened to
+      // cover any dated child stories.
+      const start = itemX(item);
+      const d = itemDate(item);
+      let width = (d && dayPx) ? Math.max(estimateDays(item.estimate) * dayPx, MIN_BAR) : MIN_BAR * 3;
+      let barEnd = start + width;
+      for (const st of stories) { const sx = itemX(st); if (sx > barEnd) barEnd = sx + TICK_R; }
+      width = Math.max(barEnd - start, MIN_BAR);
+
+      const dashed = !d; // undated → dashed placeholder
+      const color = statusColor(item.status);
+
+      // Left gutter label, indented for features under an epic.
+      svgText(svg, 30 + indent * 16, rowY + 4, truncate(item.title, indent ? 24 : 28),
+        '', 'start', indent ? 10 : 11, indent ? 'var(--muted)' : 'var(--text)');
+
+      const bar = svgEl('rect', {
+        x: start, y: rowY - BAR_H / 2, width, height: BAR_H, rx: 3, class: 'g-bar',
+        fill: dashed ? 'transparent' : color, opacity: dashed ? null : 0.9,
+        stroke: dashed ? color : null, 'stroke-dasharray': dashed ? '4 3' : null,
+        'stroke-width': dashed ? 1.4 : null
+      }, svg);
+      svgTitle(bar, item.title + ' — ' + statusLabel(item.status) + (item.date ? ' · ' + item.date : '') + (item.estimate ? ' · ' + item.estimate : ''));
+      geom.set(item.id, { x0: start, x1: start + width, y: rowY });
+
+      // Story ticks along the row.
+      for (const st of stories) {
+        const sx = itemX(st);
+        const hollow = !itemDate(st);
+        const tick = svgEl('circle', {
+          cx: sx, cy: rowY, r: TICK_R,
+          fill: hollow ? 'var(--surface)' : statusColor(st.status),
+          stroke: hollow ? statusColor(st.status) : null, 'stroke-width': hollow ? 1.6 : null
+        }, svg);
+        svgTitle(tick, st.title + ' — ' + statusLabel(st.status));
+        geom.set(st.id, { x0: sx, x1: sx, y: rowY });
+      }
+
+      y += ROW_H;
+    }
+
+    // Swim separator under the lane.
+    svgEl('line', { x1: 10, y1: y + LANE_GAP / 2 - 4, x2: svgWidth - 16, y2: y + LANE_GAP / 2 - 4, class: 'g-swimrule' }, svg);
+    y += LANE_GAP;
+  }
+
+  // Dependency arrows: from prerequisite's right edge to dependent's left edge.
+  for (const it of PLAN.items) {
+    for (const depId of (it.depends_on || [])) {
+      const from = geom.get(depId), to = geom.get(it.id);
+      if (!from || !to) continue;
+      const x1 = from.x1 + 6, y1 = from.y, x2 = to.x0 - 6, y2 = to.y;
+      const midX = Math.max(x1, x2) + 14;
+      const dPath = Math.abs(y1 - y2) < 2
+        ? `M${x1},${y1} L${x2},${y2}`
+        : `M${x1},${y1} C ${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+      svgEl('path', { d: dPath, class: 'g-dep', 'marker-end': 'url(#gantt-arrow)' }, svg);
+    }
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'gantt-wrap';
+  wrap.appendChild(svg);
+  root.appendChild(wrap);
+}
+
+// View toggle: swap between the board and the Gantt.
+function setView(view) {
+  PLAN.view = view;
+  const board = document.getElementById('board');
+  const gantt = document.getElementById('gantt');
+  board.hidden = view !== 'board';
+  gantt.hidden = view !== 'gantt';
+  document.querySelectorAll('#view-seg button').forEach(b => {
+    const on = b.dataset.view === view;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (view === 'gantt' && PLAN.ready) renderGantt();
+}
+document.getElementById('view-seg').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (btn) setView(btn.dataset.view);
+});
+
+loadConfig();
+loadPlan();
+</script>
+</body>
+</html>

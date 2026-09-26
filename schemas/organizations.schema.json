@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "organizations.schema.json",
+  "title": "Organizations register",
+  "description": "The organization register (buildout W1.4): a scope-level entity table. Each entry is one organization this brain knows; `aliases` are other names it goes by, `kind` classifies the relationship, `scope_id` is the federation-wide identifier when a parent register has assigned one (empty until then).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "version": {
+      "type": [
+        "integer",
+        "string"
+      ]
+    },
+    "updated": {
+      "type": "string"
+    },
+    "changelog": {
+      "type": "array"
+    },
+    "organizations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "client",
+              "partner",
+              "vendor",
+              "owner",
+              "prospect",
+              "other"
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "domain": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

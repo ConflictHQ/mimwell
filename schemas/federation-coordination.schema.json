@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/federation-coordination/v1",
+  "x-conflict": {
+    "version": "1.0"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/basis"
+    },
+    {
+      "$ref": "#/$defs/withdrawal"
+    }
+  ],
+  "$defs": {
+    "basis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registryEpoch",
+        "indexEpoch",
+        "instance"
+      ],
+      "properties": {
+        "registryEpoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "indexEpoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "instance": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "withdrawal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "ticket",
+        "epoch",
+        "views",
+        "evicted",
+        "complete"
+      ],
+      "properties": {
+        "format": {
+          "const": "federation-withdrawal/v1"
+        },
+        "ticket": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "views": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "evicted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

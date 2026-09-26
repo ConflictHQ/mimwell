@@ -1,0 +1,43 @@
+.git
+.wrangler
+.gitmodules
+node_modules
+.env
+.env.*
+.dev.vars
+.dev.vars.example
+.claude
+worker.js
+package.json
+package-lock.json
+wrangler.toml
+**/*.wav
+**/*.mp4
+**/*.db
+**/.brain-projection-*
+
+_internal
+
+# Secrets — never serve (catch env files that don't match .env above)
+*.env
+
+# Metarepo pattern: list independent sibling repo directories here too — this
+# guards local `wrangler dev` / direct `wrangler deploy` from a workspace root
+# (the deployed bundle already excludes them via .gitignore).
+.github
+access-leaks.json
+
+# Derived vector sidecar contains identities across the full local corpus.
+app/brain.vec.json
+
+# D1 load script (#37): the whole brain, emitted at deploy; D1 serves it, assets never.
+app/brain.d1.sql
+
+# D1 corpus index load script (#64): every indexed document's text, restricted ones included.
+app/corpus.d1.sql
+
+# Optional native sources/build output and local models are not portal assets.
+runtime/brain-classifier
+
+# App bundles are served only by the authenticated app host (#371).
+apps

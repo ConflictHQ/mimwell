@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Stories</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.05);
+    --surface2: rgba(255,255,255,0.08);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 10%, transparent);
+    --red-dark: #9C2633;
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    --green:    var(--kb-accent); --green-dim: rgba(76,175,80,0.1);
+    --yellow:   #F5A623; --yellow-dim: rgba(245,166,35,0.08);
+    --blue:     var(--kb-link); --blue-dim: rgba(74,127,165,0.1);
+    --purple:   #7A5BA8; --purple-dim: rgba(122,91,168,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1080px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 620px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Filter bars ── */
+  .filterbar {
+    max-width: 1080px; margin: 0 auto; padding: 0 32px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  }
+  .filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .filter-label {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); margin-right: 2px;
+  }
+  /* Status filter (pill chips) */
+  .statusbar { margin-top: 22px; }
+  .chip {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+    padding: 4px 11px; transition: color .15s, border-color .15s, background .15s;
+  }
+  .chip:hover { color: var(--text); }
+  .chip.active { color: var(--red); border-color: var(--red); background: var(--red-dim); }
+  .chip-count { color: var(--dim); }
+  .chip.active .chip-count { color: var(--red); }
+
+  /* Label filter (tabs, matches Action Items) */
+  .tabbar {
+    max-width: 1080px; margin: 22px auto 0; padding: 0 32px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); background: none;
+    border: none; border-bottom: 2px solid transparent; cursor: pointer;
+    padding: 8px 12px 9px; transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); }
+  .tab-count { color: var(--dim); }
+  .tab.active .tab-count { color: var(--red); }
+
+  /* ── Body ── */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  /* ── Epic groups ── */
+  .group { margin-bottom: 34px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  }
+  .group-title {
+    font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text);
+  }
+  .group-count { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); margin-left: auto; white-space: nowrap; }
+
+  /* ── Story cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--red); padding: 15px 16px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .card.status-done { border-left-color: var(--green); }
+  .card.status-in-progress { border-left-color: var(--yellow); }
+  .card.status-ready { border-left-color: var(--blue); }
+  .card.status-draft { border-left-color: var(--border2); }
+
+  .card-top { display: flex; align-items: flex-start; gap: 10px; }
+  .card-id { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; color: var(--dim); white-space: nowrap; padding-top: 2px; }
+  .card-title { font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .03em; line-height: 1.2; color: var(--text); flex: 1; }
+  .status-badge {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    border-radius: 3px; padding: 3px 8px; border: 1px solid var(--border2);
+    color: var(--muted); background: var(--surface);
+  }
+  .status-badge.status-done { color: var(--green); background: var(--green-dim); border-color: rgba(76,175,80,.4); }
+  .status-badge.status-in-progress { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(245,166,35,.4); }
+  .status-badge.status-ready { color: var(--blue); background: var(--blue-dim); border-color: rgba(74,127,165,.4); }
+
+  /* As a / I want / So that */
+  .story { display: flex; flex-direction: column; gap: 5px; }
+  .story-line { font-size: 13px; line-height: 1.5; color: var(--text); }
+  .story-key {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--red); margin-right: 6px;
+  }
+
+  /* Acceptance criteria */
+  .ac { border-top: 1px solid var(--border); padding-top: 11px; }
+  .ac-head {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--dim); margin-bottom: 7px;
+  }
+  .ac-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .ac-item { position: relative; padding-left: 16px; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .ac-item::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--red); opacity: .6; }
+
+  /* Labels */
+  .card-foot { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .label-pill {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    color: var(--red); background: var(--red-dim);
+    border: 1px solid var(--red-dim); border-radius: 3px; padding: 2px 8px;
+  }
+
+  /* ── Related cross-references (optional per story) ── */
+  .related {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    border-top: 1px solid var(--border); padding-top: 11px;
+  }
+  .related-lbl {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--dim); margin-right: 2px;
+  }
+  .related-link {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--blue); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 3px; padding: 3px 9px;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .related-link:hover { color: var(--text); border-color: var(--blue); background: var(--blue-dim); }
+  .related-link .rk { color: var(--dim); }
+
+  /* ── States ── */
+  .statebox, .errorbox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 44px 28px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .st-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 6px; }
+  .errorbox { border-color: var(--red); }
+  .errorbox .st-title { color: var(--red); }
+  .statebox code, .errorbox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .tabbar, .statusbar, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+    .cards { grid-template-columns: 1fr; }
+    .group-count { margin-left: 0; }
+  }
+</style>
+<!-- Shared light/dark theme: overrides the local alias vars per theme (loaded
+     AFTER the page's own <style> so its higher-specificity rules win) and
+     injects the toggle into .topbar. theme.js owns all toggle logic. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">User Stories</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">User Stories</h1>
+  <p class="page-subtitle">Product user stories captured for the engagement, grouped by epic. Each card states the role, the goal, the benefit, and its acceptance criteria. Filter by status or label.</p>
+  <div class="page-meta" id="page-meta"><span id="item-count">—</span> stories</div>
+</section>
+
+<!-- Status filter (chips) -->
+<nav class="filterbar statusbar" id="statusbar" aria-label="Filter user stories by status">
+  <span class="filter-label">Status</span>
+  <div class="filter-group" id="statuschips"></div>
+</nav>
+
+<!-- Label filter (tabs) -->
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Filter user stories by label"></nav>
+
+<!-- Body -->
+<div class="wrap">
+  <div id="results">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching user stories…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<client.name> — User Stories".
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'User Stories';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' User Stories' : 'User Stories');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── User stories (reads /app/user-stories.json) ──────────────────────────────
+const ALL = '__all__';
+const NO_EPIC = '__none__';
+// Known statuses → display order + label. Unknown values fall through as 'draft'.
+const STATUS_ORDER = ['in-progress', 'ready', 'draft', 'done'];
+const STATUS_LABEL = { 'in-progress': 'In Progress', 'ready': 'Ready', 'draft': 'Draft', 'done': 'Done' };
+const state = { stories: [], status: ALL, label: ALL, tabs: [] };
+
+function statusClass(s) { return STATUS_LABEL[s] ? s : 'draft'; }
+function statusLabel(s) { return STATUS_LABEL[s] || 'Draft'; }
+function storyLabels(st) { return Array.isArray(st.labels) ? st.labels : []; }
+
+// Apply status + label filters together.
+function filtered() {
+  return state.stories.filter(st => {
+    if (state.status !== ALL && statusClass(st.status) !== state.status) return false;
+    if (state.label !== ALL && storyLabels(st).indexOf(state.label) === -1) return false;
+    return true;
+  });
+}
+
+// ── Filter chrome ────────────────────────────────────────────────────────────
+function renderStatusChips() {
+  const wrap = document.getElementById('statuschips');
+  // Only show chips for statuses that actually occur in the data, in canonical order.
+  const present = new Set(state.stories.map(st => statusClass(st.status)));
+  const ordered = STATUS_ORDER.filter(s => present.has(s));
+  const chips = [{ id: ALL, label: 'All' }].concat(ordered.map(s => ({ id: s, label: statusLabel(s) })));
+  wrap.innerHTML = chips.map(c => {
+    const active = c.id === state.status;
+    const count = c.id === ALL ? state.stories.length : state.stories.filter(st => statusClass(st.status) === c.id).length;
+    return '<button class="chip' + (active ? ' active' : '') + '" type="button" data-status="' + esc(c.id) + '"' +
+      ' aria-pressed="' + (active ? 'true' : 'false') + '">' +
+      esc(c.label) + ' <span class="chip-count">(' + count + ')</span></button>';
+  }).join('');
+}
+
+// Label tabs from the union of story.labels (data-driven, never hardcoded).
+function buildTabList(stories) {
+  const seen = new Set();
+  stories.forEach(st => storyLabels(st).forEach(l => seen.add(l)));
+  const ordered = Array.from(seen).sort((a, b) => a.localeCompare(b));
+  return [{ id: ALL, label: 'All' }].concat(ordered.map(l => ({ id: l, label: l })));
+}
+
+function labelCount(id) {
+  if (id === ALL) return state.stories.length;
+  return state.stories.filter(st => storyLabels(st).indexOf(id) !== -1).length;
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  // Hide the label bar entirely when no story carries a label.
+  if (state.tabs.length <= 1) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+  bar.style.display = '';
+  bar.innerHTML = state.tabs.map(t => {
+    const active = t.id === state.label;
+    return '<button class="tab' + (active ? ' active' : '') + '" type="button" role="tab"' +
+      ' aria-selected="' + (active ? 'true' : 'false') + '" data-tab="' + esc(t.id) + '">' +
+      esc(t.label) + ' <span class="tab-count">(' + labelCount(t.id) + ')</span></button>';
+  }).join('');
+}
+
+// ── Card rendering ───────────────────────────────────────────────────────────
+function storyLine(key, val) {
+  if (val == null || String(val).trim() === '') return '';
+  return '<div class="story-line"><span class="story-key">' + key + '</span>' + esc(val) + '</div>';
+}
+
+function cardHTML(st) {
+  const sc = statusClass(st.status);
+  const story =
+    storyLine('As a', st.as_a) +
+    storyLine('I want', st.i_want) +
+    storyLine('So that', st.so_that);
+
+  const ac = Array.isArray(st.acceptance) ? st.acceptance.filter(a => a != null && String(a).trim() !== '') : [];
+  const acHTML = ac.length
+    ? '<div class="ac"><div class="ac-head">Acceptance criteria</div><ul class="ac-list">' +
+        ac.map(a => '<li class="ac-item">' + esc(a) + '</li>').join('') +
+      '</ul></div>'
+    : '';
+
+  const labels = storyLabels(st);
+  const foot = labels.length
+    ? '<div class="card-foot">' + labels.map(l => '<span class="label-pill">' + esc(l) + '</span>').join('') + '</div>'
+    : '';
+
+  return '<article class="card status-' + sc + '">' +
+    '<div class="card-top">' +
+      (st.id ? '<span class="card-id">' + esc(st.id) + '</span>' : '') +
+      '<h3 class="card-title">' + esc(st.title || 'Untitled story') + '</h3>' +
+      '<span class="status-badge status-' + sc + '">' + esc(statusLabel(st.status)) + '</span>' +
+    '</div>' +
+    (story ? '<div class="story">' + story + '</div>' : '') +
+    acHTML +
+    foot +
+    relatedHTML(st) +
+  '</article>';
+}
+
+// Optional cross-references: epic -> /specs/, deliverable -> /deliverables/,
+// sessions[] -> /app/session.html?id=. Absent/empty fields render nothing.
+function relatedLink(href, kind, id) {
+  return '<a class="related-link" href="' + esc(href) + '">' +
+    '<span class="rk">' + esc(kind) + '</span>' + esc(id) + '</a>';
+}
+function relatedHTML(st) {
+  const one = v => (v == null ? '' : String(v).trim());
+  const arr = v => (Array.isArray(v) ? v : []).map(x => String(x).trim()).filter(Boolean);
+  const links = [];
+  if (one(st.epic)) links.push(relatedLink('/specs/', 'Epic', one(st.epic)));
+  if (one(st.deliverable)) links.push(relatedLink('/deliverables/', 'Deliverable', one(st.deliverable)));
+  arr(st.sessions).forEach(id => links.push(relatedLink('/app/session.html?id=' + encodeURIComponent(id), 'Session', id)));
+  if (!links.length) return '';
+  return '<div class="related"><span class="related-lbl">Related</span>' + links.join('') + '</div>';
+}
+
+// Group the filtered stories by epic, preserving first-seen order; an
+// untitled-epic bucket sorts last.
+function grouped(list) {
+  const order = [];
+  const groups = {};
+  list.forEach(st => {
+    const epic = (st.epic == null || String(st.epic).trim() === '') ? NO_EPIC : String(st.epic);
+    if (!groups[epic]) { groups[epic] = []; order.push(epic); }
+    groups[epic].push(st);
+  });
+  order.sort((a, b) => (a === NO_EPIC) - (b === NO_EPIC) || order.indexOf(a) - order.indexOf(b));
+  return order.map(epic => ({ epic, stories: groups[epic] }));
+}
+
+function render() {
+  const resultsEl = document.getElementById('results');
+  renderStatusChips();
+  renderTabs();
+
+  const list = filtered();
+  if (!list.length) {
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No matching stories</div>' +
+      '<div>No user stories match the current filter.</div>' +
+    '</div>';
+    return;
+  }
+
+  resultsEl.innerHTML = grouped(list).map(g => {
+    const n = g.stories.length;
+    const title = g.epic === NO_EPIC ? 'Ungrouped' : g.epic;
+    return '<section class="group">' +
+      '<div class="group-head">' +
+        '<span class="group-title">' + esc(title) + '</span>' +
+        '<span class="group-count">' + n + (n === 1 ? ' story' : ' stories') + '</span>' +
+      '</div>' +
+      '<div class="cards">' + g.stories.map(cardHTML).join('') + '</div>' +
+    '</section>';
+  }).join('');
+}
+
+// Status chip clicks.
+document.getElementById('statusbar').addEventListener('click', e => {
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  const s = btn.getAttribute('data-status');
+  if (s === state.status) return;
+  state.status = s;
+  render();
+});
+
+// Label tab clicks.
+document.getElementById('tabbar').addEventListener('click', e => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  const l = btn.getAttribute('data-tab');
+  if (l === state.label) return;
+  state.label = l;
+  render();
+});
+
+async function loadStories() {
+  const resultsEl = document.getElementById('results');
+  let data;
+  try {
+    const r = await fetch('/app/user-stories.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    resultsEl.innerHTML = '<div class="errorbox">' +
+      '<div class="st-title">Failed to load</div>' +
+      'Could not fetch <code>app/user-stories.json</code> (' + esc(err.message) + ').' +
+    '</div>';
+    document.getElementById('item-count').textContent = '0';
+    document.getElementById('statusbar').style.display = 'none';
+    document.getElementById('tabbar').style.display = 'none';
+    return;
+  }
+
+  const stories = Array.isArray(data.stories) ? data.stories : [];
+  document.getElementById('item-count').textContent = stories.length;
+
+  if (!stories.length) {
+    document.getElementById('statusbar').style.display = 'none';
+    document.getElementById('tabbar').style.display = 'none';
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No user stories yet</div>' +
+      'User stories defined for the engagement will appear here.' +
+    '</div>';
+    return;
+  }
+
+  state.stories = stories;
+  state.tabs = buildTabList(stories);
+  state.status = ALL;
+  state.label = ALL;
+  render();
+}
+
+loadConfig();
+loadStories();
+</script>
+</body>
+</html>

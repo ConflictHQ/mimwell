@@ -1,0 +1,155 @@
+{
+ "overlay": "topic",
+ "revision": "1.0.0",
+ "$comment": "The topic overlay (#199: topic is a subject type on any owning scope): what a research or topic brain accumulates about one subject — the works it reads, the claims drawn from them, the syntheses written across claims, the reading sessions that produced them and the threads still open. Composes as core + documents + topic with no delivery IA; it refines contextRecipes.default, so it does not compose with engagement. Kinds are declared, not yet compiled (node null): records live in their fill-in artifacts or markdown storage until a source adapter compiles them.",
+ "idConventions": {
+  "path": [
+   "synthesis"
+  ],
+  "slug": [
+   "research-source",
+   "claim",
+   "reading-session",
+   "open-thread"
+  ]
+ },
+ "kinds": [
+  {
+   "id": "research-source",
+   "title": "Research Source",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/research-sources.json",
+   "description": "A work the topic draws on (paper, article, book, dataset, talk, interview), with its citation and revision. The brain holds the reference and notes, not a copy of the work."
+  },
+  {
+   "id": "claim",
+   "title": "Claim",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/claims.json",
+   "description": "A single assertion attributed to one or more research sources, with the locator that supports it. Disagreement between claims is a contradicts edge, not an edit."
+  },
+  {
+   "id": "synthesis",
+   "title": "Synthesis",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "markdown",
+   "node": null,
+   "storage": "knowledge/syntheses",
+   "description": "Authored current understanding of the topic or one question within it, built from claims. Revised as claims arrive; a change of position supersedes the prior synthesis."
+  },
+  {
+   "id": "reading-session",
+   "title": "Reading Session",
+   "class": "record",
+   "mutability": "anchor",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/reading-sessions.json",
+   "description": "A bounded stretch of reading or review: which research sources were read, when, and the claims and threads it produced. Append-only."
+  },
+  {
+   "id": "open-thread",
+   "title": "Open Thread",
+   "class": "work",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/open-threads.json",
+   "description": "A line of inquiry still being pursued: what to read or test next and why. Closes into a synthesis or is dropped with a reason."
+  }
+ ],
+ "edges": [
+  {
+   "id": "cites",
+   "description": "A claim or synthesis cites a research source as its evidence.",
+   "domain": [
+    "claim",
+    "synthesis"
+   ],
+   "range": [
+    "research-source"
+   ]
+  },
+  {
+   "id": "supports",
+   "description": "A claim supports a synthesis.",
+   "domain": [
+    "claim"
+   ],
+   "range": [
+    "synthesis"
+   ]
+  },
+  {
+   "id": "read_in",
+   "description": "A research source was read in a reading session.",
+   "domain": [
+    "research-source"
+   ],
+   "range": [
+    "reading-session"
+   ]
+  },
+  {
+   "id": "follows_up",
+   "description": "An open thread follows up a claim, synthesis or research source.",
+   "domain": [
+    "open-thread"
+   ],
+   "range": [
+    "claim",
+    "synthesis",
+    "research-source"
+   ]
+  }
+ ],
+ "contextRecipes": {
+  "$comment": "Topic task pack (#205): from any node, the documents it references, the research sources it cites, the claims that support it, the claims it contradicts, the threads still open against it and the sessions a source was read in. Replaces core's identity-only default; scripts/gen-task-pack.py walks each hop from the task node.",
+  "default": {
+   "hops": [
+    {
+     "rel": "references",
+     "direction": "out",
+     "as": "related_docs"
+    },
+    {
+     "rel": "cites",
+     "direction": "out",
+     "as": "sources"
+    },
+    {
+     "rel": "supports",
+     "direction": "in",
+     "as": "supporting_claims"
+    },
+    {
+     "rel": "contradicts",
+     "direction": "out",
+     "as": "contradictions"
+    },
+    {
+     "rel": "follows_up",
+     "direction": "in",
+     "as": "open_threads"
+    },
+    {
+     "rel": "read_in",
+     "direction": "out",
+     "as": "reading_sessions"
+    }
+   ]
+  }
+ }
+}

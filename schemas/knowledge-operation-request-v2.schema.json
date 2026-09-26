@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation-request/v2",
+  "title": "Reviewed transfer operation request",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v2"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "transfer.preview"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "purpose",
+            "targetFormat"
+          ],
+          "properties": {
+            "purpose": {
+              "enum": [
+                "analysis",
+                "interchange"
+              ]
+            },
+            "targetFormat": {
+              "enum": [
+                "brain-exchange/v1",
+                "conflict-kg/v1",
+                "calliope-kg/v1"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v2"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "transfer.download"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "purpose",
+            "targetFormat",
+            "expectedPreviewSha256",
+            "acknowledgedLossesSha256"
+          ],
+          "properties": {
+            "purpose": {
+              "enum": [
+                "analysis",
+                "interchange"
+              ]
+            },
+            "targetFormat": {
+              "enum": [
+                "brain-exchange/v1",
+                "conflict-kg/v1",
+                "calliope-kg/v1"
+              ]
+            },
+            "expectedPreviewSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "acknowledgedLossesSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

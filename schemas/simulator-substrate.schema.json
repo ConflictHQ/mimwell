@@ -1,0 +1,470 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/simulator-substrate/v1",
+  "title": "Simulator substrate runtime input",
+  "description": "Structural prerequisites for the existing simulator suite. Semantic geometry/evidence checks remain in simulator/data/check-machine.py. An unpopulated model is not ready for suite drilldowns.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated": {
+      "type": "string",
+      "format": "date"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "officialName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "realName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tech": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string"
+          },
+          "existing": {
+            "type": "boolean"
+          },
+          "handlesPii": {
+            "type": "boolean"
+          },
+          "ports": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0
+          },
+          "delivery": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "enum": [
+                  "built",
+                  "in-progress",
+                  "planned"
+                ]
+              },
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "started": {
+                "type": "string",
+                "format": "date"
+              },
+              "phase": {
+                "type": "string",
+                "minLength": 1
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 0
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "officialName",
+          "realName",
+          "tech"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 1
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "template": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "x",
+          "y",
+          "scale",
+          "components"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 1
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          },
+          "flow": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pii": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "flow",
+          "path"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 1,
+      "contains": {
+        "type": "object",
+        "required": [
+          "flow"
+        ],
+        "properties": {
+          "flow": {
+            "not": {
+              "const": "control"
+            }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1
+          },
+          "how": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unlockedBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "statusNote": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "body",
+          "how",
+          "unlockedBy",
+          "products"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 0
+    },
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "consumes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "consumes"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 0
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "narrative": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "href": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "label",
+                "href"
+              ],
+              "additionalProperties": true
+            },
+            "minItems": 1
+          },
+          "beats": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "verb": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "target": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "caption": {
+                  "type": "string"
+                },
+                "dur": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "required": [
+                "verb"
+              ],
+              "additionalProperties": true
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "narrative",
+          "sources",
+          "beats"
+        ],
+        "additionalProperties": true
+      },
+      "minItems": 0
+    },
+    "timeline": {
+      "type": "object",
+      "properties": {
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "start": {
+                "type": "string",
+                "format": "date"
+              },
+              "end": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "start"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 1
+        },
+        "milestones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "date",
+              "label"
+            ],
+            "additionalProperties": true
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "phases",
+        "milestones"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "version",
+    "components",
+    "frames",
+    "connections",
+    "capabilities",
+    "products",
+    "scenarios",
+    "timeline"
+  ],
+  "additionalProperties": true,
+  "x-conflict": {
+    "version": "1"
+  }
+}

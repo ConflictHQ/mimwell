@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/classifier/v1",
+  "title": "Bounded local classifier protocol",
+  "allOf": [
+    {
+      "$ref": "#/$defs/request"
+    }
+  ],
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "sha256"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "temperature",
+        "evidenceSha256"
+      ],
+      "properties": {
+        "method": {
+          "enum": [
+            "none",
+            "temperature"
+          ]
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 100
+        },
+        "evidenceSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "items"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          },
+          "maxItems": 64
+        }
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "taxonomySha256",
+        "embedding",
+        "head"
+      ],
+      "properties": {
+        "format": {
+          "const": "brain-classifier/v1"
+        },
+        "taxonomySha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "embedding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revision",
+            "license",
+            "dimensions",
+            "normalize",
+            "maxTokens",
+            "tokenizer",
+            "model",
+            "config"
+          ],
+          "properties": {
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "license": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "dimensions": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "normalize": {
+              "type": "boolean"
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 512
+            },
+            "tokenizer": {
+              "$ref": "#/$defs/artifact"
+            },
+            "model": {
+              "$ref": "#/$defs/artifact"
+            },
+            "config": {
+              "$ref": "#/$defs/artifact"
+            }
+          }
+        },
+        "head": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "labels",
+            "weights",
+            "bias",
+            "trainingSha256",
+            "license",
+            "calibration"
+          ],
+          "properties": {
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9._:-]+$"
+              },
+              "minItems": 2,
+              "maxItems": 32,
+              "uniqueItems": true
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                },
+                "minItems": 1,
+                "maxItems": 1024
+              },
+              "minItems": 2,
+              "maxItems": 32
+            },
+            "bias": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 32
+            },
+            "trainingSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "license": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "calibration": {
+              "$ref": "#/$defs/calibration"
+            }
+          }
+        }
+      }
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "probabilities",
+        "confidence",
+        "requiresReview",
+        "gaps"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._:-]+$"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9._:-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "probabilities": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "maxItems": 32
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requiresReview": {
+          "const": true
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "uncalibrated",
+              "empty-embedding"
+            ]
+          },
+          "maxItems": 1
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "embeddingCalls",
+        "classifiedItems",
+        "hostedCalls",
+        "inputBytes",
+        "maxTokensPerItem",
+        "elapsedMicros",
+        "threads"
+      ],
+      "properties": {
+        "embeddingCalls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "classifiedItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "hostedCalls": {
+          "const": 0
+        },
+        "inputBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "maxTokensPerItem": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "elapsedMicros": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "threads": {
+          "const": 1
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "bundleSha256",
+        "taxonomySha256",
+        "inputSha256",
+        "labels",
+        "calibration",
+        "results",
+        "usage"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "bundleSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "taxonomySha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inputSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._:-]+$"
+          },
+          "minItems": 2,
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "calibration": {
+          "$ref": "#/$defs/calibration"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/prediction"
+          },
+          "maxItems": 64
+        },
+        "usage": {
+          "$ref": "#/$defs/usage"
+        }
+      }
+    }
+  }
+}

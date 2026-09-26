@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-node/v1",
+  "title": "Brain node (compiled brain envelope)",
+  "description": "A single node of the compiled brain (app/brain.json / D1). READ-ONLY: emitted by scripts/gen-brain.py adapters (memory, decisions, open-questions, sessions, specs, KG); writes go through the granular authoring tools, never by hand-editing the envelope. `kind` is the node category the adapter stamps; `data` carries the kind-specific payload (the source artifact row).",
+  "x-conflict": {
+    "version": "1",
+    "editable": false,
+    "source": "app/brain.json#/nodes",
+    "readonly_reason": "compiled artifact \u2014 author the source, recompile the brain"
+  },
+  "type": "object",
+  "required": [
+    "id",
+    "kind"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Memory",
+        "Decision",
+        "OpenQuestion",
+        "ActionItem",
+        "Session",
+        "Spec",
+        "Concept",
+        "Risk",
+        "Deliverable",
+        "Roadmap",
+        "Story",
+        "Stakeholder",
+        "Dependency",
+        "Term",
+        "Source",
+        "Entity",
+        "Field",
+        "Artifact",
+        "Catalog",
+        "Organization",
+        "Person",
+        "Collection",
+        "Doc",
+        "WikiPage",
+        "Issue",
+        "ActivityEvent"
+      ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "text": {
+      "type": "string"
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "locator": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "derived": {
+      "type": "boolean"
+    },
+    "durability": {
+      "type": "string",
+      "enum": [
+        "durable-logic",
+        "point-in-time",
+        "ephemeral"
+      ]
+    },
+    "status": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence": {
+      "$ref": "evidence.schema.json#/$defs/bundle"
+    },
+    "data": {
+      "type": "object"
+    },
+    "origin": {
+      "type": "string",
+      "enum": [
+        "authored",
+        "extracted",
+        "agent"
+      ],
+      "description": "Origin reported by the producer; not authorization or a review attestation."
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16}$",
+      "description": "Legacy short hash of decoded source text; a change hint, not the full evidence digest."
+    },
+    "scope": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*:\\S+$",
+      "description": "Scope address (`<level>:<id>`) of the brain that compiled this node, from client.config.json scope (id defaults to client.slug). Lets access narrowing and federation filter by scope, not only by kind."
+    }
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-store/v1",
+  "type": "object",
+  "properties": {
+    "protocolVersion": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "driver": {
+            "type": "string",
+            "description": "A substrate matrix placement (docs/design/substrate-matrix.md). The authority store's driver is the row; the drivers of the stores holding `blobs`, `vectors` and `graph` are the other axes. Contract validation rejects any cell that is not supported, naming it.",
+            "enum": [
+              "sqlite",
+              "files",
+              "external",
+              "postgres",
+              "mysql",
+              "d1",
+              "fs",
+              "db-blob",
+              "s3",
+              "azure-blob",
+              "local",
+              "in-db",
+              "edge-db",
+              "edges-table",
+              "age"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "records",
+                "evidence",
+                "journal",
+                "external-authority",
+                "projection",
+                "backup",
+                "blobs",
+                "vectors",
+                "graph"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "driver",
+          "roles"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resource": {
+            "type": "string",
+            "minLength": 1
+          },
+          "schemaVersion": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^/(?:content|evidence|relations|blobs)(?:/[^/~]+)*$"
+                  }
+                },
+                "store": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "paths",
+                "store"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "resource",
+          "schemaVersion",
+          "fields"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "history": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "complete-since-import"
+        },
+        "priorHistory": {
+          "type": "string",
+          "enum": [
+            "included",
+            "unknown"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "mode",
+        "priorHistory",
+        "note"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "id",
+    "version",
+    "authority",
+    "stores",
+    "collections",
+    "history"
+  ],
+  "additionalProperties": false
+}

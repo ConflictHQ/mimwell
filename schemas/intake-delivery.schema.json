@@ -1,0 +1,492 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-delivery/v1",
+  "title": "Bounded native metadata delivery",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/origin"
+    }
+  ],
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "operation",
+        "history",
+        "items",
+        "offset",
+        "inputSha256",
+        "budget"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-delivery-batch/v1"
+        },
+        "operation": {
+          "enum": [
+            "prepare",
+            "commit"
+          ]
+        },
+        "history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "revision"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 256
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S",
+              "maxLength": 256
+            }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {},
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "inputSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxItems",
+            "maxBytes"
+          ],
+          "properties": {
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "prepare"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "destination",
+                    "record",
+                    "expectedRevision",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "destination": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "maxLength": 256
+                    },
+                    "record": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "maxLength": 256
+                    },
+                    "expectedRevision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "pattern": "\\S",
+                          "maxLength": 256
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "maxLength": 256
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "items": {
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "destination",
+                    "record",
+                    "proposal"
+                  ],
+                  "properties": {
+                    "destination": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "maxLength": 256
+                    },
+                    "record": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S",
+                      "maxLength": 256
+                    },
+                    "proposal": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{32}$"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "operation",
+        "inputSha256",
+        "binding",
+        "offset",
+        "nextOffset",
+        "items",
+        "truncation"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-delivery-result/v1"
+        },
+        "operation": {
+          "enum": [
+            "prepare",
+            "commit"
+          ]
+        },
+        "inputSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "instance",
+            "contract"
+          ],
+          "properties": {
+            "instance": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{32}$"
+            },
+            "contract": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "destination",
+                  "record",
+                  "status"
+                ],
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  },
+                  "record": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  },
+                  "status": {
+                    "const": "unavailable"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "destination",
+                  "record",
+                  "status",
+                  "proposal"
+                ],
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  },
+                  "record": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  },
+                  "status": {
+                    "const": "prepared"
+                  },
+                  "proposal": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "destination",
+                  "record",
+                  "status",
+                  "proposal",
+                  "receiptSha256",
+                  "revision"
+                ],
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  },
+                  "record": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  },
+                  "status": {
+                    "const": "committed"
+                  },
+                  "proposal": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{32}$"
+                  },
+                  "receiptSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S",
+                    "maxLength": 256
+                  }
+                }
+              }
+            ]
+          },
+          "maxItems": 64
+        },
+        "truncation": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "maxItems",
+              "maxBytes"
+            ]
+          },
+          "maxItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "history",
+        "basis",
+        "item",
+        "labels",
+        "destination",
+        "generated"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-metadata-record/v1"
+        },
+        "history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "revision",
+            "sha256",
+            "event"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "event": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "basis": {
+          "$ref": "conflict:schema/intake/v1#/$defs/basis"
+        },
+        "item": {
+          "$ref": "conflict:schema/intake/v1#/$defs/item"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "uniqueItems": true
+        },
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "target",
+            "status",
+            "completionSha256"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "target": {
+              "$ref": "conflict:schema/intake/v1#/$defs/target"
+            },
+            "status": {
+              "const": "proposed"
+            },
+            "completionSha256": {
+              "type": "null"
+            }
+          }
+        },
+        "generated": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title",
+            "text"
+          ],
+          "properties": {
+            "title": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "text": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "registration": {
+      "$ref": "conflict:schema/intake/v1#/$defs/target"
+    }
+  }
+}

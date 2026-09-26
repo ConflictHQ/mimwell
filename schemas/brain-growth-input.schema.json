@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-growth-input/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "brain-growth-input/v1"
+    },
+    "rootParticipant": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "reviewer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "recipe": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ]
+          },
+          "state": {
+            "enum": [
+              "available",
+              "unavailable",
+              "denied"
+            ]
+          },
+          "graph": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+                },
+                "role": {
+                  "enum": [
+                    "authority",
+                    "projection",
+                    "search-index",
+                    "vector-index",
+                    "blob",
+                    "archive"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "kind"
+              ]
+            },
+            "minItems": 0,
+            "maxItems": 4096
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "reviewer",
+          "recipe",
+          "state",
+          "graph",
+          "stores"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 512
+    },
+    "mounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "relation": {
+            "enum": [
+              "contains",
+              "references",
+              "publishes-to"
+            ]
+          },
+          "use": {
+            "enum": [
+              "navigation",
+              "query",
+              "publication"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "target",
+          "relation",
+          "use"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 4096
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "scope": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "kind": {
+            "enum": [
+              "measurement",
+              "projection-probe"
+            ]
+          },
+          "pin": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "kind",
+          "pin"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1024
+    },
+    "workloadPlans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 32
+    },
+    "budgets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "scope": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "current": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ]
+          },
+          "metric": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "workload": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "conditions": {
+            "enum": [
+              "cold-process",
+              "warm",
+              "mixed",
+              "not-applicable"
+            ]
+          },
+          "upperBound": {
+            "type": "number",
+            "minimum": 0
+          },
+          "minSamples": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "baseline": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "lowerBound": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "current",
+          "metric",
+          "workload",
+          "conditions",
+          "minSamples",
+          "baseline",
+          "rationale"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "upperBound"
+            ]
+          },
+          {
+            "required": [
+              "lowerBound"
+            ]
+          }
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 1024
+    }
+  },
+  "required": [
+    "format",
+    "rootParticipant",
+    "participants",
+    "mounts",
+    "receipts",
+    "workloadPlans",
+    "budgets"
+  ]
+}

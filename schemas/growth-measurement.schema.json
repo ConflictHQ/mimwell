@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/growth-measurement/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "growth-measurement/v1"
+    },
+    "scope": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+    },
+    "sourceRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "observedAt": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "environment"
+      ]
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "metric": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "unit": {
+            "enum": [
+              "count",
+              "bytes",
+              "ms",
+              "ratio",
+              "tokens"
+            ]
+          },
+          "workload": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "conditions": {
+            "enum": [
+              "cold-process",
+              "warm",
+              "mixed",
+              "not-applicable"
+            ]
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minItems": 1,
+            "maxItems": 10000
+          }
+        },
+        "required": [
+          "metric",
+          "unit",
+          "workload",
+          "conditions",
+          "samples"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 128
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "minItems": 1,
+      "maxItems": 64
+    }
+  },
+  "required": [
+    "format",
+    "scope",
+    "sourceRevision",
+    "observedAt",
+    "runtime",
+    "measurements",
+    "limits"
+  ]
+}

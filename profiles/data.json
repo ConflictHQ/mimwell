@@ -1,0 +1,135 @@
+{
+ "overlay": "data",
+ "$comment": "The data overlay: structured sources are CATALOGUED, not ingested. Source / Source Entity / Source Field describe systems of record and their shape; Catalog and Analysis Artifact make analysis outputs addressable; Collection names an arbitrary slice across kinds (member_of). Promoted from the company brain, where these six kinds were first grown as a fork of the single-profile schema.",
+ "idConventions": {
+  "slug": [
+   "source",
+   "source-entity",
+   "source-field",
+   "catalog",
+   "artifact-node",
+   "collection"
+  ]
+ },
+ "kinds": [
+  {
+   "id": "source",
+   "title": "Data Source",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "generated",
+   "artifact": "app/sources.json",
+   "node": "Source",
+   "description": "A system of record in the data-source inventory (#13): a database, warehouse, API, or file drop the engagement reads from."
+  },
+  {
+   "id": "source-entity",
+   "title": "Source Entity",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "generated",
+   "artifact": "app/sources.json",
+   "node": "Entity",
+   "description": "A table/collection within a Source. Structural truth about the shape of the data, regenerated from the source itself."
+  },
+  {
+   "id": "source-field",
+   "title": "Source Field",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "generated",
+   "artifact": "app/sources.json",
+   "node": "Field",
+   "description": "A column/attribute within a source Entity. The leaf of the data-source inventory."
+  },
+  {
+   "id": "catalog",
+   "title": "Catalog",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "generated",
+   "artifact": "analysis/artifacts/catalog.json",
+   "node": "Catalog",
+   "description": "A manifest node standing for a named collection of artifacts, so the set itself is addressable and not merely implied by its members."
+  },
+  {
+   "id": "artifact-node",
+   "title": "Analysis Artifact",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "generated",
+   "artifact": "analysis/artifacts/catalog.json",
+   "node": "Artifact",
+   "description": "A standalone analysis output listed in the artifacts catalog."
+  },
+  {
+   "id": "collection",
+   "title": "Collection",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "artifact": "app/collections.json",
+   "node": "Collection",
+   "description": "A named set of nodes, of any kinds, addressable as one thing. Members join via member_of. The primitive behind a training split, a review queue, or a release scope — a slice you want to name and query, not re-derive from a filter each time."
+  }
+ ],
+ "edges": [
+  {
+   "id": "member_of",
+   "description": "Set membership: the source node belongs to a named Collection. Lets an arbitrary slice across kinds be addressed as one thing — a training split, a review queue, a release scope."
+  },
+  {
+   "id": "has_entity",
+   "description": "A catalogued source exposes a structured entity.",
+   "domain": [
+    "source"
+   ],
+   "range": [
+    "source-entity"
+   ]
+  },
+  {
+   "id": "has_field",
+   "description": "A structured entity contains a declared field.",
+   "domain": [
+    "source-entity"
+   ],
+   "range": [
+    "source-field"
+   ]
+  },
+  {
+   "id": "in_catalog",
+   "description": "An analysis artifact is registered in this catalog.",
+   "domain": [
+    "artifact-node"
+   ],
+   "range": [
+    "catalog"
+   ]
+  }
+ ],
+ "revision": "1.0.0",
+ "generators": {
+  "$comment": "What `make build` runs for a brain composing this layer (scripts/build_plan.py, #202). `make` lists build targets; `stage` orders them across layers (ties keep layer, then list, order); `artifacts` are the deterministic outputs the drift gate (GENERATED) compares. `brain` names the gen-brain.py adapters this layer's records feed.",
+  "make": [
+   {
+    "target": "sources",
+    "stage": 3,
+    "artifacts": [
+     "app/sources.json"
+    ]
+   }
+  ],
+  "brain": [
+   "source_inventory",
+   "artifacts"
+  ]
+ }
+}

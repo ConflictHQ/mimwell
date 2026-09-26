@@ -1,0 +1,613 @@
+{
+  "overlay": "sensemaking",
+  "revision": "1.0.0",
+  "idConventions": {
+    "slug": [
+      "sensemaking.workspace"
+    ]
+  },
+  "kinds": [
+    {
+      "id": "sensemaking.workspace",
+      "title": "Sensemaking workspace",
+      "description": "An authored question with contextual concepts, observations, interpretations, situational assessments, probes and strategic maps. These are reviewed judgments, not objective classifications.",
+      "class": "knowledge",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "SensemakingWorkspace",
+      "artifact": "app/sensemaking.json",
+      "adapter": {
+        "records": "workspaces",
+        "idField": "id",
+        "titleField": "title"
+      },
+      "payloadSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "updated",
+          "concepts",
+          "relations",
+          "observations",
+          "interpretations",
+          "assessments",
+          "probes",
+          "components",
+          "dependencies"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Workspace ID",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "maxLength": 8000,
+            "minLength": 1
+          },
+          "question": {
+            "type": "string",
+            "title": "Question being explored",
+            "maxLength": 8000
+          },
+          "audience": {
+            "type": "string",
+            "title": "Intended audience",
+            "maxLength": 8000,
+            "description": "Descriptive only. The host access policy controls actual access; all records in this file share its publication boundary."
+          },
+          "updated": {
+            "type": "string",
+            "title": "Last edited",
+            "maxLength": 8000,
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "maxLength": 8000
+          },
+          "derived": {
+            "type": "boolean"
+          },
+          "concepts": {
+            "type": "array",
+            "title": "Ontology",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "label",
+                "definition",
+                "context",
+                "uri",
+                "source",
+                "uncertainty"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "label": {
+                  "type": "string",
+                  "title": "Label",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "definition": {
+                  "type": "string",
+                  "title": "Definition",
+                  "maxLength": 8000
+                },
+                "context": {
+                  "type": "string",
+                  "title": "Context / meaning",
+                  "maxLength": 8000
+                },
+                "uri": {
+                  "type": "string",
+                  "title": "Concept URI",
+                  "maxLength": 8000
+                },
+                "source": {
+                  "type": "string",
+                  "title": "Evidence reference",
+                  "maxLength": 8000,
+                  "description": "Source address or document path, including revision/locator when available. A reference does not grant access."
+                },
+                "uncertainty": {
+                  "type": "string",
+                  "title": "Uncertainty / open questions",
+                  "maxLength": 8000
+                }
+              }
+            }
+          },
+          "relations": {
+            "type": "array",
+            "title": "Concept relationships",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "from",
+                "to",
+                "relation",
+                "rationale",
+                "source"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "from": {
+                  "type": "string",
+                  "title": "From concept ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "to": {
+                  "type": "string",
+                  "title": "To concept ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "relation": {
+                  "type": "string",
+                  "title": "Relationship",
+                  "enum": [
+                    "broader",
+                    "related",
+                    "closeMatch",
+                    "exactMatch"
+                  ]
+                },
+                "rationale": {
+                  "type": "string",
+                  "title": "Rationale",
+                  "maxLength": 8000
+                },
+                "source": {
+                  "type": "string",
+                  "title": "Evidence reference",
+                  "maxLength": 8000,
+                  "description": "Source address or document path, including revision/locator when available. A reference does not grant access."
+                }
+              }
+            }
+          },
+          "observations": {
+            "type": "array",
+            "title": "Observations",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "title",
+                "detail",
+                "source",
+                "observedAt",
+                "uncertainty"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "title": {
+                  "type": "string",
+                  "title": "Observation",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "detail": {
+                  "type": "string",
+                  "title": "What was observed",
+                  "maxLength": 8000
+                },
+                "source": {
+                  "type": "string",
+                  "title": "Evidence reference",
+                  "maxLength": 8000,
+                  "description": "Source address or document path, including revision/locator when available. A reference does not grant access."
+                },
+                "observedAt": {
+                  "type": "string",
+                  "title": "Observed at",
+                  "maxLength": 8000
+                },
+                "uncertainty": {
+                  "type": "string",
+                  "title": "Limits / uncertainty",
+                  "maxLength": 8000
+                }
+              }
+            }
+          },
+          "interpretations": {
+            "type": "array",
+            "title": "Interpretations",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "title",
+                "explanation",
+                "observations",
+                "alternatives",
+                "whatWouldChangeMind",
+                "uncertainty"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "title": {
+                  "type": "string",
+                  "title": "Interpretation",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "explanation": {
+                  "type": "string",
+                  "title": "Explanation",
+                  "maxLength": 8000
+                },
+                "observations": {
+                  "type": "array",
+                  "title": "Observation IDs (one per line)",
+                  "maxItems": 100,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "title": "Observation ID",
+                    "maxLength": 64,
+                    "minLength": 1,
+                    "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                  }
+                },
+                "alternatives": {
+                  "type": "string",
+                  "title": "Competing explanations",
+                  "maxLength": 8000
+                },
+                "whatWouldChangeMind": {
+                  "type": "string",
+                  "title": "What would change your mind?",
+                  "maxLength": 8000
+                },
+                "uncertainty": {
+                  "type": "string",
+                  "title": "Uncertainty",
+                  "maxLength": 8000
+                }
+              }
+            }
+          },
+          "assessments": {
+            "type": "array",
+            "title": "Cynefin",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "title",
+                "domain",
+                "rationale",
+                "source",
+                "assessedAt"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "title": {
+                  "type": "string",
+                  "title": "Situation",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "domain": {
+                  "type": "string",
+                  "title": "Current domain",
+                  "enum": [
+                    "confusion",
+                    "clear",
+                    "complicated",
+                    "complex",
+                    "chaotic"
+                  ]
+                },
+                "rationale": {
+                  "type": "string",
+                  "title": "Rationale",
+                  "maxLength": 8000
+                },
+                "source": {
+                  "type": "string",
+                  "title": "Evidence reference",
+                  "maxLength": 8000,
+                  "description": "Source address or document path, including revision/locator when available. A reference does not grant access."
+                },
+                "assessedAt": {
+                  "type": "string",
+                  "title": "Assessed at",
+                  "maxLength": 8000
+                }
+              }
+            }
+          },
+          "probes": {
+            "type": "array",
+            "title": "Probes",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "title",
+                "assessment",
+                "owner",
+                "boundary",
+                "signal",
+                "stopCondition",
+                "reviewOn",
+                "status",
+                "findings",
+                "source"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "title": {
+                  "type": "string",
+                  "title": "Probe",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "assessment": {
+                  "type": "string",
+                  "title": "Cynefin assessment ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "owner": {
+                  "type": "string",
+                  "title": "Responsible person",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "boundary": {
+                  "type": "string",
+                  "title": "Limits on cost, scope and harm",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "signal": {
+                  "type": "string",
+                  "title": "Signals to observe",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "stopCondition": {
+                  "type": "string",
+                  "title": "Stop / dampen condition",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "reviewOn": {
+                  "type": "string",
+                  "title": "Review date",
+                  "maxLength": 8000,
+                  "minLength": 1
+                },
+                "status": {
+                  "type": "string",
+                  "title": "Status",
+                  "enum": [
+                    "planned",
+                    "running",
+                    "stopped",
+                    "completed"
+                  ]
+                },
+                "findings": {
+                  "type": "string",
+                  "title": "Observed outcomes",
+                  "maxLength": 8000
+                },
+                "source": {
+                  "type": "string",
+                  "title": "Evidence reference",
+                  "maxLength": 8000,
+                  "description": "Source address or document path, including revision/locator when available. A reference does not grant access."
+                }
+              }
+            }
+          },
+          "components": {
+            "type": "array",
+            "title": "Wardley map",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "label",
+                "role",
+                "visibility",
+                "evolution",
+                "targetEvolution",
+                "sourcing",
+                "inertia",
+                "rationale",
+                "source"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "label": {
+                  "type": "string",
+                  "title": "Component name",
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z][A-Za-z0-9 ._-]{0,99}$"
+                },
+                "role": {
+                  "type": "string",
+                  "title": "Role",
+                  "enum": [
+                    "component",
+                    "anchor"
+                  ]
+                },
+                "visibility": {
+                  "type": "number",
+                  "title": "Visibility (0\u20131)",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "evolution": {
+                  "type": "number",
+                  "title": "Evolution (0\u20131)",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "targetEvolution": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "title": "Proposed evolution (optional)",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "sourcing": {
+                  "type": "string",
+                  "title": "Sourcing",
+                  "enum": [
+                    "none",
+                    "build",
+                    "buy",
+                    "outsource",
+                    "market"
+                  ]
+                },
+                "inertia": {
+                  "type": "boolean",
+                  "title": "Inertia"
+                },
+                "rationale": {
+                  "type": "string",
+                  "title": "Rationale",
+                  "maxLength": 8000
+                },
+                "source": {
+                  "type": "string",
+                  "title": "Evidence reference",
+                  "maxLength": 8000,
+                  "description": "Source address or document path, including revision/locator when available. A reference does not grant access."
+                }
+              }
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "title": "Value-chain dependencies",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "from",
+                "to",
+                "rationale"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "title": "ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "from": {
+                  "type": "string",
+                  "title": "Dependent component ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "to": {
+                  "type": "string",
+                  "title": "Required component ID",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                },
+                "rationale": {
+                  "type": "string",
+                  "title": "Rationale",
+                  "maxLength": 8000
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "edges": []
+}

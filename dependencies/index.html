@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dependencies</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the stylesheet rules below reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --red-dark: #B02A3A;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  /* ── Breadcrumb back-to-home ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1500px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 640px; line-height: 1.7; }
+  .page-subtitle code { font-family: var(--kb-font-mono); font-size: 11px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Status legend ── */
+  .legend {
+    max-width: 1500px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-dot.done { background: var(--green); }
+  .legend-dot.in-progress { background: var(--yellow); }
+  .legend-dot.blocked { background: var(--red); }
+  .legend-dot.planned { background: var(--dim); }
+  .legend-dot.unknown { background: var(--purple); }
+
+  /* ── Wrap ── */
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; display: flex; flex-direction: column; gap: 28px; }
+
+  /* ── Graph card (mermaid) ── */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  }
+  .card-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .card-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+  .card-hint { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .graph-body { padding: 20px; overflow-x: auto; }
+  .graph-body .md { margin: 0; }
+
+  /* ── Dependency list ── */
+  .dep-group { margin-top: 4px; }
+  .dep-group-head {
+    display: flex; align-items: baseline; gap: 10px; margin: 22px 0 10px; flex-wrap: wrap;
+  }
+  .dep-group-head:first-child { margin-top: 0; }
+  .dep-group-title { font-family: var(--kb-font-heading); font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+  .dep-group-count { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+  .dep {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--dim); padding: 13px 16px; margin-bottom: 8px;
+  }
+  .dep.done { border-left-color: var(--green); }
+  .dep.in-progress { border-left-color: var(--yellow); }
+  .dep.blocked { border-left-color: var(--red); }
+  .dep.planned { border-left-color: var(--dim); }
+  .dep.unknown { border-left-color: var(--purple); }
+  .dep-line { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .dep-node { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+  .dep-marker { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dep-marker.done { background: var(--green); }
+  .dep-marker.in-progress { background: var(--yellow); }
+  .dep-marker.blocked { background: var(--red); }
+  .dep-marker.planned { background: var(--dim); }
+  .dep-marker.unknown { background: var(--purple); }
+  .dep-name { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.3; }
+  .dep-arrow { font-family: var(--kb-font-mono); font-size: 11px; color: var(--red); letter-spacing: .04em; white-space: nowrap; }
+  .dep-arrow b { color: var(--muted); font-weight: 500; }
+  .dep-id { font-family: var(--kb-font-mono); font-size: 9px; color: var(--dim); margin-top: 4px; word-break: break-all; }
+
+  /* ── Badges ── */
+  .badge {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid; border-radius: 3px; padding: 1px 7px; white-space: nowrap; flex: none;
+  }
+  .badge.type { color: var(--muted); border-color: var(--border2); background: var(--surface2); }
+  .badge.status.done { color: var(--green); background: var(--green-dim); border-color: rgba(27,161,94,.4); }
+  .badge.status.in-progress { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(245,166,35,.4); }
+  .badge.status.blocked { color: var(--red); background: var(--red-dim); border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .badge.status.planned { color: var(--dim); background: var(--surface); border-color: var(--border2); }
+  .badge.status.unknown { color: var(--purple); background: var(--purple-dim); border-color: rgba(107,70,193,.4); }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .legend, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<!-- Shared rich-markdown styles (used for the mermaid dependency graph). -->
+<link rel="stylesheet" href="/app/render.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Breadcrumb -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<!-- Page head -->
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Dependencies</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Dependencies</h1>
+  <p class="page-subtitle">How the plan hangs together — which work items depend on which. Derived from the <code>depends_on</code> field on each spec, read from <code>app/dependencies.json</code>.</p>
+  <div class="page-meta" id="page-meta"><span id="edge-count">—</span> dependencies · <span id="node-count">—</span> nodes</div>
+</section>
+
+<!-- Status legend -->
+<div class="legend" id="legend" aria-label="Status legend">
+  <div class="legend-item"><span class="legend-dot done"></span><span>Done</span></div>
+  <div class="legend-item"><span class="legend-dot in-progress"></span><span>In progress</span></div>
+  <div class="legend-item"><span class="legend-dot blocked"></span><span>Blocked</span></div>
+  <div class="legend-item"><span class="legend-dot planned"></span><span>Planned</span></div>
+  <div class="legend-item"><span class="legend-dot unknown"></span><span>Unknown</span></div>
+</div>
+
+<!-- Content -->
+<div class="wrap" id="wrap">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Fetching dependencies…</div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<!-- Rich-markdown renderer for the mermaid dependency graph (same stack as reader.html). -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="/app/render.js"></script>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Dependencies';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Dependencies' : 'Dependencies');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+}
+
+// ── Dependencies (reads /app/dependencies.json) ─────────────────────────────
+const STATUS_LABEL = { 'done': 'Done', 'in-progress': 'In progress', 'blocked': 'Blocked', 'planned': 'Planned', 'unknown': 'Unknown' };
+function statusClass(s) { return STATUS_LABEL[s] ? s : 'planned'; }
+function statusLabel(s) { return STATUS_LABEL[s] || 'Planned'; }
+
+function nodeChip(node) {
+  const sc = statusClass(node.status);
+  return `<span class="dep-node" title="${esc(node.id)}">
+    <span class="dep-marker ${sc}" title="${esc(statusLabel(node.status))}"></span>
+    <span class="dep-name">${esc(node.title || node.id)}</span>
+  </span>`;
+}
+
+// A short readable mermaid id from a node id (mermaid ids must be simple).
+function mmId(id, seq) { return 'n' + seq; }
+
+// Build a mermaid `flowchart LR` source so each "A depends on B" reads as an
+// arrow A --> B. Labels are escaped and quoted; ids are synthetic to stay safe.
+function mermaidSource(nodes, edges) {
+  const idMap = {};
+  nodes.forEach((n, i) => { idMap[n.id] = mmId(n.id, i); });
+  const lines = ['flowchart LR'];
+  nodes.forEach(n => {
+    const label = (n.title || n.id).replace(/"/g, "'");
+    lines.push(`  ${idMap[n.id]}["${label}"]`);
+  });
+  edges.forEach(e => {
+    const a = idMap[e.from], bb = idMap[e.to];
+    if (a && bb) lines.push(`  ${a} --> ${bb}`);
+  });
+  return lines.join('\n');
+}
+
+function renderGraph(nodes, edges) {
+  // Only worth a diagram when there's something to draw.
+  if (!edges.length) return '';
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML =
+    '<div class="card-head">' +
+      '<span class="card-title">Dependency graph</span>' +
+      '<span class="card-hint">arrow = depends on</span>' +
+    '</div>' +
+    '<div class="graph-body"><div id="dep-graph"></div></div>';
+  // Defer the actual render until the card is in the DOM (KBRender needs a live el).
+  setTimeout(() => {
+    const target = card.querySelector('#dep-graph');
+    if (!target) return;
+    if (typeof window.KBRender === 'undefined' || typeof marked === 'undefined') {
+      target.innerHTML = '<div class="card-hint">Graph renderer unavailable — see the list below.</div>';
+      return;
+    }
+    const md = '```mermaid\n' + mermaidSource(nodes, edges) + '\n```';
+    KBRender.render(md, target);
+  }, 0);
+  return card;
+}
+
+// Group edges by the node that does the depending (the "from").
+function renderList(byId, edges) {
+  const byFrom = {};
+  edges.forEach(e => { (byFrom[e.from] = byFrom[e.from] || []).push(e.to); });
+
+  const fromIds = Object.keys(byFrom).sort();
+  return fromIds.map(fromId => {
+    const from = byId[fromId] || { id: fromId, title: fromId, status: 'unknown', type: 'unknown' };
+    const deps = byFrom[fromId];
+    const rows = deps.map(toId => {
+      const to = byId[toId] || { id: toId, title: toId, status: 'unknown', type: 'unknown' };
+      const sc = statusClass(to.status);
+      return `<div class="dep ${sc}">
+        <div class="dep-line">
+          ${nodeChip(from)}
+          <span class="dep-arrow"><b>depends on</b> →</span>
+          ${nodeChip(to)}
+          ${to.type ? `<span class="badge type">${esc(to.type)}</span>` : ''}
+          <span class="badge status ${sc}" style="margin-left:auto">${esc(statusLabel(to.status))}</span>
+        </div>
+        <div class="dep-id">${esc(to.id)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="dep-group">
+      <div class="dep-group-head">
+        <span class="dep-group-title">${esc(from.title || from.id)}</span>
+        <span class="dep-group-count">${deps.length} ${deps.length === 1 ? 'dependency' : 'dependencies'}</span>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+async function loadDependencies() {
+  const wrap = document.getElementById('wrap');
+  let data;
+  try {
+    const r = await fetch('/app/dependencies.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    wrap.innerHTML =
+      '<div class="statebox error">' +
+        '<div class="st-title">Failed to load</div>' +
+        '<div>Could not fetch <code>app/dependencies.json</code> (' + esc(err.message) + ').</div>' +
+        '<div style="margin-top:10px">Run <code>make dependencies</code> to generate it.</div>' +
+      '</div>';
+    return;
+  }
+
+  const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+  const edges = Array.isArray(data.edges) ? data.edges : [];
+  document.getElementById('node-count').textContent = nodes.length;
+  document.getElementById('edge-count').textContent = edges.length;
+
+  if (!edges.length) {
+    wrap.innerHTML =
+      '<div class="statebox">' +
+        '<div class="st-title">No dependencies yet</div>' +
+        '<div>Add a <code>depends_on: [id, …]</code> field to specs under <code>specs/</code>, then run <code>make dependencies</code>.</div>' +
+        '<div style="margin-top:10px">Each entry is the id of another plan node (see <code>specs/manifest.json</code>).</div>' +
+      '</div>';
+    return;
+  }
+
+  const byId = {};
+  nodes.forEach(n => { if (n && n.id) byId[n.id] = n; });
+
+  wrap.innerHTML = '';
+  const graph = renderGraph(nodes, edges);
+  if (graph) wrap.appendChild(graph);
+
+  const listCard = document.createElement('div');
+  listCard.className = 'card';
+  listCard.innerHTML =
+    '<div class="card-head">' +
+      '<span class="card-title">Dependency list</span>' +
+      '<span class="card-hint">grouped by item</span>' +
+    '</div>' +
+    '<div class="graph-body">' + renderList(byId, edges) + '</div>';
+  wrap.appendChild(listCard);
+}
+
+loadConfig();
+loadDependencies();
+</script>
+</body>
+</html>

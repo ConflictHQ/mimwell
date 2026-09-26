@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deliverables</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.05);
+    --surface2: rgba(255,255,255,0.08);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 10%, transparent);
+    --red-dark: #9C2633;
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    --green:    var(--kb-accent); --green-dim: rgba(76,175,80,0.1);
+    --yellow:   #F5A623; --yellow-dim: rgba(245,166,35,0.08);
+    --blue:     var(--kb-link); --blue-dim: rgba(74,127,165,0.1);
+    --purple:   #7A5BA8; --purple-dim: rgba(122,91,168,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1080px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 620px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Tabs (group filter: by phase / category) ── */
+  .tabbar {
+    max-width: 1080px; margin: 28px auto 0; padding: 0 32px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); background: none;
+    border: none; border-bottom: 2px solid transparent; cursor: pointer;
+    padding: 8px 12px 9px; transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); }
+  .tab-count { color: var(--dim); }
+  .tab.active .tab-count { color: var(--red); }
+
+  /* ── Status filter chips ── */
+  .filterbar {
+    max-width: 1080px; margin: 16px auto 0; padding: 0 32px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  }
+  .filter-lbl { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
+  .chip {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em;
+    text-transform: uppercase; cursor: pointer;
+    color: var(--muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 3px; padding: 4px 10px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .chip:hover { color: var(--text); border-color: var(--border2); }
+  .chip .chip-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .chip-dot.delivered { background: var(--green); }
+  .chip-dot.in-progress { background: var(--yellow); }
+  .chip-dot.planned { background: var(--dim); }
+  .chip.active { color: var(--text); border-color: var(--red); background: var(--surface2); }
+  .chip-count { color: var(--dim); }
+
+  /* ── Body ── */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  /* ── Group sections (phase / category) ── */
+  .group { margin-bottom: 32px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  }
+  .group-title {
+    font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text);
+  }
+  .group-count { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); margin-left: auto; white-space: nowrap; }
+
+  /* ── Deliverable cards ── */
+  .deliv-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .deliv {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--dim); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .deliv.delivered { border-left-color: var(--green); }
+  .deliv.in-progress { border-left-color: var(--yellow); }
+  .deliv.planned { border-left-color: var(--dim); }
+  .deliv-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .deliv-title { font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.35; text-decoration: none; }
+  a.deliv-title:hover { color: var(--red); }
+  .deliv-status {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid; border-radius: 3px; padding: 2px 8px; white-space: nowrap; flex: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .deliv-status .st-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .deliv-status.delivered { color: var(--green); background: var(--green-dim); border-color: rgba(76,175,80,.4); }
+  .deliv-status.delivered .st-dot { background: var(--green); }
+  .deliv-status.in-progress { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(245,166,35,.4); }
+  .deliv-status.in-progress .st-dot { background: var(--yellow); }
+  .deliv-status.planned { color: var(--dim); background: var(--surface2); border-color: var(--border2); }
+  .deliv-status.planned .st-dot { background: var(--dim); }
+  .deliv-summary { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .deliv-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 1px; }
+  .deliv-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .04em; color: var(--muted); }
+  .deliv-meta b { color: var(--text); font-weight: 500; }
+  .deliv-spacer { flex: 1; }
+  .deliv-link {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--blue); text-decoration: none; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 3px; padding: 4px 10px;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .deliv-link:hover { color: var(--text); border-color: var(--blue); background: var(--blue-dim); }
+  .deliv-link .ext { font-size: 11px; line-height: 1; }
+  .deliv-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag-pill {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    color: var(--muted); background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px;
+  }
+
+  /* ── Related cross-references (optional per item) ── */
+  .related {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    margin-top: 2px; padding-top: 9px; border-top: 1px dashed var(--border);
+  }
+  .related-lbl {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--dim); margin-right: 2px;
+  }
+  .related-link {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--blue); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    border: 1px solid var(--border); border-radius: 3px; padding: 3px 9px;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .related-link:hover { color: var(--text); border-color: var(--blue); background: var(--blue-dim); }
+  .related-link .rk { color: var(--dim); }
+
+  /* ── States ── */
+  .statebox, .errorbox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 44px 28px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .st-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 6px; }
+  .errorbox { border-color: var(--red); }
+  .errorbox .st-title { color: var(--red); }
+  .statebox code, .errorbox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .tabbar, .filterbar, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+    .group-count { margin-left: 0; }
+  }
+</style>
+<!-- Shared light/dark theme: overrides the local alias vars per theme (loaded
+     AFTER the page's own <style> so its higher-specificity rules win) and
+     injects the toggle into .topbar. theme.js owns all toggle logic. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Deliverables</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Deliverables</h1>
+  <p class="page-subtitle">Everything this engagement produces — proposals, specs, designs, reports, releases — grouped by phase, each with status, owner, and a link to the source document.</p>
+  <div class="page-meta" id="page-meta"><span id="item-count">—</span> deliverables</div>
+</section>
+
+<!-- Tabs (group filter: by phase / category) -->
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Filter deliverables by group"></nav>
+
+<!-- Status filter chips -->
+<div class="filterbar" id="filterbar" aria-label="Filter deliverables by status">
+  <span class="filter-lbl">Status</span>
+</div>
+
+<!-- Body -->
+<div class="wrap">
+  <div id="results">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching deliverables…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<client.name> — Deliverables".
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Deliverables';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Deliverables' : 'Deliverables');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Deliverables (reads /app/deliverables.json) ──────────────────────────────
+const ALL_TAB = '__all__';
+const ALL_STATUS = '__all__';
+const UNGROUPED = 'Other';
+// Only these three statuses are recognised; anything else → "planned" styling.
+const STATUS_LABEL = { 'delivered': 'Delivered', 'in-progress': 'In progress', 'planned': 'Planned' };
+const STATUS_ORDER = ['delivered', 'in-progress', 'planned'];
+function statusClass(s) { return STATUS_LABEL[s] ? s : 'planned'; }
+function statusLabel(s) { return STATUS_LABEL[s] || 'Planned'; }
+
+const state = { items: [], tab: ALL_TAB, status: ALL_STATUS, tabs: [] };
+
+// Owners can be placeholders ("", "N/A", "TBD", …). Show only a real name.
+function ownerLabel(owner) {
+  const o = (owner == null ? '' : String(owner)).trim();
+  if (!o) return '';
+  if (/^(n\/a|na|none|unspecified|unknown|tbd)$/i.test(o)) return '';
+  return o;
+}
+
+// Stable id for the single-deliverable view: explicit `id`, else a slug of the title.
+function slugify(s) {
+  return String(s == null ? '' : s).toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function itemId(it) {
+  const id = (it.id == null ? '' : String(it.id)).trim();
+  return id || slugify(it.title);
+}
+function viewHref(it) {
+  return 'view.html?id=' + encodeURIComponent(itemId(it));
+}
+
+// The group a deliverable belongs to: explicit `phase`, else `category`, else "Other".
+function itemGroup(it) {
+  const g = (it.phase || it.category || '').toString().trim();
+  return g || UNGROUPED;
+}
+
+// Resolve a deliverable's link. A `link` is used verbatim (external URL). A
+// `doc` is a knowledge-base path opened in the in-portal reader. `link` wins.
+function deliverableHref(it) {
+  if (it.link && String(it.link).trim()) return { href: String(it.link).trim(), external: true };
+  if (it.doc && String(it.doc).trim()) return { href: '/app/reader.html?f=' + encodeURIComponent(String(it.doc).trim()), external: false };
+  return null;
+}
+
+// Build the group tab list from the union of item groups, preserving first-seen
+// order (the JSON is authored in the intended phase order). "All" first.
+function buildTabList(items) {
+  const seen = [];
+  items.forEach(it => { const g = itemGroup(it); if (seen.indexOf(g) === -1) seen.push(g); });
+  return [{ id: ALL_TAB, label: 'All' }].concat(seen.map(g => ({ id: g, label: g })));
+}
+
+function itemsForTab(items, tab) {
+  if (tab === ALL_TAB) return items;
+  return items.filter(it => itemGroup(it) === tab);
+}
+function itemsForStatus(items, status) {
+  if (status === ALL_STATUS) return items;
+  return items.filter(it => statusClass(it.status) === status);
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  const byStatus = itemsForStatus(state.items, state.status);
+  bar.innerHTML = state.tabs.map(t => {
+    const active = t.id === state.tab;
+    const count = itemsForTab(byStatus, t.id).length;
+    return '<button class="tab' + (active ? ' active' : '') + '" type="button" role="tab"' +
+      ' aria-selected="' + (active ? 'true' : 'false') + '" data-tab="' + esc(t.id) + '">' +
+      esc(t.label) + ' <span class="tab-count">(' + count + ')</span></button>';
+  }).join('');
+}
+
+function renderStatusChips() {
+  const bar = document.getElementById('filterbar');
+  const byTab = itemsForTab(state.items, state.tab);
+  const counts = {};
+  state.items.forEach(it => { const s = statusClass(it.status); counts[s] = (counts[s] || 0) + 1; });
+  // "All" chip then each status that actually appears in the data.
+  const chips = [{ id: ALL_STATUS, label: 'All', cls: '' }].concat(
+    STATUS_ORDER.filter(s => counts[s]).map(s => ({ id: s, label: statusLabel(s), cls: s }))
+  );
+  bar.innerHTML = '<span class="filter-lbl">Status</span>' + chips.map(c => {
+    const active = c.id === state.status;
+    const n = c.id === ALL_STATUS ? byTab.length : itemsForStatus(byTab, c.id).length;
+    const dot = c.cls ? '<span class="chip-dot ' + c.cls + '"></span>' : '';
+    return '<button class="chip' + (active ? ' active' : '') + '" type="button"' +
+      ' aria-pressed="' + (active ? 'true' : 'false') + '" data-status="' + esc(c.id) + '">' +
+      dot + esc(c.label) + ' <span class="chip-count">(' + n + ')</span></button>';
+  }).join('');
+}
+
+// Optional cross-references: stories[] -> /user-stories/, sessions[] ->
+// /app/session.html?id=, specs[] -> /specs/. Each is an id string; absent or
+// empty arrays render nothing (backward-compatible).
+function relatedLink(href, kind, id) {
+  return '<a class="related-link" href="' + esc(href) + '">' +
+    '<span class="rk">' + esc(kind) + '</span>' + esc(id) + '</a>';
+}
+function relatedHTML(it) {
+  const arr = v => (Array.isArray(v) ? v : []).map(x => String(x).trim()).filter(Boolean);
+  const links = []
+    .concat(arr(it.stories).map(id => relatedLink('/user-stories/', 'Story', id)))
+    .concat(arr(it.specs).map(id => relatedLink('/specs/', 'Spec', id)))
+    .concat(arr(it.sessions).map(id => relatedLink('/app/session.html?id=' + encodeURIComponent(id), 'Session', id)));
+  if (!links.length) return '';
+  return '<div class="related"><span class="related-lbl">Related</span>' + links.join('') + '</div>';
+}
+
+function deliverableHTML(it) {
+  const sc = statusClass(it.status);
+  const owner = ownerLabel(it.owner);
+  const link = deliverableHref(it);
+  const tags = Array.isArray(it.tags) ? it.tags : [];
+
+  const summary = it.summary ? '<div class="deliv-summary">' + esc(it.summary) + '</div>' : '';
+  const date = it.date ? '<span class="deliv-meta">Date: <b>' + esc(it.date) + '</b></span>' : '';
+  const ownerHtml = owner ? '<span class="deliv-meta">Owner: <b>' + esc(owner) + '</b></span>' : '';
+  const typeHtml = it.type ? '<span class="deliv-meta">Type: <b>' + esc(it.type) + '</b></span>' : '';
+  const linkHtml = link
+    ? '<a class="deliv-link" href="' + esc(link.href) + '"' +
+        (link.external ? ' target="_blank" rel="noopener"' : '') + '>' +
+        esc(it.linkLabel || 'Open') +
+        (link.external ? ' <span class="ext">↗</span>' : '') + '</a>'
+    : '';
+  const tagsHtml = tags.length
+    ? '<span class="deliv-tags">' + tags.map(t => '<span class="tag-pill">' + esc(t) + '</span>').join('') + '</span>'
+    : '';
+
+  return '<li class="deliv ' + sc + '">' +
+    '<div class="deliv-top">' +
+      '<a class="deliv-title" href="' + esc(viewHref(it)) + '">' + esc(it.title || 'Untitled deliverable') + '</a>' +
+      '<span class="deliv-status ' + sc + '"><span class="st-dot"></span>' + esc(statusLabel(it.status)) + '</span>' +
+    '</div>' +
+    summary +
+    '<div class="deliv-foot">' +
+      typeHtml + date + ownerHtml +
+      '<span class="deliv-spacer"></span>' +
+      tagsHtml + linkHtml +
+    '</div>' +
+    relatedHTML(it) +
+  '</li>';
+}
+
+function render() {
+  const resultsEl = document.getElementById('results');
+  renderTabs();
+  renderStatusChips();
+
+  // Apply both filters.
+  const filtered = itemsForStatus(itemsForTab(state.items, state.tab), state.status);
+
+  if (!filtered.length) {
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No deliverables</div>' +
+      '<div>No deliverables match the current filter.</div>' +
+    '</div>';
+    return;
+  }
+
+  // Group filtered items, preserving the tab (first-seen) order of groups.
+  const order = [];
+  const groups = {};
+  filtered.forEach(it => {
+    const g = itemGroup(it);
+    if (!groups[g]) { groups[g] = []; order.push(g); }
+    groups[g].push(it);
+  });
+
+  resultsEl.innerHTML = order.map(g => {
+    const items = groups[g];
+    return '<section class="group">' +
+      '<div class="group-head">' +
+        '<span class="group-title">' + esc(g) + '</span>' +
+        '<span class="group-count">' + items.length + (items.length === 1 ? ' item' : ' items') + '</span>' +
+      '</div>' +
+      '<ul class="deliv-list">' + items.map(deliverableHTML).join('') + '</ul>' +
+    '</section>';
+  }).join('');
+}
+
+// Tab clicks → switch group filter.
+document.getElementById('tabbar').addEventListener('click', e => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  const tab = btn.getAttribute('data-tab');
+  if (tab === state.tab) return;
+  state.tab = tab;
+  render();
+});
+
+// Chip clicks → switch status filter.
+document.getElementById('filterbar').addEventListener('click', e => {
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  const status = btn.getAttribute('data-status');
+  if (status === state.status) return;
+  state.status = status;
+  render();
+});
+
+async function loadDeliverables() {
+  const resultsEl = document.getElementById('results');
+  let data;
+  try {
+    const r = await fetch('/app/deliverables.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    resultsEl.innerHTML = '<div class="errorbox">' +
+      '<div class="st-title">Failed to load</div>' +
+      'Could not fetch <code>app/deliverables.json</code> (' + esc(err.message) + ').' +
+    '</div>';
+    document.getElementById('item-count').textContent = '0';
+    return;
+  }
+
+  const items = Array.isArray(data.deliverables) ? data.deliverables : [];
+  document.getElementById('item-count').textContent = items.length;
+
+  if (!items.length) {
+    document.getElementById('filterbar').innerHTML = '';
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No deliverables yet</div>' +
+      'Author this engagement\'s deliverables at <code>app/deliverables.json</code> — proposals, specs, designs, reports, and releases will appear here grouped by phase.' +
+    '</div>';
+    return;
+  }
+
+  state.items = items;
+  state.tabs = buildTabList(items);
+  state.tab = ALL_TAB;
+  state.status = ALL_STATUS;
+  render();
+}
+
+loadConfig();
+loadDeliverables();
+</script>
+</body>
+</html>

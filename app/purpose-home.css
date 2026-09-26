@@ -1,0 +1,77 @@
+/* Four compositions, one palette and one permission model. */
+#kb-purpose-home { --kb-home-link:color-mix(in srgb,var(--kb-link) 70%,var(--text,var(--kb-text)) 30%); max-width:1200px; margin:0 auto; padding:48px 32px 24px; color:var(--text,var(--kb-text)); }
+.kb-home-heading { margin-bottom:32px; max-width:760px; }
+.kb-home-eyebrow { color:var(--kb-home-link); font:600 12px var(--kb-font-mono,monospace); letter-spacing:.12em; text-transform:uppercase; }
+.kb-home-heading h1 { font:500 clamp(32px,5vw,56px)/1.12 var(--kb-font-heading,system-ui); margin:12px 0 16px; overflow-wrap:anywhere; }
+.kb-home-description { font-size:17px; color:var(--muted,var(--kb-text-muted)); line-height:1.7; }
+.kb-home-workspace { display:grid; grid-template-columns:minmax(240px,1fr) minmax(0,2fr); gap:32px; align-items:start; }
+.kb-home-start { min-width:0; }
+.kb-home-search label { display:block; margin-bottom:8px; font-size:14px; font-weight:600; }
+.kb-home-search > div { display:flex; gap:8px; }
+.kb-home-search input { width:100%; min-width:0; min-height:48px; border:1px solid var(--border,var(--kb-border)); border-radius:8px; padding:12px; background:var(--surface,var(--kb-surface)); color:var(--text,var(--kb-text)); font:inherit; }
+.kb-home-search button, .kb-home-prompts button { border:1px solid var(--border,var(--kb-border)); border-radius:8px; background:var(--surface,var(--kb-surface)); color:var(--text,var(--kb-text)); padding:10px 14px; min-height:44px; font:inherit; cursor:pointer; }
+.kb-home-search button { border-color:var(--kb-home-link); font-weight:600; }
+.kb-home-prompts { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 24px; }
+.kb-home-prompts button { font-size:12px; text-align:left; color:var(--muted,var(--kb-text-muted)); }
+.kb-home-tasks { display:grid; gap:10px; }
+.kb-home-tasks a { display:flex; flex-direction:column; gap:5px; padding:16px; background:var(--surface,var(--kb-surface)); border:1px solid var(--border,var(--kb-border)); border-radius:10px; text-decoration:none; color:var(--text,var(--kb-text)); }
+.kb-home-tasks a:hover { border-color:var(--kb-home-link); }
+.kb-home-tasks strong { font-size:15px; }
+.kb-home-tasks span { font-size:12px; color:var(--muted,var(--kb-text-muted)); line-height:1.6; }
+.kb-home-permission { font-size:12px; color:var(--muted,var(--kb-text-muted)); margin:20px 0 12px; }
+.kb-home-recent { color:var(--kb-home-link); display:inline-block; padding:8px 0; min-height:44px; }
+.kb-home-sections { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.kb-home-section { min-width:0; padding:22px; border:1px solid var(--border,var(--kb-border)); border-radius:12px; background:var(--surface,var(--kb-surface)); }
+.kb-home-section > header { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+.kb-home-section h2 { font:600 18px/1.3 var(--kb-font-body,system-ui); }
+.kb-home-section a { color:var(--kb-home-link); }
+.kb-home-section > header > a { font-size:12px; white-space:nowrap; }
+.kb-home-section-desc { font-size:13px; margin:10px 0 16px; color:var(--muted,var(--kb-text-muted)); }
+.kb-home-records { list-style:none; padding:0; }
+.kb-home-record { border-top:1px solid var(--border,var(--kb-border)); padding:14px 0; overflow-wrap:anywhere; }
+.kb-home-record a { font-weight:600; font-size:14px; }
+.kb-home-record p { font-size:11px; color:var(--muted,var(--kb-text-muted)); margin-top:7px; line-height:1.7; }
+.kb-home-empty { padding:18px 0; color:var(--muted,var(--kb-text-muted)); font-size:13px; line-height:1.7; }
+#kb-purpose-home a:focus-visible, #kb-purpose-home button:focus-visible, #kb-purpose-home input:focus-visible { outline:3px solid var(--kb-link); outline-offset:3px; }
+/* Company: broad organizational overview. */
+[data-purpose="company"] .kb-home-section:first-child { grid-column:1/-1; }
+[data-purpose="company"] .kb-home-section:first-child .kb-home-records { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 24px; }
+/* Project: a delivery board, with tasks across the top. */
+[data-purpose="project"] .kb-home-workspace { grid-template-columns:1fr; }
+[data-purpose="project"] .kb-home-start { display:grid; grid-template-columns:1fr 1fr; gap:12px 32px; }
+[data-purpose="project"] .kb-home-tasks { grid-column:1/-1; grid-template-columns:repeat(3,minmax(0,1fr)); }
+[data-purpose="project"] .kb-home-sections { grid-template-columns:repeat(3,minmax(0,1fr)); }
+[data-purpose="project"] .kb-home-section { border-top:3px solid var(--kb-link); border-radius:4px 4px 12px 12px; }
+[data-purpose="project"] .kb-home-prompts { margin:0; align-content:center; }
+/* Topic: a reading workspace, with sources given more room. */
+[data-purpose="topic"] .kb-home-workspace { grid-template-columns:minmax(0,2fr) minmax(220px,1fr); }
+[data-purpose="topic"] .kb-home-start { grid-column:2; grid-row:1; }
+[data-purpose="topic"] .kb-home-sections { grid-column:1; grid-row:1; grid-template-columns:1fr; }
+[data-purpose="topic"] .kb-home-section { padding:24px 0; border:0; border-top:1px solid var(--border,var(--kb-border)); border-radius:0; background:transparent; }
+/* Personal: a quieter, focused notebook. */
+#kb-purpose-home[data-purpose="personal"] { max-width:900px; }
+[data-purpose="personal"] .kb-home-workspace { grid-template-columns:1fr; }
+[data-purpose="personal"] .kb-home-tasks { grid-template-columns:repeat(2,minmax(0,1fr)); }
+[data-purpose="personal"] .kb-home-sections { grid-template-columns:1fr; }
+[data-purpose="personal"] .kb-home-section { border:0; border-left:2px solid var(--border,var(--kb-border)); border-radius:0; background:transparent; }
+html[data-kb-purpose-home] .hero, html[data-kb-purpose-home] .kb-easy-home { display:none !important; }
+html[data-kb-purpose-home] .attn-section, html[data-kb-purpose-home] .whatsnext-section { display:none !important; }
+html[data-kb-purpose-home] .stats-strip { display:none; }
+html[data-kb-purpose-home] .nav-section { padding-top:24px; }
+@media(max-width:760px) {
+  #kb-purpose-home { padding:28px 18px 12px; }
+  #kb-purpose-home .kb-home-workspace, #kb-purpose-home .kb-home-sections, #kb-purpose-home .kb-home-start, #kb-purpose-home .kb-home-tasks { display:grid; grid-template-columns:1fr; }
+  #kb-purpose-home .kb-home-start, #kb-purpose-home .kb-home-sections { grid-column:auto; grid-row:auto; }
+  #kb-purpose-home .kb-home-section:first-child .kb-home-records { display:block; }
+  .kb-home-section { padding:18px; }
+  .kb-home-heading { margin-bottom:24px; }
+  html[data-kb-purpose-home] .topbar { flex-wrap:wrap; height:auto; min-height:54px; }
+}
+
+/* Primary tasks are already displayed in the purpose workspace; keep More views. */
+html[data-kb-purpose-home][data-kb-view="easy"] #nav-grid > div.nav-group:has(+ details.nav-group) { display:none; }
+
+.kb-home-purpose { color:var(--muted,var(--kb-text-muted)); margin:-4px 0 16px; font-size:13px; }
+.kb-home-brand { margin-bottom:20px; }
+.kb-home-mark { max-width:min(220px,100%); max-height:90px; width:auto; object-fit:contain; }
+html[data-kb-purpose-home] .owner-wordmark { color:var(--text,var(--kb-text)); }

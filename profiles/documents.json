@@ -1,0 +1,13 @@
+{
+ "overlay": "documents",
+ "revision": "1.0.0",
+ "$comment": "Optional compiled source mappings. Select matching brain.sourceAdapters explicitly; instance access policy is separate.",
+ "patches": {
+  "doc": {
+   "node": "Doc"
+  },
+  "wiki-page": {
+   "node": "WikiPage"
+  }
+ }
+}

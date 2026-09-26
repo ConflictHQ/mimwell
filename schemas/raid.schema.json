@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/raid/v1",
+  "title": "RAID log (app/raid.json)",
+  "description": "Risks, assumptions, issues, and dependencies rendered by /raid/.",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "app/raid.json"
+  },
+  "type": "object",
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "type",
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "risk",
+              "assumption",
+              "issue",
+              "dependency"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "detail": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in-progress",
+              "closed"
+            ]
+          },
+          "owner": {
+            "type": "string"
+          },
+          "mitigation": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "integer"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "changelog": {
+      "type": "array",
+      "description": "Bump version/updated and append an entry here on every hand edit (the fill-in contract in bootstrap.md).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

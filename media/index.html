@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Media</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #3A53A4;
+    --kb-link:         #7C92D6;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    /* ── Content zone: light surfaces with primary-color accents. The dark
+       dark portal chrome (header/footer) re-scopes these below. ── */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  rgba(58, 83, 164,0.08);
+    --red-dark: #2F478E;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark portal chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches library / reader.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1240px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 620px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Body ── */
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  /* ── Search ── */
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  .search-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: var(--kb-font-body); font-size: 13px;
+    padding: 11px 14px 11px 38px; outline: none; transition: border-color .12s;
+  }
+  .search-input::placeholder { color: var(--dim); }
+  .search-input:focus { border-color: var(--red); }
+  .search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; opacity: .4; pointer-events: none; }
+  .search-clear {
+    position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+    font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 3px; padding: 2px 7px; cursor: pointer; display: none;
+  }
+  .search-clear:hover { color: var(--muted); }
+  .search-clear.show { display: block; }
+
+  /* ── Filter chips (by kind) — combine with the text search ── */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; }
+  .chip {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    padding: 6px 12px; cursor: pointer; transition: color .12s, border-color .12s, background .12s;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .chip:hover { color: var(--text); border-color: var(--border2); }
+  .chip.active { color: var(--red); border-color: rgba(58, 83, 164,.5); background: var(--red-dim); }
+  .chip-count { font-size: 9px; color: var(--dim); }
+  .chip.active .chip-count { color: var(--red); }
+
+  /* ── Asset grid ── */
+  .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .asset-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    text-decoration: none; color: inherit; display: flex; flex-direction: column; overflow: hidden;
+    text-align: left; cursor: pointer; font: inherit; width: 100%;
+    transition: border-color .12s, background .12s;
+  }
+  .asset-card:hover { border-color: rgba(58, 83, 164,.5); background: var(--surface2); }
+  .asset-card:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  .asset-thumb {
+    position: relative; aspect-ratio: 16 / 10; background: var(--surface2);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .thumb-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: var(--kb-bg-deep); }
+  .thumb-icon { color: var(--dim); display: inline-flex; }
+  .asset-card:hover .thumb-icon { color: var(--muted); }
+  .thumb-badge {
+    position: absolute; left: 8px; bottom: 8px; z-index: 2;
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .08em; text-transform: uppercase;
+    color: #fff; background: rgba(0,0,0,.55); border-radius: 3px; padding: 2px 6px;
+  }
+  .thumb-play {
+    position: absolute; z-index: 2; width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; color: #fff;
+  }
+  .asset-meta { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .asset-name { font-size: 12.5px; font-weight: 500; color: var(--text); line-height: 1.4; word-break: break-word; }
+  .asset-card:hover .asset-name { color: var(--red); }
+  .asset-foot { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: auto; }
+  .asset-ext {
+    font-family: var(--kb-font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px;
+  }
+  .asset-size, .asset-date { font-family: var(--kb-font-mono); font-size: 9px; color: var(--dim); }
+  .asset-dot { color: var(--border2); font-size: 9px; }
+
+  /* ── Lightbox-lite (image / video, opens in place) — mirrors app/session.html ── */
+  .lightbox {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,.92); align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px; padding: 24px;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img, .lightbox video { max-width: 92vw; max-height: 86vh; border-radius: 4px; background: #000; }
+  .lightbox-close {
+    position: absolute; top: 16px; right: 20px; background: none; border: none;
+    color: #fff; font-size: 26px; line-height: 1; cursor: pointer; opacity: .8;
+  }
+  .lightbox-close:hover { opacity: 1; }
+  .lightbox-caption { font-family: var(--kb-font-mono); font-size: 11px; color: rgba(255,255,255,.7); word-break: break-all; text-align: center; }
+
+  /* ── States ── */
+  .statebox, .errorbox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 44px 28px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .st-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 6px; }
+  .errorbox { border-color: rgba(58, 83, 164,.4); }
+  .errorbox .st-title { color: var(--red); }
+  .statebox code, .errorbox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .asset-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Media</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Media</h1>
+  <p class="page-subtitle">Every non-markdown upload in the knowledge base — images, video, PDFs, documents, spreadsheets, and audio. Filter by kind or search by name.</p>
+  <div class="page-meta" id="page-meta"><span id="total-count">—</span> assets</div>
+</section>
+
+<!-- Body -->
+<div class="wrap">
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <input class="search-input" id="search" type="text" placeholder="Search by name or path…" autocomplete="off" spellcheck="false" aria-label="Search the media library">
+    <button class="search-clear" id="search-clear" type="button" aria-label="Clear search">clear</button>
+  </div>
+
+  <div class="filters" id="filters" role="group" aria-label="Filter by kind"></div>
+
+  <div id="results">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching the media index…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox-lite: image/video assets open here; hidden until a card is clicked -->
+<div class="lightbox" id="lightbox" onclick="if(event.target===this)closeMedia()">
+  <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close" onclick="closeMedia()">✕</button>
+  <div id="lightbox-slot"></div>
+  <div class="lightbox-caption" id="lightbox-caption"></div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<client.name> — Media".
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Media';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Media' : 'Media');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Media library (reads /app/assets.json) ───────────────────────────────────
+// Kind order = filter-chip order = gen-assets.py's KIND_BY_EXT classes + "other".
+const KINDS = [
+  { id: 'image', label: 'Image' },
+  { id: 'video', label: 'Video' },
+  { id: 'pdf',   label: 'PDF' },
+  { id: 'doc',   label: 'Doc' },
+  { id: 'sheet', label: 'Sheet' },
+  { id: 'audio', label: 'Audio' },
+  { id: 'other', label: 'Other' },
+];
+
+// Kind glyphs (stroke = currentColor, so they theme). Images use the file itself
+// as a thumbnail and fall back to this icon only if it fails to load.
+const ICONS = {
+  image: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></svg>',
+  video: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg>',
+  pdf:   '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 16h5"/></svg>',
+  doc:   '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+  sheet: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 14h18M9 4v16M15 4v16"/></svg>',
+  audio: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>',
+  other: '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>',
+};
+const PLAY = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+
+// Extensions the in-portal document viewer (#44 / KBDocViewer.canView) opens.
+const VIEWABLE = { pdf: 1, docx: 1, csv: 1, xlsx: 1, xls: 1 };
+
+const state = { assets: [], query: '', kind: 'all' };
+
+function isAbs(p) { return /^https?:\/\//i.test(String(p || '')); }
+// Repo-relative path → served URL (leading slash); absolute URLs pass through.
+function assetUrl(p) { return isAbs(p) ? p : '/' + String(p || '').replace(/^\/+/, ''); }
+
+// Where a card goes: image/video → in-place lightbox; viewable docs → the doc
+// reader (#44); everything else (and off-repo docs) → a plain download/open link.
+function routeOf(a) {
+  if (a.kind === 'image' || a.kind === 'video') return { mode: 'media' };
+  if (!isAbs(a.path) && VIEWABLE[a.ext]) {
+    return { mode: 'reader', href: '/app/reader.html?f=' + encodeURIComponent(a.path) };
+  }
+  return { mode: 'download', href: assetUrl(a.path) };
+}
+
+// Bytes → human size. Off-repo/session assets carry size 0 → no size shown.
+function humanSize(bytes) {
+  const n = Number(bytes);
+  if (!n || n < 0) return '';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, v = n;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return (i === 0 ? v : v.toFixed(v < 10 ? 1 : 0)) + ' ' + u[i];
+}
+
+function matchesQuery(a) {
+  if (!state.query) return true;
+  const q = state.query;
+  return (a.name || '').toLowerCase().indexOf(q) !== -1 ||
+         (a.path || '').toLowerCase().indexOf(q) !== -1;
+}
+
+// Thumb: the image itself (lazy, icon fallback on error) or the kind glyph.
+function thumbHTML(a) {
+  const badge = '<span class="thumb-badge">' + esc(a.kind) + '</span>';
+  if (a.kind === 'image') {
+    return '<span class="asset-thumb">' +
+      '<img class="thumb-img" loading="lazy" alt="" src="' + esc(assetUrl(a.path)) + '" onerror="this.remove()">' +
+      '<span class="thumb-icon">' + ICONS.image + '</span>' + badge +
+    '</span>';
+  }
+  const play = a.kind === 'video' ? '<span class="thumb-play">' + PLAY + '</span>' : '';
+  return '<span class="asset-thumb">' +
+    '<span class="thumb-icon">' + (ICONS[a.kind] || ICONS.other) + '</span>' + play + badge +
+  '</span>';
+}
+
+function metaHTML(a) {
+  const size = humanSize(a.size);
+  const bits = [];
+  if (a.ext) bits.push('<span class="asset-ext">' + esc(a.ext) + '</span>');
+  if (size) bits.push('<span class="asset-size">' + esc(size) + '</span>');
+  if (a.date) bits.push('<span class="asset-date">' + esc(a.date) + '</span>');
+  const foot = bits.join('<span class="asset-dot">·</span>');
+  return '<span class="asset-meta">' +
+    '<span class="asset-name">' + esc(a.name || a.path) + '</span>' +
+    '<span class="asset-foot">' + foot + '</span>' +
+  '</span>';
+}
+
+function cardHTML(a) {
+  const inner = thumbHTML(a) + metaHTML(a);
+  const route = routeOf(a);
+  if (route.mode === 'media') {
+    // A real button so it is keyboard-focusable and Enter/Space activates it.
+    return '<button type="button" class="asset-card" data-src="' + esc(assetUrl(a.path)) +
+      '" data-mkind="' + esc(a.kind) + '" data-caption="' + esc(a.name || a.path) + '">' + inner + '</button>';
+  }
+  // Off-repo files open in a new tab; repo files download.
+  const attrs = route.mode === 'download'
+    ? (isAbs(a.path) ? ' target="_blank" rel="noopener"' : ' download')
+    : '';
+  return '<a class="asset-card" href="' + esc(route.href) + '"' + attrs + '>' + inner + '</a>';
+}
+
+// Kind chips carry counts over the SEARCH-filtered set, so counts track the query
+// while the chip set itself stays stable (only kinds actually present are shown).
+function renderFilters(searchMatched) {
+  const el = document.getElementById('filters');
+  const counts = {};
+  searchMatched.forEach(a => { counts[a.kind] = (counts[a.kind] || 0) + 1; });
+  const present = KINDS.filter(k => state.assets.some(a => a.kind === k.id));
+
+  const chip = (id, label, count) =>
+    '<button type="button" class="chip' + (state.kind === id ? ' active' : '') +
+      '" data-kind="' + esc(id) + '" aria-pressed="' + (state.kind === id) + '">' +
+      esc(label) + '<span class="chip-count">' + count + '</span>' +
+    '</button>';
+
+  el.innerHTML = chip('all', 'All', searchMatched.length) +
+    present.map(k => chip(k.id, k.label, counts[k.id] || 0)).join('');
+}
+
+function render() {
+  const resultsEl = document.getElementById('results');
+  const searchMatched = state.assets.filter(matchesQuery);
+  renderFilters(searchMatched);
+
+  const shown = searchMatched.filter(a => state.kind === 'all' || a.kind === state.kind);
+
+  if (!shown.length) {
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No matches</div>' +
+      (state.query || state.kind !== 'all'
+        ? 'No assets match the current filter.'
+        : 'No assets in the knowledge base.') +
+    '</div>';
+    return;
+  }
+
+  resultsEl.innerHTML = '<div class="asset-grid">' + shown.map(cardHTML).join('') + '</div>';
+}
+
+async function loadAssets() {
+  const resultsEl = document.getElementById('results');
+  let data;
+  try {
+    const r = await fetch('/app/assets.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    resultsEl.innerHTML = '<div class="errorbox">' +
+      '<div class="st-title">Failed to load</div>' +
+      'Could not fetch <code>app/assets.json</code> (' + esc(err.message) + ').' +
+    '</div>';
+    return;
+  }
+
+  state.assets = Array.isArray(data.assets) ? data.assets : [];
+  const count = (typeof data.count === 'number') ? data.count : state.assets.length;
+  document.getElementById('total-count').textContent = count;
+
+  if (!state.assets.length) {
+    document.getElementById('filters').innerHTML = '';
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No assets yet</div>' +
+      'Media will appear here once non-markdown files are added to the knowledge base.' +
+    '</div>';
+    return;
+  }
+
+  render();
+}
+
+// ── Search wiring ────────────────────────────────────────────────────────────
+const searchEl = document.getElementById('search');
+const searchClearEl = document.getElementById('search-clear');
+searchEl.addEventListener('input', () => {
+  state.query = searchEl.value.trim().toLowerCase();
+  searchClearEl.classList.toggle('show', !!searchEl.value);
+  render();
+});
+searchClearEl.addEventListener('click', () => {
+  searchEl.value = '';
+  state.query = '';
+  searchClearEl.classList.remove('show');
+  searchEl.focus();
+  render();
+});
+
+// ── Filter chips (delegated; #filters persists across renders) ───────────────
+document.getElementById('filters').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  state.kind = chip.getAttribute('data-kind');
+  render();
+});
+
+// ── Lightbox-lite (image/video; #results persists across renders) ────────────
+let lastFocus = null;
+function openMedia(src, kind, caption) {
+  lastFocus = document.activeElement;
+  document.getElementById('lightbox-slot').innerHTML = kind === 'video'
+    ? '<video controls autoplay playsinline src="' + esc(src) + '"></video>'
+    : '<img src="' + esc(src) + '" alt="' + esc(caption || '') + '">';
+  document.getElementById('lightbox-caption').textContent = caption || '';
+  document.getElementById('lightbox').classList.add('open');
+  document.getElementById('lightbox-close').focus();
+}
+function closeMedia() {
+  const lb = document.getElementById('lightbox');
+  if (!lb.classList.contains('open')) return;
+  lb.classList.remove('open');
+  document.getElementById('lightbox-slot').innerHTML = '';   // stops playback
+  document.getElementById('lightbox-caption').textContent = '';
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMedia(); });
+document.getElementById('results').addEventListener('click', e => {
+  const card = e.target.closest('.asset-card[data-src]');
+  if (!card) return;
+  openMedia(card.getAttribute('data-src'), card.getAttribute('data-mkind'), card.getAttribute('data-caption'));
+});
+
+loadConfig();
+loadAssets();
+</script>
+</body>
+</html>

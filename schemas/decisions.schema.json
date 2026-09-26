@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/decisions/v1",
+  "title": "Decisions log (app/decisions.json)",
+  "description": "Decisions made across the engagement, rendered by /decisions/.",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "app/decisions.json"
+  },
+  "type": "object",
+  "required": [
+    "decisions"
+  ],
+  "properties": {
+    "$comment": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "session": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Stakeholder name (matches an app/stakeholders.json entry by name, #55). gen-brain.py's ownership_links linker resolves it to an `owns` edge; no match emits nothing."
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "integer"
+    },
+    "updated": {
+      "type": "string"
+    },
+    "changelog": {
+      "type": "array",
+      "description": "Bump version/updated and append an entry here on every hand edit (the fill-in contract in bootstrap.md).",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

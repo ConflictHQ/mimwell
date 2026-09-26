@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-processing-reuse/v1",
+  "title": "Completed processing cache and independently source-bound reuse",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/configuration"
+    },
+    {
+      "$ref": "#/$defs/receipt"
+    }
+  ],
+  "$defs": {
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "id",
+        "producerSha256",
+        "maxEntries",
+        "maxBytes",
+        "maxCandidates",
+        "maxReadBytes"
+      ],
+      "properties": {
+        "format": {
+          "const": "processing-cache-config/v1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "producerSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "maxEntries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
+        },
+        "maxCandidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "maxReadBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "representationSha256",
+        "receiptSha256",
+        "itemSha256",
+        "sourceResource",
+        "scope",
+        "policySha256",
+        "profileSha256",
+        "processingFormat",
+        "content",
+        "model"
+      ],
+      "properties": {
+        "representationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "receiptSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "itemSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sourceResource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "processingFormat": {
+          "enum": [
+            "intake-extraction/v1",
+            "intake-transcription/v1",
+            "intake-transcription/v2"
+          ]
+        },
+        "content": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "byteLength",
+            "mediaType"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 67108864
+            },
+            "mediaType": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "model": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "modelIdentity",
+                "modelResource"
+              ],
+              "properties": {
+                "modelIdentity": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "modelResource": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096,
+                  "pattern": "\\S"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "cache",
+        "item",
+        "captureSha256",
+        "original",
+        "principal",
+        "evaluatedAt",
+        "policySha256",
+        "bindingsSha256",
+        "scopes",
+        "sourceResource",
+        "scope",
+        "retainedProtection",
+        "protection",
+        "usage"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-processing-reuse/v1"
+        },
+        "cache": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "configSha256",
+            "producerSha256",
+            "entrySha256",
+            "keySha256"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "configSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "producerSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "entrySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "keySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "item": {
+          "$ref": "conflict:schema/intake/v1#/$defs/item"
+        },
+        "captureSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "original": {
+          "$ref": "conflict:schema/intake-processed-delivery/v3#/$defs/representation"
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bindingsSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "\\S"
+          }
+        },
+        "sourceResource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "retainedProtection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policySha256",
+            "requirements"
+          ],
+          "properties": {
+            "policySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requirements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "encryption",
+                "mediation",
+                "opaqueMetadata",
+                "offline",
+                "plaintextCopies",
+                "derivatives",
+                "verifiedAuthorship"
+              ],
+              "properties": {
+                "encryption": {
+                  "type": "boolean"
+                },
+                "mediation": {
+                  "type": "boolean"
+                },
+                "opaqueMetadata": {
+                  "type": "boolean"
+                },
+                "offline": {
+                  "type": "boolean"
+                },
+                "plaintextCopies": {
+                  "type": "boolean"
+                },
+                "derivatives": {
+                  "type": "boolean"
+                },
+                "verifiedAuthorship": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "originalPolicySha256",
+            "sourcePolicySha256",
+            "requirements"
+          ],
+          "properties": {
+            "originalPolicySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "sourcePolicySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requirements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "encryption",
+                "mediation",
+                "opaqueMetadata",
+                "offline",
+                "plaintextCopies",
+                "derivatives",
+                "verifiedAuthorship"
+              ],
+              "properties": {
+                "encryption": {
+                  "type": "boolean"
+                },
+                "mediation": {
+                  "type": "boolean"
+                },
+                "opaqueMetadata": {
+                  "type": "boolean"
+                },
+                "offline": {
+                  "type": "boolean"
+                },
+                "plaintextCopies": {
+                  "type": "boolean"
+                },
+                "derivatives": {
+                  "type": "boolean"
+                },
+                "verifiedAuthorship": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sourceBytes",
+            "processCalls",
+            "modelExecutions",
+            "elapsedMs"
+          ],
+          "properties": {
+            "sourceBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 67108864
+            },
+            "processCalls": {
+              "const": 0
+            },
+            "modelExecutions": {
+              "const": 0
+            },
+            "elapsedMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

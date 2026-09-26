@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/source-revalidation/v1",
+  "title": "Authenticated reauthorization of source row fingerprints",
+  "description": "Fingerprints carry no record bodies or grants. Sources recheck native record/evidence/publication permissions at their current clock. Sorted unique witnesses and byte bounds are also enforced by the runtime. This is not a cross-authority transaction or withdrawal acknowledgment.",
+  "x-conflict": {
+    "version": "1.0"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    }
+  ],
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "realm",
+        "revision",
+        "authority"
+      ],
+      "properties": {
+        "participant": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "realm": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "witness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "address",
+        "sha256"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "node",
+            "edge"
+          ]
+        },
+        "address": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "operation",
+        "target",
+        "audience",
+        "nonce",
+        "budget",
+        "witnesses",
+        "protectionSha256"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.4"
+        },
+        "operation": {
+          "const": "revalidate"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "audience": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxBytes"
+          ],
+          "properties": {
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 67108864
+            }
+          }
+        },
+        "witnesses": {
+          "type": "array",
+          "maxItems": 30000,
+          "items": {
+            "$ref": "#/$defs/witness"
+          }
+        },
+        "protectionSha256": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "target",
+        "nonce",
+        "outcome"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.4"
+        },
+        "target": {
+          "$ref": "#/$defs/target"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "outcome": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "witnessesSha256"
+              ],
+              "properties": {
+                "status": {
+                  "const": "revalidated"
+                },
+                "witnessesSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "reason"
+              ],
+              "properties": {
+                "status": {
+                  "const": "unavailable"
+                },
+                "reason": {
+                  "const": "unavailable"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

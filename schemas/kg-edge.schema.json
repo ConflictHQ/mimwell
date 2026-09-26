@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/kg-edge/v1",
+  "title": "KG edge (app/knowledge_graph.json edges[])",
+  "description": "A single edge of the conflict-kg/v1 semantic knowledge graph; source/target reference node ids. Generated, not hand-authored.",
+  "x-conflict": { "version": "1", "editable": false, "source": "app/knowledge_graph.json#/edges" },
+  "type": "object",
+  "required": ["source", "target"],
+  "additionalProperties": false,
+  "properties": {
+    "source": { "type": "string", "minLength": 1 },
+    "target": { "type": "string", "minLength": 1 },
+    "type": { "type": "string" },
+    "props": { "type": "object", "description": "Portable relationship properties, including evidence and stable edge identity." }
+  }
+}

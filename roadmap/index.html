@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roadmap</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the stylesheet rules below reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    /* ── Content zone: light surfaces with primary-color accents. The dark
+       chrome (header/footer) re-scopes these to the --kb-* seam below. ── */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --red-dark: #B02A3A;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1500px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 640px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Status legend ── */
+  .legend {
+    max-width: 1500px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-dot.done { background: var(--green); }
+  .legend-dot.in-progress { background: var(--yellow); }
+  .legend-dot.planned { background: var(--dim); }
+
+  /* ── Track columns ── */
+  .board { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; }
+  .tracks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; align-items: start; }
+
+  .track {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .track-head { padding: 20px 22px 18px; border-bottom: 1px solid var(--border); }
+  .track-eyebrow { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+  .track-title { font-family: var(--kb-font-heading); font-size: 26px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); }
+  .track-tagline { font-size: 12px; color: var(--red); margin-top: 6px; }
+  .track-summary { font-size: 12.5px; color: var(--muted); line-height: 1.65; margin-top: 12px; }
+  .track-progress { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; }
+  .track-stat { display: flex; align-items: baseline; gap: 6px; }
+  .track-stat .num { font-family: var(--kb-font-heading); font-size: 20px; line-height: 1; }
+  .track-stat.done .num { color: var(--green); }
+  .track-stat.in-progress .num { color: var(--yellow); }
+  .track-stat.planned .num { color: var(--muted); }
+  .track-stat .lbl { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+
+  .track-body { padding: 8px 22px 22px; }
+
+  /* ── Section (a phase, or an ordered module) ── */
+  .section { padding: 18px 0; border-bottom: 1px dashed var(--border); }
+  .section:last-child { border-bottom: none; padding-bottom: 4px; }
+  .section.module {
+    border: 1px solid var(--border); border-radius: var(--radius); border-left: 3px solid var(--dim);
+    background: var(--surface2); padding: 16px 18px; margin-top: 14px;
+  }
+  .section.module:first-of-type { margin-top: 0; }
+  .section.module.done { border-left-color: var(--green); }
+  .section.module.in-progress { border-left-color: var(--yellow); }
+  .section.module.planned { border-left-color: var(--dim); }
+
+  .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .module-order {
+    font-family: var(--kb-font-mono); font-size: 10px; font-weight: 500; color: var(--red);
+    background: var(--red-dim); border: 1px solid color-mix(in srgb, var(--kb-primary) 40%, transparent); border-radius: 3px;
+    padding: 2px 7px; white-space: nowrap; flex: none;
+  }
+  .section-title { font-family: var(--kb-font-heading); font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); line-height: 1.15; }
+  .section.module .section-title { font-size: 17px; }
+  .section-status {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid; border-radius: 3px; padding: 2px 8px; white-space: nowrap; margin-left: auto; flex: none;
+  }
+  .section-status.done { color: var(--green); background: var(--green-dim); border-color: rgba(27,161,94,.4); }
+  .section-status.in-progress { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(245,166,35,.4); }
+  .section-status.planned { color: var(--dim); background: var(--surface); border-color: var(--border2); }
+  .section-summary { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 6px 0 12px; }
+
+  /* ── Items ── */
+  .items { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .item {
+    display: flex; gap: 11px; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px;
+  }
+  .section.module .item { background: var(--surface); }
+  .item-marker { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 4px; }
+  .item-marker.done { background: var(--green); }
+  .item-marker.in-progress { background: var(--yellow); }
+  .item-marker.planned { background: var(--dim); }
+  .item-main { flex: 1; min-width: 0; }
+  .item-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .item-title { font-size: 12.5px; font-weight: 500; color: var(--text); line-height: 1.35; }
+  .item-time { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+  .item-detail { font-size: 11.5px; color: var(--muted); line-height: 1.55; margin-top: 3px; }
+
+  /* ── Future block ── */
+  .future {
+    margin-top: 20px; background: var(--surface2); border: 1px dashed var(--border2); border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .future-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .future-title { font-family: var(--kb-font-heading); font-size: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .future-summary { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 4px 0 12px; }
+  .future-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .future-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 9px 12px; }
+  .future-card .fc-title { font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.3; }
+  .future-card .fc-detail { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 920px) {
+    .tracks { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .topbar, .page-head, .legend, .board, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Roadmap</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Roadmap</h1>
+  <p class="page-subtitle">Where each product stands and where it's headed. Every track, phase, and module is read from the roadmap data.</p>
+  <div class="page-meta" id="page-meta">Last updated <span id="updated">—</span></div>
+</section>
+
+<!-- Status legend -->
+<div class="legend" id="legend" aria-label="Status legend">
+  <div class="legend-item"><span class="legend-dot done"></span><span id="legend-done">Done</span></div>
+  <div class="legend-item"><span class="legend-dot in-progress"></span><span id="legend-inprogress">In progress</span></div>
+  <div class="legend-item"><span class="legend-dot planned"></span><span id="legend-planned">Planned</span></div>
+</div>
+
+<!-- Board -->
+<div class="board">
+  <div class="tracks" id="tracks">
+    <div class="statebox" style="grid-column:1/-1">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching the roadmap…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<client.name> — Roadmap".
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Roadmap';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Roadmap' : 'Roadmap');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Roadmap (reads /app/roadmap.json) ────────────────────────────────────────
+const STATUS_LABEL = { 'done': 'Done', 'in-progress': 'In progress', 'planned': 'Planned' };
+// Only these three are recognised; anything else falls back to "planned" styling.
+function statusClass(s) { return STATUS_LABEL[s] ? s : 'planned'; }
+function statusLabel(s) { return STATUS_LABEL[s] || 'Planned'; }
+
+// One roadmap item → a marker + title + (timeframe) + detail.
+function itemHTML(it) {
+  const sc = statusClass(it.status);
+  const time = it.timeframe ? `<span class="item-time">${esc(it.timeframe)}</span>` : '';
+  const detail = it.detail ? `<div class="item-detail">${esc(it.detail)}</div>` : '';
+  return `<li class="item">
+    <span class="item-marker ${sc}" title="${esc(statusLabel(it.status))}"></span>
+    <div class="item-main">
+      <div class="item-top"><span class="item-title">${esc(it.title || '')}</span>${time}</div>
+      ${detail}
+    </div>
+  </li>`;
+}
+
+function itemsHTML(items) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) return '';
+  return `<ul class="items">${list.map(itemHTML).join('')}</ul>`;
+}
+
+// Count items by status across a list, for the per-track progress stats.
+function tallyItems(items, acc) {
+  (Array.isArray(items) ? items : []).forEach(it => {
+    const sc = statusClass(it.status);
+    acc[sc] = (acc[sc] || 0) + 1;
+  });
+}
+
+// A phase section — plain section, no order badge.
+function phaseHTML(ph) {
+  const sc = statusClass(ph.status);
+  const summary = ph.summary ? `<div class="section-summary">${esc(ph.summary)}</div>` : '';
+  return `<div class="section">
+    <div class="section-head">
+      <span class="section-title">${esc(ph.name || '')}</span>
+      <span class="section-status ${sc}">${esc(statusLabel(ph.status))}</span>
+    </div>
+    ${summary}
+    ${itemsHTML(ph.items)}
+  </div>`;
+}
+
+// An ordered module — boxed, with an order badge (module #1 first) and status accent.
+function moduleHTML(mod) {
+  const sc = statusClass(mod.status);
+  const order = (mod.order != null) ? `<span class="module-order">Module ${esc(mod.order)}</span>` : '';
+  const summary = mod.summary ? `<div class="section-summary">${esc(mod.summary)}</div>` : '';
+  return `<div class="section module ${sc}">
+    <div class="section-head">
+      ${order}
+      <span class="section-title">${esc(mod.name || '')}</span>
+      <span class="section-status ${sc}">${esc(statusLabel(mod.status))}</span>
+    </div>
+    ${summary}
+    ${itemsHTML(mod.items)}
+  </div>`;
+}
+
+// Future / post-v1 block — compact cards, no markers (all planned).
+function futureHTML(future) {
+  if (!future || !Array.isArray(future.items) || !future.items.length) return '';
+  const cards = future.items.map(it =>
+    `<div class="future-card">
+      <div class="fc-title">${esc(it.title || '')}</div>
+      ${it.detail ? `<div class="fc-detail">${esc(it.detail)}</div>` : ''}
+    </div>`).join('');
+  const summary = future.summary ? `<div class="future-summary">${esc(future.summary)}</div>` : '';
+  return `<div class="future">
+    <div class="future-head">
+      <span class="future-title">${esc(future.name || 'Future')}</span>
+      <span class="section-status planned">Planned</span>
+    </div>
+    ${summary}
+    <div class="future-grid">${cards}</div>
+  </div>`;
+}
+
+// Per-track progress: tally every item across phases/modules/future.
+function trackProgress(track) {
+  const acc = {};
+  (track.phases || []).forEach(p => tallyItems(p.items, acc));
+  (track.modules || []).forEach(m => tallyItems(m.items, acc));
+  if (track.items) tallyItems(track.items, acc);
+  if (track.future) tallyItems(track.future.items, acc);
+  const order = ['done', 'in-progress', 'planned'];
+  const stats = order.filter(k => acc[k]).map(k =>
+    `<div class="track-stat ${k}"><span class="num">${acc[k]}</span><span class="lbl">${esc(statusLabel(k))}</span></div>`
+  ).join('');
+  return stats ? `<div class="track-progress">${stats}</div>` : '';
+}
+
+function trackHTML(track) {
+  // Modules render ordered (module #1 first); phases render in source order.
+  const phases = (track.phases || []).map(phaseHTML).join('');
+  const modules = (track.modules || []).slice()
+    .sort((a, b) => (a.order || 99) - (b.order || 99))
+    .map(moduleHTML).join('');
+  // Cross-cutting items not tied to a phase or module (optional in the schema).
+  const looseItems = (track.items && track.items.length)
+    ? `<div class="section"><div class="section-head"><span class="section-title">Cross-cutting</span></div>${itemsHTML(track.items)}</div>`
+    : '';
+  const future = futureHTML(track.future);
+
+  return `<section class="track">
+    <div class="track-head">
+      <div class="track-eyebrow">Track</div>
+      <h2 class="track-title">${esc(track.product || '')}</h2>
+      ${track.tagline ? `<div class="track-tagline">${esc(track.tagline)}</div>` : ''}
+      ${track.summary ? `<div class="track-summary">${esc(track.summary)}</div>` : ''}
+      ${trackProgress(track)}
+    </div>
+    <div class="track-body">
+      ${phases}${modules}${looseItems}${future}
+    </div>
+  </section>`;
+}
+
+async function loadRoadmap() {
+  const board = document.getElementById('tracks');
+  let data;
+  try {
+    const r = await fetch('/app/roadmap.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    board.innerHTML =
+      '<div class="statebox error" style="grid-column:1/-1">' +
+        '<div class="st-title">Failed to load</div>' +
+        '<div>Could not fetch <code>app/roadmap.json</code> (' + esc(err.message) + ').</div>' +
+      '</div>';
+    return;
+  }
+
+  const tracks = Array.isArray(data.tracks) ? data.tracks : [];
+  if (data.updated) document.getElementById('updated').textContent = data.updated;
+
+  // Re-label the legend from the file if it provides a statusLegend.
+  const legend = data.statusLegend;
+  if (legend) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.textContent = v; };
+    set('legend-done', legend.done);
+    set('legend-inprogress', legend['in-progress']);
+    set('legend-planned', legend.planned);
+  }
+
+  if (!tracks.length) {
+    board.innerHTML =
+      '<div class="statebox" style="grid-column:1/-1">' +
+        '<div class="st-title">No roadmap yet</div>' +
+        '<div>Author the roadmap at <code>app/roadmap.json</code>.</div>' +
+      '</div>';
+    return;
+  }
+
+  board.innerHTML = tracks.map(trackHTML).join('');
+}
+
+loadConfig();
+loadRoadmap();
+</script>
+</body>
+</html>

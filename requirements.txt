@@ -1,0 +1,20 @@
+# Python dependencies for the scripts under scripts/.
+#
+# The scripts shipped today import the standard library only, except for a
+# best-effort `import jsonschema` in scripts/config.py. The deps below are the
+# third-party packages the script suite relies on as the Phase 0 tooling lands:
+#
+#   jsonschema     — validate client.config.json (and other data) against the
+#                    JSON Schemas under schemas/ (scripts/config.py,
+#                    scripts/validate-schemas.py)
+#   PyYAML         — parse YAML frontmatter in memory/ and specs/
+#   python-dotenv  — load environment variables from a local .env
+#   tabulate       — render tabular CLI output
+#
+# CI installs from this file (`pip install -r requirements.txt`).
+jsonschema>=4.21,<5
+PyYAML>=6.0,<7
+python-dotenv>=1.0,<2
+tabulate>=0.9,<1
+# Cross-language exchange v2 digests; v1 keeps its original Python encoding.
+rfc8785==0.1.4

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/context-usage-log/v1",
+  "title": "Context service usage-log entry (#348)",
+  "description": "One append-only JSON line per successfully answered /basis, /context, /search or /documents request, written only when the brain's context-host config declares `usageLog` AND the operator supplies a sink (scripts/context_http.py). Deliberately narrow: no record content (title/text/data), no caller identity beyond its declared policy `kind` (audienceClass). `additionalProperties: false` throughout is the structural enforcement of that boundary, not documentation of it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion", "time", "operation", "recipe", "scopes", "policyScope",
+    "audienceClass", "records", "truncation", "gaps", "latencyMs"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "time": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The host clock at the moment this entry was recorded (context_host's trusted `now`, not client input)."
+    },
+    "operation": {
+      "enum": ["basis", "context", "search", "documents", "cite"],
+      "description": "The four served routes, plus `cite` for a consumer-reported citation (scripts/context_feedback.py)."
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "sha256"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "scopes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "policyScope": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The knowledge-policy scope id declaring this log's retention/access (host config `usageLog.scope`); look up its `rules.readers`/`rules.retentionDays` in the pinned policy, never duplicated here since policy can change after this entry is written."
+    },
+    "audienceClass": {
+      "enum": ["human", "agent", "service"],
+      "description": "The authenticated principal's policy-declared kind, never the principal itself."
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component", "id", "kind", "scope"],
+        "properties": {
+          "component": { "enum": ["nodes", "matches", "citation"] },
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "scope": {
+            "type": ["string", "null"],
+            "description": "The record's own `scope` field (which brain/component compiled it), not this request's scopes."
+          }
+        }
+      }
+    },
+    "truncation": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state", "reason"],
+        "properties": {
+          "record": { "type": "string", "minLength": 1 },
+          "state": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "assertion": { "type": "string", "minLength": 1 },
+          "question": { "type": "string", "minLength": 1 },
+          "projection": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "latencyMs": { "type": "number", "minimum": 0 }
+  }
+}

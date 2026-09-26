@@ -1,0 +1,542 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/classified-intake/v1",
+  "title": "Optional classified intake and immutable model proposal history",
+  "description": "Metadata-only fallback after deterministic rules. Model suggestions always require review. Preserves the v1 intake schema unchanged; runtime validates receipt semantics and current authorization.",
+  "allOf": [
+    {
+      "$ref": "#/$defs/request"
+    }
+  ],
+  "$defs": {
+    "item": {
+      "$ref": "conflict:schema/intake/v1#/$defs/item"
+    },
+    "target": {
+      "$ref": "conflict:schema/intake/v1#/$defs/target"
+    },
+    "intent": {
+      "$ref": "conflict:schema/intake/v1#/$defs/intent"
+    },
+    "configuration": {
+      "$ref": "conflict:schema/intake/v1#/$defs/configuration"
+    },
+    "limits": {
+      "$ref": "conflict:schema/intake/v1#/$defs/limits"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "items",
+        "offset",
+        "inputSha256",
+        "budget",
+        "planningSha256"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "2.0"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "$ref": "#/$defs/limits"
+        },
+        "planningSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "basis": {
+      "$ref": "conflict:schema/intake/v1#/$defs/basis"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "labels",
+        "kinds",
+        "processing",
+        "destinations",
+        "gaps",
+        "confidence",
+        "requiresReview"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "keep",
+            "skip",
+            "review"
+          ]
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "uniqueItems": true
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "uniqueItems": true
+        },
+        "processing": {
+          "enum": [
+            "none",
+            "metadata",
+            "extract"
+          ]
+        },
+        "destinations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "target",
+              "status",
+              "completionSha256"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "target": {
+                "$ref": "#/$defs/target"
+              },
+              "status": {
+                "enum": [
+                  "proposed",
+                  "already-ingested",
+                  "read-only",
+                  "kind-mismatch",
+                  "proposal-denied"
+                ]
+              },
+              "completionSha256": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "uniqueItems": true
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "requiresReview": {
+          "const": true
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "previous",
+        "type",
+        "actor",
+        "at",
+        "decision",
+        "reason",
+        "mechanism"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "enum": [
+            "proposal",
+            "correction"
+          ]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "at": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "decision": {
+          "$ref": "#/$defs/decision"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "mechanism": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "tier",
+                "rule"
+              ],
+              "properties": {
+                "tier": {
+                  "enum": [
+                    "rules",
+                    "unassisted",
+                    "correction"
+                  ]
+                },
+                "rule": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "$ref": "#/$defs/modelMechanism"
+            }
+          ]
+        }
+      }
+    },
+    "history": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "item",
+        "basis",
+        "events"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-history/v2"
+        },
+        "item": {
+          "$ref": "#/$defs/item"
+        },
+        "basis": {
+          "$ref": "#/$defs/basis"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/event"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "row": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "item",
+            "status"
+          ],
+          "properties": {
+            "item": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "status": {
+              "const": "unavailable"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "item",
+            "status",
+            "history"
+          ],
+          "properties": {
+            "item": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "status": {
+              "const": "planned"
+            },
+            "history": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/history"
+                },
+                {
+                  "$ref": "#/$defs/legacyHistory"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "inputSha256",
+        "authorization",
+        "basis",
+        "limits",
+        "offset",
+        "nextOffset",
+        "results",
+        "truncation",
+        "usage",
+        "classifierProfileSha256",
+        "planningSha256"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "2.0"
+        },
+        "inputSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal",
+            "evaluatedAt"
+          ],
+          "properties": {
+            "principal": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "evaluatedAt": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "basis": {
+          "$ref": "#/$defs/basis"
+        },
+        "limits": {
+          "$ref": "#/$defs/limits"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/row"
+          }
+        },
+        "truncation": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "maxItems",
+              "maxBytes",
+              "maxModelCalls"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "modelCalls",
+            "inputTokens",
+            "outputTokens",
+            "elapsedMicros"
+          ],
+          "properties": {
+            "modelCalls": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            "inputTokens": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "outputTokens": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "elapsedMicros": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "classifierProfileSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "planningSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "modelMechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tier",
+        "rule",
+        "projection",
+        "binarySha256",
+        "bundleSha256",
+        "mappingSha256",
+        "suggestedAction",
+        "receipt"
+      ],
+      "properties": {
+        "tier": {
+          "const": "classifier"
+        },
+        "rule": {
+          "type": "null"
+        },
+        "projection": {
+          "const": "intake-metadata/v1"
+        },
+        "binarySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bundleSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mappingSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "suggestedAction": {
+          "enum": [
+            "keep",
+            "skip",
+            "review"
+          ]
+        },
+        "receipt": {
+          "$ref": "conflict:schema/classifier/v1#/$defs/result"
+        }
+      }
+    },
+    "legacyHistory": {
+      "$ref": "conflict:schema/intake/v1#/$defs/history"
+    }
+  }
+}

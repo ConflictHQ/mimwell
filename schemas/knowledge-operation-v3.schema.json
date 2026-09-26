@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation/v3",
+  "title": "Authorized discovery preserving the exact native result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "authority",
+    "operation",
+    "contract",
+    "authorization",
+    "state",
+    "native",
+    "nativeSha256",
+    "nativeWire",
+    "requestWire",
+    "requestSha256"
+  ],
+  "properties": {
+    "format": {
+      "const": "knowledge-operation/v3"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "operation": {
+      "enum": [
+        "source.list",
+        "proposal.list",
+        "collection.semantic-inspect"
+      ]
+    },
+    "contract": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "evaluatedAt",
+        "revalidatedAt"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revalidatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "state": {
+      "const": "completed"
+    },
+    "native": {},
+    "nativeSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nativeWire": {
+      "type": "string",
+      "description": "Exact UTF-8 canonical native result; SHA-256 equals nativeSha256 without numeric reserialization."
+    },
+    "requestWire": {
+      "type": "string"
+    },
+    "requestSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "operation": {
+          "const": "source.list"
+        },
+        "native": {
+          "$ref": "source-registration-list.schema.json"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "proposal.list"
+        },
+        "native": {
+          "$ref": "native-proposal-queue.schema.json"
+        }
+      }
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "collection.semantic-inspect"
+        },
+        "native": {
+          "$ref": "collection-semantics.schema.json"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/external-content/v1",
+  "title": "Source-dependent external content references and exact delivery",
+  "description": "Explicit registered references to a bounded private blob or exact canonical SQLite revision. Runtime checks enforce hashes, sizes, complete source dependencies, current permission and protection. This contract does not enroll independent serving paths or erase retained originals.",
+  "x-conflict": {
+    "version": "1.0"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/reference"
+    },
+    {
+      "$ref": "#/$defs/available"
+    },
+    {
+      "$ref": "#/$defs/unavailable"
+    }
+  ],
+  "$defs": {
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "store",
+        "bindingSha256",
+        "selector",
+        "mediaType",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "format": {
+          "const": "external-content-reference/v1"
+        },
+        "store": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "bindingSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "selector": {},
+        "mediaType": {
+          "enum": [
+            "application/json",
+            "application/octet-stream"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mediaType": {
+                "const": "application/json"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "selector": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "revision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "selector": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sha256"
+                ],
+                "properties": {
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "available": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "status",
+        "truncation",
+        "coverage",
+        "handle",
+        "kind",
+        "reference",
+        "protection",
+        "content"
+      ],
+      "properties": {
+        "format": {
+          "const": "external-content/v1"
+        },
+        "status": {
+          "const": "available"
+        },
+        "truncation": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "not-assessed"
+            }
+          }
+        },
+        "handle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "digest"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "kind": {
+          "enum": [
+            "summary",
+            "cache"
+          ]
+        },
+        "reference": {
+          "$ref": "#/$defs/reference"
+        },
+        "protection": {
+          "$ref": "conflict:schema/federation-protection/v1#/$defs/derivativeProtection"
+        },
+        "content": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mediaType",
+                "encoding",
+                "value"
+              ],
+              "properties": {
+                "mediaType": {
+                  "const": "application/json"
+                },
+                "encoding": {
+                  "const": "json"
+                },
+                "value": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mediaType",
+                "encoding",
+                "value"
+              ],
+              "properties": {
+                "mediaType": {
+                  "const": "application/octet-stream"
+                },
+                "encoding": {
+                  "const": "base64"
+                },
+                "value": {
+                  "type": "string",
+                  "contentEncoding": "base64"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "summary"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reference": {
+                "properties": {
+                  "mediaType": {
+                    "const": "application/json"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reference": {
+                "properties": {
+                  "mediaType": {
+                    "const": "application/json"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "properties": {
+                  "mediaType": {
+                    "const": "application/json"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "content": {
+                "properties": {
+                  "mediaType": {
+                    "const": "application/octet-stream"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unavailable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "status",
+        "truncation",
+        "coverage"
+      ],
+      "properties": {
+        "format": {
+          "const": "external-content/v1"
+        },
+        "status": {
+          "const": "unavailable"
+        },
+        "truncation": {
+          "type": "array",
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "const": "maxBytes"
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "not-assessed"
+            }
+          }
+        }
+      }
+    }
+  }
+}

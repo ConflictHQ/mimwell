@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/code-context/v1",
+  "title": "Policy-filtered code context for one brain record",
+  "description": "The code_context chat tool's response (#63): implemented_in edges (#60 slice 2) resolved for one compiled-brain record, or an explicit gap when Navegador has not populated any. The code realm is never compiled into the brain, so a target is a raw realm-qualified string, never a brain node id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["address", "targets", "gaps"],
+  "properties": {
+    "address": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The compiled-brain record id this code context was resolved for (kind:id, e.g. spec:phase-one/epic/feature/story-a)."
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "path", "symbol"],
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The raw implemented_in edge target: a realm-qualified code identity (path, or path#symbol), never a brain node id."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The target's file path, before any #symbol suffix."
+          },
+          "symbol": {
+            "type": ["string", "null"],
+            "description": "The #symbol suffix, or null when the target names a whole file."
+          }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": { "enum": ["code-context-unavailable"] },
+      "description": "Explicit coverage gaps, never fabricated. code-context-unavailable: this record declares no implemented_in edges, or none of its targets are within this reader's policy."
+    }
+  }
+}

@@ -1,0 +1,550 @@
+{
+ "overlay": "core",
+ "$comment": "The BASE every brain composes. Carries the ontology envelope (version, contract, classes), the kinds every scope has regardless of purpose (documents, memory, terms, sessions, decisions, questions, extracted entities, activity), the general edge vocabulary, and the identity/taxonomy edges federation depends on (same_as, facet_of, aligns_with, asserted_by, supersedes, contradicts, tagged_with, broader — promoted from the company brain where they were first designed). scripts/compose-schema.py merges this with the overlays declared in client.config.json (profile.base + profile.overlays) into brain-schema.json, which every consumer keeps reading unchanged.",
+ "version": 1,
+ "contract": {
+  "$comment": "The supergraph interop contract (#60): the global address grammar, per-kind id conventions, realm definitions, and join-edge set that let every graph in the system (compiled brain, extracted KG, doc link graph, live code graph, federated subrepo brains) address and traverse one another as ONE NETWORK. Producers declare which contract version they emit and conform at their OUTPUT boundary — integrate, don't refactor: internal ids stay whatever they are; a thin mapping/export layer produces conformant addresses. The grammar codifies the id shape the brain already uses (kind:slug), so existing artifacts are conformant as-is. Version bumps ride the migrate-brain discipline.",
+  "version": "1.0",
+  "address": {
+   "grammar": "[<repo>/]<kind>:<id>",
+   "notes": "repo is the federation namespace, applied by aggregate-brains when a node brain federates upward; instance-local addresses omit it. kind is a declared kind id from this file. id follows the kind's convention below. Code-realm addresses are owned by the code realm (repo-relative path + qualified symbol) and appear only as join-edge targets."
+  },
+  "idConventions": {
+   "path": {
+    "rule": "repo-relative POSIX path (the file IS the identity)",
+    "kinds": []
+   },
+   "slug": {
+    "rule": "kebab-case slug, unique within the kind",
+    "kinds": []
+   },
+   "external": {
+    "rule": "the external tracker's native key, verbatim",
+    "kinds": []
+   }
+  },
+  "realms": {
+   "brain": {
+    "store": "files-in-git",
+    "authority": "the instance repo; source of truth for every kind declared in this file"
+   },
+   "code": {
+    "store": "live code-graph database, rebuilt from source",
+    "authority": "the code-graph tool",
+    "traversal": "join edges continue via the code-graph query surface; code nodes are never compiled into the brain"
+   }
+  },
+  "joinEdges": [
+   "implemented_in"
+  ]
+ },
+ "classes": {
+  "kind": [
+   "knowledge",
+   "record",
+   "work"
+  ],
+  "mutability": [
+   "anchor",
+   "slow",
+   "fast"
+  ],
+  "source": [
+   "markdown",
+   "fill-in",
+   "generated",
+   "mirrored"
+  ]
+ },
+ "idConventions": {
+  "path": [
+   "doc",
+   "wiki-page",
+   "memory-note"
+  ],
+  "slug": [
+   "glossary-term",
+   "session",
+   "decision",
+   "open-question",
+   "activity-event",
+   "kg-entity",
+   "organization",
+   "person"
+  ]
+ },
+ "kinds": [
+  {
+   "id": "doc",
+   "title": "Document",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "markdown",
+   "node": null,
+   "storage": "knowledge/docs",
+   "page": "library",
+   "description": "Authored knowledge-base markdown; indexed into the pack, rendered by the reader, linked via [[wikilinks]] and relative links (#49)."
+  },
+  {
+   "id": "wiki-page",
+   "title": "Wiki Page",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "mirrored",
+   "node": null,
+   "storage": "knowledge/wiki",
+   "page": "library",
+   "description": "Committed mirror of the GitHub wiki (make wiki-sync); edited at the wiki, never in place."
+  },
+  {
+   "id": "memory-note",
+   "title": "Memory Note",
+   "class": "knowledge",
+   "mutability": "fast",
+   "durability": "durable-logic",
+   "source": "markdown",
+   "node": "Memory",
+   "storage": [
+    "knowledge/memory",
+    "memory"
+   ],
+   "description": "Authored memory compiled as Memory nodes. Records held in other declared JSON authorities stay there; frontmatter migration requires an explicit adapter."
+  },
+  {
+   "id": "glossary-term",
+   "title": "Glossary Term",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": "Term",
+   "artifact": "app/glossary.json",
+   "page": "glossary",
+   "description": "Shared vocabulary. Fill-in twin of memory/glossary.md until #51 lands."
+  },
+  {
+   "id": "session",
+   "title": "Session",
+   "class": "record",
+   "mutability": "anchor",
+   "durability": "point-in-time",
+   "source": "generated",
+   "node": "Session",
+   "artifact": "app/sessions.json",
+   "page": "intelligence",
+   "description": "A bounded observed event and the evidence captured from it. A record of what happened: append-only, never retuned."
+  },
+  {
+   "id": "decision",
+   "title": "Decision",
+   "class": "record",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": "Decision",
+   "artifact": "app/decisions.json",
+   "page": "decisions",
+   "description": "A decision trace: what was decided, when, by whom, superseded-by. The procedural layer's spine."
+  },
+  {
+   "id": "open-question",
+   "title": "Open Question",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": "OpenQuestion",
+   "artifact": "app/open-questions.json",
+   "page": "decisions",
+   "description": "An unresolved question routed to its owner. The upward escalation channel for blocked work (#55)."
+  },
+  {
+   "id": "kg-entity",
+   "title": "KG Entity",
+   "class": "knowledge",
+   "mutability": "fast",
+   "source": "generated",
+   "node": "Concept",
+   "artifact": "app/knowledge_graph.json",
+   "page": "app/brain.html",
+   "description": "An extracted semantic-layer entity (concept, technology, organization, person, term). Provenance and edge vocabulary per #57."
+  },
+  {
+   "id": "activity-event",
+   "title": "Activity Event",
+   "class": "record",
+   "mutability": "anchor",
+   "durability": "point-in-time",
+   "source": "generated",
+   "node": null,
+   "artifact": "activity.json",
+   "description": "An activity event derived from a producer log; retention and refresh policy belong to its source."
+  },
+  {
+   "id": "organization",
+   "title": "Organization",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": "Organization",
+   "artifact": "app/organizations.json",
+   "page": "stakeholders",
+   "description": "A register entry for an organization (client, partner, vendor, the owner itself): the scope-level entity table that lets two brains name the same company without merging their data. People affiliate to it; equivalences across brains resolve to it. Authored and reviewed, never extracted."
+  },
+  {
+   "id": "person",
+   "title": "Person",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": "Person",
+   "artifact": "app/people.json",
+   "description": "A register entry for a person, bound to one principal (OIDC issuer + subject) that every host trusts: the scope-level entity table that lets two brains name the same person without merging their data. Access emails and consumer credentials resolve to the principal at the host boundary; equivalences across brains resolve to the node. Authored and reviewed, never extracted."
+  }
+ ],
+ "edges": [
+  {
+   "id": "contains",
+   "description": "Part-of composition: the source node contains the target as a member or part."
+  },
+  {
+   "id": "about",
+   "description": "A record or work node is about a knowledge node (decision about a concept)."
+  },
+  {
+   "id": "decided_in",
+   "description": "A decision trace anchors to the session it was decided in.",
+   "domain": [
+    "decision"
+   ],
+   "range": [
+    "session"
+   ]
+  },
+  {
+   "id": "references",
+   "description": "Doc-to-doc link ([[wikilink]] or relative markdown link); indexed as backlinks (#49)."
+  },
+  {
+   "id": "relates_to",
+   "description": "General semantic association between entities; the weakest edge, prefer a stronger verb."
+  },
+  {
+   "id": "uses",
+   "description": "Canonical extraction verb: source consumes or operates target. Free verbs canonicalize onto this set (#57)."
+  },
+  {
+   "id": "provides",
+   "description": "Canonical extraction verb: source supplies data or capability to target (#57)."
+  },
+  {
+   "id": "integrates_with",
+   "description": "Canonical extraction verb: bidirectional system integration (#57)."
+  },
+  {
+   "id": "owns",
+   "description": "An owner is accountable for a decision, question, or work node."
+  },
+  {
+   "id": "escalates_to",
+   "description": "Reserved (#55): a fast-tier signal (an open question) raised against a slow-tier target."
+  },
+  {
+   "id": "implemented_in",
+   "description": "Join edge (#60): a work or record node is realized by a code-realm target (repo, module, symbol). Target addresses are realm-qualified; traversal continues in the code graph."
+  },
+  {
+   "id": "in_repo",
+   "description": "Federation anchor: a namespaced node belongs to a product-node repo (aggregate-brains)."
+  },
+  {
+   "id": "supersedes",
+   "description": "Replacement: this node takes the place of that one. A change of direction is NEVER an edit; it is a new node with a supersedes edge, so the prior decision stays readable and the path to the current position is a graph walk. Resolution, not open disagreement."
+  },
+  {
+   "id": "contradicts",
+   "description": "Unresolved disagreement: these two nodes cannot both be right and nobody has decided which wins. Distinct from supersedes on purpose, so the brain can hold a live contradiction without pretending it is settled."
+  },
+  {
+   "id": "tagged_with",
+   "description": "Controlled-vocabulary labelling: a node is tagged with a glossary term. Preferred over the free-form `labels` string list, because a term node carries a definition, synonyms and a place in the taxonomy, which a bare string cannot.",
+   "range": [
+    "glossary-term"
+   ]
+  },
+  {
+   "id": "broader",
+   "description": "Taxonomy (SKOS-style): the target is a broader concept than the source. Distinct from `contains`, which is part-of composition; this is is-a. Traverse it inbound for narrower terms rather than declaring a second inverse relation.",
+   "domain": [
+    "glossary-term",
+    "kg-entity"
+   ],
+   "range": [
+    "glossary-term",
+    "kg-entity"
+   ]
+  },
+  {
+   "id": "same_as",
+   "description": "Strict identity: these two nodes are the SAME entity under different ids, and a consumer may treat them as one. Reserve it for that. Two brains describing a subject differently are not the same node — use facet_of. Federation cannot dedup without this, but over-applying it destroys the per-brain resolution that made the brains worth federating."
+  },
+  {
+   "id": "facet_of",
+   "description": "A perspective on a shared subject. Sales and engineering legitimately resolve the same topic at different granularity and with different concerns; both are authoritative in their own brain. The facet keeps its own identity, data and owner, and points at the concept it is a view OF — so the two are linked and comparable without either being flattened into the other."
+  },
+  {
+   "id": "aligns_with",
+   "description": "Cross-brain correspondence weaker than identity: these two nodes are about the same thing, and nobody has decided whether they are one entity, two facets, or merely adjacent. The honest edge to emit when a linker finds a strong match it cannot justify promoting to same_as or facet_of."
+  },
+  {
+   "id": "asserted_by",
+   "description": "Attribution as an edge, for when the asserter is itself a node (a person, an agent, a generator). Complements the asserted_by PROPERTY, which carries a bare identity string when no such node exists."
+  },
+  {
+   "id": "affiliated_with",
+   "description": "Membership in an organization: a person or group is affiliated with an Organization register entry. A name matching no register entry emits nothing.",
+   "range": [
+    "organization"
+   ]
+  },
+  {
+   "id": "raised_in",
+   "description": "Something was raised in a recorded session.",
+   "range": [
+    "session"
+   ]
+  },
+  {
+   "id": "other",
+   "description": "Unclassified extraction relation; original verb remains in source evidence. No stronger meaning is implied."
+  }
+ ],
+ "contextRecipes": {
+  "$comment": "Agent dispatch (#55 slice 1): a declared graph traversal that assembles a work node's task pack — context assembly is a traversal, not a grep. Keyed by the compiled brain node's `kind` field (Decision, OpenQuestion, ...); `default` covers any kind with no override. scripts/gen-task-pack.py walks each hop's rel/direction from the task node (or transitively, repeating the hop until nothing new resolves) and assembles the result under the hop's `as` key.",
+  "default": {
+   "hops": [
+    {
+     "rel": "references",
+     "direction": "out",
+     "as": "related_docs"
+    },
+    {
+     "rel": "same_as",
+     "direction": "out",
+     "as": "equivalents",
+     "optional": true
+    },
+    {
+     "rel": "facet_of",
+     "direction": "out",
+     "as": "facet_subjects",
+     "optional": true
+    },
+    {
+     "rel": "aligns_with",
+     "direction": "out",
+     "as": "alignments",
+     "optional": true
+    },
+    {
+     "rel": "affiliated_with",
+     "direction": "out",
+     "as": "affiliations",
+     "optional": true
+    }
+   ]
+  }
+ },
+ "revision": "1.0.1",
+ "registry": {
+  "version": "1.0",
+  "ontologyVersion": "1.0.0"
+ },
+ "taxonomy": [
+  {
+   "id": "collection.information",
+   "scheme": "collection",
+   "label": "Context information",
+   "definition": "Categories of knowledge needed for a named context use case.",
+   "aliases": [],
+   "broader": []
+  },
+  {
+   "id": "collection.identity",
+   "scheme": "collection",
+   "label": "Identity and boundaries",
+   "definition": "Subject, mandate, terminology, inclusions and exclusions.",
+   "aliases": [
+    "scope boundaries"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.purpose",
+   "scheme": "collection",
+   "label": "Purpose and outcomes",
+   "definition": "Problem, beneficiaries, desired outcomes and measures.",
+   "aliases": [
+    "objectives"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.actors",
+   "scheme": "collection",
+   "label": "Actors and accountability",
+   "definition": "People, organizations, roles and decision authority.",
+   "aliases": [
+    "accountability"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.context",
+   "scheme": "collection",
+   "label": "Operating context",
+   "definition": "Systems, capabilities, processes, resources and dependencies.",
+   "aliases": [
+    "systems"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.constraints",
+   "scheme": "collection",
+   "label": "Constraints and commitments",
+   "definition": "Requirements, policies, obligations and acceptance criteria.",
+   "aliases": [
+    "commitments"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.evidence",
+   "scheme": "collection",
+   "label": "Evidence and observations",
+   "definition": "Sources, measurements and exact supporting fragments.",
+   "aliases": [
+    "observations"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.decisions",
+   "scheme": "collection",
+   "label": "Decisions and rationale",
+   "definition": "Chosen options, alternatives, authority and effective dates.",
+   "aliases": [
+    "rationale"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.work",
+   "scheme": "collection",
+   "label": "Work and change",
+   "definition": "Actions, ownership, dependencies and actual outcomes.",
+   "aliases": [
+    "delivery"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  },
+  {
+   "id": "collection.learning",
+   "scheme": "collection",
+   "label": "Uncertainty and learning",
+   "definition": "Questions, assumptions, contradictions and follow-up.",
+   "aliases": [
+    "uncertainty"
+   ],
+   "broader": [
+    "collection.information"
+   ]
+  }
+ ],
+ "generators": {
+  "$comment": "What `make build` runs for a brain composing this layer (scripts/build_plan.py, #202). `make` lists build targets; `stage` orders them across layers (ties keep layer, then list, order); `artifacts` are the deterministic outputs the drift gate (GENERATED) compares. `brain` names the gen-brain.py adapters this layer's records feed.",
+  "make": [
+   {
+    "target": "schema",
+    "stage": 0
+   },
+   {
+    "target": "kinds",
+    "stage": 1,
+    "artifacts": [
+     "app/kinds.json"
+    ]
+   },
+   {
+    "target": "pack",
+    "stage": 3,
+    "artifacts": [
+     "app/knowledge-pack.json"
+    ]
+   },
+   {
+    "target": "docs-manifest",
+    "stage": 3,
+    "artifacts": [
+     "app/docs-manifest.json"
+    ]
+   },
+   {
+    "target": "assets",
+    "stage": 3
+   },
+   {
+    "target": "activity",
+    "stage": 3
+   },
+   {
+    "target": "brain",
+    "stage": 4,
+    "artifacts": [
+     "app/brain.json",
+     "app/brain-meta.json"
+    ]
+   },
+   {
+    "target": "staleness",
+    "stage": 5
+   },
+   {
+    "target": "manifest",
+    "stage": 5
+   }
+  ],
+  "brain": [
+   "decisions",
+   "open_questions",
+   "sessions",
+   "knowledge_graph",
+   "glossary",
+   "organizations",
+   "people",
+   "equivalences",
+   "memory"
+  ]
+ }
+}

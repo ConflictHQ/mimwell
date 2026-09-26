@@ -1,0 +1,506 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "brain-manifest.schema.json",
+  "title": "Brain manifest",
+  "description": "The self-description a brain publishes so parents, routers, agents and doctor can reason about it WITHOUT reading its tree. Config (client.config.json) is input; this is the generated declaration of what the instance currently IS: identity, scope, profile composition, engine generation, populated inventory, which projections exist and how far behind canon they are, what it will publish upward, and which surfaces it answers on. Emitted by scripts/gen-manifest.py.",
+  "type": "object",
+  "required": [
+    "manifest",
+    "generator",
+    "identity",
+    "scope",
+    "profile",
+    "engine",
+    "inventory",
+    "projections",
+    "substrate",
+    "policy",
+    "surfaces"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "manifest": {
+      "description": "Manifest format contract. Consumers gate on this before reading anything else.",
+      "const": "brain-manifest/v1"
+    },
+    "generator": {
+      "const": "gen-manifest"
+    },
+    "generated": {
+      "description": "ISO date of emission. VOLATILE \u2014 this artifact is carved out of the generated-clean drift gate for the same reason activity.json and staleness.json are.",
+      "type": "string"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Instance id \u2014 client.slug. The federation namespace this brain's addresses take when it publishes upward."
+        },
+        "name": {
+          "type": "string"
+        },
+        "engagement": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        }
+      }
+    },
+    "scope": {
+      "description": "Where this brain sits in the scope spine. Ownership flows down, abstraction flows up, access narrows on the way up.",
+      "type": "object",
+      "required": [
+        "level",
+        "id",
+        "parent",
+        "peers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "federation",
+            "company",
+            "domain",
+            "project",
+            "workspace",
+            "person",
+            "agent"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "parent": {
+          "description": "Scope address of the parent brain (`<level>:<id>`), or null for a root.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "peers": {
+          "description": "Scope addresses of sibling brains this one federates with laterally.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "profile": {
+      "description": "Which ontology this brain composes. `overlays` is ordered; a later overlay may extend but never silently redefine an earlier kind.",
+      "type": "object",
+      "required": [
+        "base",
+        "overlays",
+        "schema_version",
+        "contract_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "overlays": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The legacy single-string `profile` field from brain-schema.json, carried for skew detection until every instance composes."
+        },
+        "schema_version": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "contract_version": {
+          "type": "string"
+        }
+      }
+    },
+    "engine": {
+      "description": "Generation markers. The whole point of the manifest for a fleet at three different generations: skew becomes legible without upgrading anything first.",
+      "type": "object",
+      "required": [
+        "brain_version",
+        "schema_present",
+        "gates"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "brain_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Compiled-brain envelope version (app/brain-meta.json)."
+        },
+        "schema_present": {
+          "type": "boolean",
+          "description": "Whether the instance carries brain-schema.json at all. False means pre-ontology generation."
+        },
+        "gates": {
+          "type": "integer",
+          "description": "Gates registered in gates.json; 0 means pre-improvement-graph generation."
+        },
+        "template_sync": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Template sync baseline, when one has been recorded (#52)."
+        }
+      }
+    },
+    "inventory": {
+      "description": "What is actually POPULATED, not what is declared. A declared-but-empty kind is the coverage gap a parent needs to know about before it federates.",
+      "type": "object",
+      "required": [
+        "nodes",
+        "edges",
+        "kinds_declared",
+        "kinds_populated",
+        "by_kind",
+        "unpopulated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "type": "integer"
+        },
+        "edges": {
+          "type": "integer"
+        },
+        "kinds_declared": {
+          "type": "integer"
+        },
+        "kinds_populated": {
+          "type": "integer"
+        },
+        "by_kind": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "unpopulated": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "projections": {
+      "description": "The resolutions this brain can answer at, and how far each has fallen behind canon. Lag is in COMMITS touching canon since the commit that last touched the artifact \u2014 null when git cannot say (fail-quiet).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "resolution",
+          "artifact",
+          "enabled",
+          "present"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "resolution": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "lexical",
+              "semantic",
+              "relational",
+              "temporal",
+              "indexed"
+            ]
+          },
+          "artifact": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this instance's config turns the resolution on at all."
+          },
+          "present": {
+            "type": "boolean"
+          },
+          "lag_commits": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "policy": {
+      "description": "The publish-upward contract. The filter runs HERE, on the way out, because only this brain knows its own tiers.",
+      "type": "object",
+      "required": [
+        "access_gate",
+        "publishes",
+        "withholds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "access_gate": {
+          "type": "boolean",
+          "description": "Whether an identity-aware access seam (access.js) scopes reads."
+        },
+        "publishes": {
+          "description": "Kind ids this brain will hand to its parent. Syntheses and registers, not raw fragments.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "withholds": {
+          "description": "Kind ids that never leave this scope, whatever the parent asks for.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "surfaces": {
+      "description": "How a caller reaches this brain.",
+      "type": "object",
+      "required": [
+        "store",
+        "features"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "portal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chat": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "store": {
+          "type": "string"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Enabled feature flags, sorted."
+        },
+        "template": {
+          "type": "string",
+          "description": "Active portal template (presentation profile), from portal.template."
+        }
+      }
+    },
+    "federation": {
+      "description": "Children folded in by aggregate-brains.py, when this brain is a metarepo.",
+      "type": "object",
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "substrate": {
+      "description": "How this brain is STORED and DEPLOYED, and what it would take to grow. A brain scales by graduating its substrate, not by rewriting itself: files -> indexed file -> edge database -> server database, with blobs and vectors graduating independently. The manifest reports the current tier and whether the instance has outgrown it, so scaling is a reported condition rather than a discovery made under load.",
+      "type": "object",
+      "required": [
+        "tier",
+        "store",
+        "blobs",
+        "vectors",
+        "graduation",
+        "deploy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tier": {
+          "description": "Current canon-projection tier. `files` = app/brain.json in memory; `indexed` = app/brain.db (SQLite + FTS5); `edge-db` = Cloudflare D1; `server-db` = an external database behind the query surface.",
+          "type": "string",
+          "enum": [
+            "files",
+            "indexed",
+            "edge-db",
+            "server-db"
+          ]
+        },
+        "store": {
+          "type": "string",
+          "description": "Configured brain.store: json | sqlite | both | d1."
+        },
+        "blobs": {
+          "description": "Where non-markdown artifacts live. `git` is correct until it is not; `lfs`/`s3`/`efs` are the graduations. Binary in git is the failure mode this field exists to make visible.",
+          "type": "string",
+          "enum": [
+            "git",
+            "lfs",
+            "s3",
+            "efs",
+            "external"
+          ]
+        },
+        "vectors": {
+          "description": "Semantic-resolution substrate. Graduates independently of the node store: a small corpus with heavy semantic search graduates vectors first.",
+          "type": "string",
+          "enum": [
+            "none",
+            "local",
+            "edge-db",
+            "external"
+          ]
+        },
+        "graduation": {
+          "description": "Advisory: has this instance outgrown its tier? Computed from declared thresholds against the live inventory. Advisory ONLY \u2014 graduating is a deliberate act with a migration, never automatic.",
+          "type": "object",
+          "required": [
+            "needed",
+            "threshold_nodes",
+            "current_nodes"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "needed": {
+              "type": "boolean"
+            },
+            "threshold_nodes": {
+              "type": "integer"
+            },
+            "current_nodes": {
+              "type": "integer"
+            },
+            "authority": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "enum": ["files", "sqlite", "postgres", "mysql", null],
+              "description": "The driver of the adopted brain.authority (files when unset — still un-adopted), or null when this process cannot resolve it (a secret-only dsn, or its env var unset here)."
+            },
+            "to": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The next rung of the AUTHORITY ladder (files -> sqlite -> sql), when needed and one exists. Never brain.store's tier — that graduates independently; see `d1` below."
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "doc": {
+              "type": "string",
+              "description": "Where the hosting/cost model documents this tier's shapes, costs and limits (docs/practices/hosting-models.md)."
+            },
+            "next_cell": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The substrate-matrix (#221) authority cell `to` lands on. Null when `to` is null (no adopted-authority ladder available or applicable)."
+            },
+            "action": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The exact command that reaches `to`: adopt-first guidance when the authority is still un-adopted, otherwise the tested cross-driver cutover (#227)."
+            },
+            "d1": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "description": "The D1 projection recommendation at this node count — never a rung of the authority ladder above (D1 is never an authority, ADR #198); it graduates independently, per docs/practices/store-selection.md.",
+              "properties": {
+                "doc": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "deploy": {
+          "description": "Where this brain runs, and what persistence it is attached to. A brain is portable across targets because canon is git and every projection is rebuildable; the target only decides which projections can exist.",
+          "type": "object",
+          "required": [
+            "target",
+            "persistence"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string",
+              "enum": [
+                "cloudflare-worker",
+                "astrolift",
+                "container",
+                "static",
+                "local"
+              ]
+            },
+            "persistence": {
+              "description": "Attached persistence available at the target \u2014 what the substrate tiers above are allowed to use.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "d1",
+                  "s3",
+                  "efs",
+                  "postgres",
+                  "sqlite-volume",
+                  "kv"
+                ]
+              }
+            },
+            "replicas": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "Declared scale-out width at the target. Read-only replicas are safe at every tier because canon is elsewhere."
+            }
+          }
+        }
+      }
+    }
+  }
+}

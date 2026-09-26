@@ -1,0 +1,263 @@
+{
+  "overlay": "decision-lineage",
+  "revision": "1.0.0",
+  "idConventions": {
+    "external": [
+      "decision.revision"
+    ]
+  },
+  "kinds": [
+    {
+      "id": "decision.revision",
+      "node": "DecisionRevision",
+      "title": "Decision revision",
+      "description": "An immutable reviewed position or change, with per-aspect lineage and effective/recorded times.",
+      "class": "record",
+      "mutability": "slow",
+      "source": "fill-in",
+      "artifact": "app/decision-lineage.json",
+      "adapter": {
+        "records": "decisions",
+        "idField": "id",
+        "titleField": "title"
+      },
+      "payloadSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"
+          },
+          "decision": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "recordedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "author": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "authority": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "actor": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            },
+            "required": [
+              "actor",
+              "role",
+              "basis"
+            ]
+          },
+          "review": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "state": {
+                "enum": [
+                  "proposed",
+                  "accepted"
+                ]
+              },
+              "by": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            },
+            "required": [
+              "state",
+              "by",
+              "at",
+              "reason"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^/(?:[^~/]|~[01])+(?:/(?:[^~/]|~[01])+)*$",
+              "maxLength": 512
+            },
+            "additionalProperties": true,
+            "maxProperties": 128
+          },
+          "withdraws": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^/(?:[^~/]|~[01])+(?:/(?:[^~/]|~[01])+)*$",
+              "maxLength": 512
+            },
+            "minItems": 0,
+            "uniqueItems": true,
+            "maxItems": 128
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "target": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "relation": {
+                  "enum": [
+                    "amends",
+                    "supersedes",
+                    "reverses"
+                  ]
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^/(?:[^~/]|~[01])+(?:/(?:[^~/]|~[01])+)*$",
+                    "maxLength": 512
+                  },
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "maxItems": 128
+                }
+              },
+              "required": [
+                "target",
+                "sha256",
+                "relation",
+                "fields"
+              ]
+            },
+            "minItems": 0,
+            "uniqueItems": true,
+            "maxItems": 128
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "minItems": 0,
+            "uniqueItems": true,
+            "maxItems": 128
+          },
+          "legacyDecision": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "decision",
+          "title",
+          "subject",
+          "scope",
+          "recordedAt",
+          "effectiveFrom",
+          "author",
+          "authority",
+          "review",
+          "reason",
+          "values",
+          "withdraws",
+          "changes",
+          "evidence",
+          "legacyDecision"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "decision.amends",
+      "description": "The source changes only named aspects of the pinned target revision.",
+      "domain": [
+        "decision.revision"
+      ],
+      "range": [
+        "decision.revision"
+      ]
+    },
+    {
+      "id": "decision.reverses",
+      "description": "The source withdraws named aspects; earlier values are not automatically reinstated.",
+      "domain": [
+        "decision.revision"
+      ],
+      "range": [
+        "decision.revision"
+      ]
+    },
+    {
+      "id": "decision.revision_of",
+      "description": "Explicit lineage attachment to a legacy decision; does not assert migration or supersession.",
+      "domain": [
+        "decision.revision"
+      ],
+      "range": [
+        "decision"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/derived-index/v1",
+  "title": "Source-dependent derived index host contract",
+  "x-conflict": {
+    "version": "1.0"
+  },
+  "$ref": "#/$defs/request",
+  "$defs": {
+    "handle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "realm",
+        "revision",
+        "snapshotSha256",
+        "authorization"
+      ],
+      "properties": {
+        "participant": {
+          "type": "string",
+          "minLength": 1
+        },
+        "realm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshotSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal",
+            "evaluatedAt"
+          ],
+          "properties": {
+            "principal": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evaluatedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "authorizationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "federation",
+        "actor",
+        "source",
+        "operation",
+        "kind",
+        "storage"
+      ],
+      "properties": {
+        "federation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "operation": {
+          "enum": [
+            "retain",
+            "derive",
+            "read"
+          ]
+        },
+        "kind": {
+          "enum": [
+            null,
+            "search",
+            "vector",
+            "cache",
+            "summary"
+          ]
+        },
+        "storage": {
+          "const": "local-plaintext"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "ids",
+        "text",
+        "space",
+        "vector",
+        "budget"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "get",
+            "search",
+            "vector",
+            "graph"
+          ]
+        },
+        "ids": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "text": {
+          "type": "string"
+        },
+        "space": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vector": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4096,
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxCandidates",
+            "maxResults",
+            "maxBytes"
+          ],
+          "properties": {
+            "maxCandidates": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30000
+            },
+            "maxResults": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16777216
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "status",
+        "records",
+        "truncation",
+        "coverage"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ]
+        },
+        "epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "handle",
+              "kind",
+              "body"
+            ],
+            "properties": {
+              "handle": {
+                "$ref": "#/$defs/handle"
+              },
+              "kind": {
+                "enum": [
+                  "node",
+                  "edge",
+                  "search",
+                  "vector",
+                  "cache",
+                  "summary"
+                ]
+              },
+              "body": {},
+              "score": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "truncation": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "maxCandidates",
+              "maxResults",
+              "maxBytes",
+              "maxScanBytes",
+              "endpointPartial"
+            ]
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "not-assessed"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "available"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "epoch"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "epoch"
+              ]
+            },
+            "properties": {
+              "records": {
+                "maxItems": 0
+              },
+              "truncation": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

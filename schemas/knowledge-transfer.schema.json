@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-transfer/v1",
+  "title": "Reviewed scoped transfer preview and download",
+  "$defs": {
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "purpose",
+        "targetFormat",
+        "sourceRevision",
+        "sourceSha256",
+        "scope",
+        "report",
+        "lossesSha256",
+        "records",
+        "relationships",
+        "artifact",
+        "previewSha256"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-transfer-preview/v1"
+        },
+        "purpose": {
+          "enum": [
+            "analysis",
+            "interchange"
+          ]
+        },
+        "targetFormat": {
+          "enum": [
+            "brain-exchange/v1",
+            "conflict-kg/v1",
+            "calliope-kg/v1"
+          ]
+        },
+        "sourceRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selection",
+            "principal",
+            "collections",
+            "excluded"
+          ],
+          "properties": {
+            "selection": {
+              "const": "authorized-live-records"
+            },
+            "principal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "collections": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "excluded": {
+              "const": [
+                "native-history",
+                "pending-proposals",
+                "credentials",
+                "unreadable-records",
+                "external-source-bytes"
+              ]
+            }
+          }
+        },
+        "report": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "projection",
+            "history",
+            "authority",
+            "losses",
+            "sourceDigest",
+            "mapping"
+          ],
+          "properties": {
+            "projection": {
+              "type": "boolean"
+            },
+            "history": {
+              "const": "not-transferred"
+            },
+            "authority": {
+              "const": "none"
+            },
+            "losses": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "reason"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                }
+              }
+            },
+            "sourceDigest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "mapping": {
+              "enum": [
+                "exact-selected-graph-json/v1",
+                "compiled-record-props/v1"
+              ]
+            }
+          }
+        },
+        "lossesSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "records": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "relationships": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "filename",
+            "mediaType",
+            "encoding",
+            "bytes",
+            "sha256"
+          ],
+          "properties": {
+            "filename": {
+              "enum": [
+                "brain-exchange.json",
+                "brain-graph.json"
+              ]
+            },
+            "mediaType": {
+              "const": "application/json"
+            },
+            "encoding": {
+              "const": "utf-8"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 524288
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "previewSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "download": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "preview",
+        "acknowledgedLossesSha256",
+        "artifactWire"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-transfer-download/v1"
+        },
+        "preview": {
+          "$ref": "#/$defs/preview"
+        },
+        "acknowledgedLossesSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "artifactWire": {
+          "type": "string",
+          "maxLength": 524288
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/preview"
+    },
+    {
+      "$ref": "#/$defs/download"
+    }
+  ]
+}

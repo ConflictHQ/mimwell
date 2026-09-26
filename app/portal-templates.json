@@ -1,0 +1,785 @@
+{
+ "format": "portal-templates/v1",
+ "$comment": "Presentation profiles (buildout W1.10). The ontology profile (profiles/) decides WHICH kinds exist; a portal template decides HOW a brain is displayed: the nav grouping and order, the front door's framing, the default retrieval resolution, and which kinds it foregrounds. Selected in client.config.json `portal.template`. A template is a VIEW over the pages an instance registers — it orders and groups registered pages and never invents one; a registered page a template does not list falls under its own `group` after the template's groups. Switching templates changes the front door and nav with no page edits. Page-sets (#203): a registered page carrying `requires: <overlay>` is registered only when profile.overlays selects that overlay, so a template's engagement-only group (Delivery, Plan) is empty and hidden in a brain without the engagement overlay. A template may also declare `excludes` (page-sets it never shows) or `includes` (the only page-sets it shows); both narrow the registered pages and neither adds one. Each template carries `assistantCopy` (portal title, chat greeting and placeholder, assistant identity and audience, with {name}/{domain}/{scope} placeholders): `make init` stamps the selected template's copy into client.config.json, so prompt defaults follow the brain's kind rather than living as literals (#206/#200). Purpose homes (#397) declare presentation-only actions, reader-visible record sections, and suggested questions. They never grant access, enable features, or add routes.",
+ "templates": [
+  {
+   "id": "engagement",
+   "title": "Engagement",
+   "topology": "plan-centric, time-bound",
+   "frontDoor": {
+    "eyebrow": "Engagement Portal",
+    "desc": "A living project command center. Direct access to the engagement knowledge base — continuously updated as work progresses."
+   },
+   "defaultResolution": "lexical",
+   "foreground": [
+    "decision",
+    "open-question",
+    "action-item",
+    "deliverable",
+    "roadmap-item",
+    "session"
+   ],
+   "groups": [
+    {
+     "group": "Plan & Delivery",
+     "pages": [
+      "/status/",
+      "/roadmap/",
+      "/specs/",
+      "/blueprint/",
+      "/simulator/",
+      "/dependencies/",
+      "/deliverables/",
+      "/user-stories/",
+      "/action-items/",
+      "/decisions/",
+      "/issues/",
+      "/raid/"
+     ]
+    },
+    {
+     "group": "Intelligence",
+     "pages": [
+      "/intelligence/",
+      "/timeline/",
+      "/proposals/"
+     ]
+    },
+    {
+     "group": "Knowledge",
+     "pages": [
+      "/library/",
+      "/media/",
+      "/app/brain.html",
+      "/app/",
+      "/app/deck.html",
+      "/search/",
+      "/catalog/"
+     ]
+    },
+    {
+     "group": "Reference",
+     "pages": [
+      "/stakeholders/",
+      "/glossary/",
+      "/federation/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Engagement Portal",
+    "greeting": "Ask me anything about the {name} engagement — decisions, data sources, open questions, the plan. I answer from the portal knowledge base.",
+    "inputPlaceholder": "Ask about the project…",
+    "identity": "You are the {name} portal assistant, embedded in the engagement portal at {domain}. You answer questions about the {name} engagement using the portal's knowledge base: project memory (decisions, open questions, data sources), wiki (architecture, tech stack), docs, specs (the project plan), live JSON trackers, scripts/code, and the project knowledge graph extracted from discovery sessions.",
+    "audience": "Audience is the {name} project team; they know the project context."
+   },
+   "home": {
+    "layout": "project",
+    "title": "Move the work forward",
+    "description": "Follow delivery commitments, resolve open decisions, and keep the project context close.",
+    "primary": [
+     {
+      "url": "/action-items/",
+      "label": "Review commitments",
+      "description": "See the actions recorded for this project."
+     },
+     {
+      "url": "/specs/",
+      "label": "Explore the plan",
+      "description": "Read the scope and work behind delivery."
+     },
+     {
+      "url": "/decisions/",
+      "label": "Resolve a question",
+      "description": "Review decisions and the questions still open."
+     }
+    ],
+    "sections": [
+     {
+      "id": "project-delivery",
+      "title": "Delivery commitments",
+      "description": "Actions, deliverables, and roadmap records from this project.",
+      "url": "/action-items/",
+      "kinds": [
+       "action-item",
+       "deliverable",
+       "roadmap-item"
+      ],
+      "empty": "No delivery records are available in this view yet."
+     },
+     {
+      "id": "project-decisions",
+      "title": "Decisions and open questions",
+      "description": "The choices and questions shaping the work.",
+      "url": "/decisions/",
+      "kinds": [
+       "decision",
+       "open-question"
+      ],
+      "empty": "No decisions or questions are available in this view yet."
+     },
+     {
+      "id": "project-context",
+      "title": "Project context",
+      "description": "Sessions and documents behind the current work.",
+      "url": "/library/",
+      "kinds": [
+       "session",
+       "doc",
+       "wiki-page"
+      ],
+      "empty": "No project context records are available in this view yet."
+     }
+    ],
+    "prompts": [
+     "Which commitments need a decision before work can proceed?",
+     "What changed in the project’s latest recorded discussions?",
+     "Which documents explain the current plan?"
+    ]
+   }
+  },
+  {
+   "id": "company",
+   "title": "Company",
+   "topology": "organization-centric, evergreen",
+   "frontDoor": {
+    "eyebrow": "Company Brain",
+    "desc": "Find how the organization works, the decisions it has made, and the people and connected brains behind its knowledge."
+   },
+   "defaultResolution": "relational",
+   "foreground": [
+    "organization",
+    "business-function",
+    "policy",
+    "person",
+    "decision",
+    "initiative"
+   ],
+   "groups": [
+    {
+     "group": "Organization",
+     "pages": [
+      "/app/brain.html",
+      "/stakeholders/",
+      "/decisions/",
+      "/federation/"
+     ]
+    },
+    {
+     "group": "Company knowledge",
+     "pages": [
+      "/library/",
+      "/search/",
+      "/glossary/",
+      "/catalog/"
+     ]
+    },
+    {
+     "group": "Record",
+     "pages": [
+      "/intelligence/",
+      "/timeline/",
+      "/proposals/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Company Brain",
+    "greeting": "Ask about {name}: how the company works, its people, its decisions, and the knowledge behind them.",
+    "inputPlaceholder": "Ask about the company…",
+    "identity": "You are the {name} company brain assistant at {domain}. Answer from this company brain’s available organizational records, people, decisions, and documents. Distinguish recorded knowledge from gaps.",
+    "audience": "Audience is the people who work with {name}; they need organizational context and the records behind it."
+   },
+   "home": {
+    "layout": "company",
+    "title": "Understand the organization",
+    "description": "Find organizational knowledge, understand decisions, and follow the people and connected brains that carry context.",
+    "primary": [
+     {
+      "url": "/app/brain.html",
+      "label": "Explore company knowledge",
+      "description": "Follow the organizations, records, and relationships this brain knows."
+     },
+     {
+      "url": "/decisions/",
+      "label": "Review company decisions",
+      "description": "Understand the choices and questions behind the work."
+     },
+     {
+      "url": "/federation/",
+      "label": "Visit connected brains",
+      "description": "See the brains registered with this company brain."
+     }
+    ],
+    "sections": [
+     {
+      "id": "company-knowledge",
+      "title": "How the company works",
+      "description": "Organizational records and the documents that explain them.",
+      "url": "/app/brain.html",
+      "kinds": [
+       "organization",
+       "business-function",
+       "policy",
+       "initiative",
+       "account",
+       "doc",
+       "wiki-page"
+      ],
+      "empty": "No organizational records are available in this view yet."
+     },
+     {
+      "id": "company-decisions",
+      "title": "Decisions and questions",
+      "description": "Recorded choices and the questions still being considered.",
+      "url": "/decisions/",
+      "kinds": [
+       "decision",
+       "open-question"
+      ],
+      "empty": "No company decisions or questions are available in this view yet."
+     },
+     {
+      "id": "company-people",
+      "title": "People and responsibilities",
+      "description": "People, teammates, and roles represented in the available knowledge.",
+      "url": "/app/brain.html",
+      "kinds": [
+       "person",
+       "teammate",
+       "role"
+      ],
+      "empty": "No people or responsibility records are available in this view yet."
+     }
+    ],
+    "prompts": [
+     "What does this brain know about how the company works?",
+     "Which decisions explain our current direction?",
+     "Who is connected to the work I am exploring?"
+    ]
+   }
+  },
+  {
+   "id": "topic",
+   "title": "Topic",
+   "topology": "evidence-centric, exploratory",
+   "frontDoor": {
+    "eyebrow": "Topic Brain",
+    "desc": "Explore a subject through its sources, concepts, and open questions. Keep the evidence close to the ideas it supports."
+   },
+   "defaultResolution": "semantic",
+   "foreground": [
+    "research-source",
+    "claim",
+    "synthesis",
+    "glossary-term",
+    "open-thread",
+    "doc"
+   ],
+   "groups": [
+    {
+     "group": "Explore the subject",
+     "pages": [
+      "/library/",
+      "/app/brain.html",
+      "/glossary/",
+      "/search/"
+     ]
+    },
+    {
+     "group": "Questions and record",
+     "pages": [
+      "/decisions/",
+      "/intelligence/",
+      "/timeline/",
+      "/proposals/"
+     ]
+    },
+    {
+     "group": "Connections",
+     "pages": [
+      "/federation/",
+      "/stakeholders/",
+      "/catalog/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Topic Brain",
+    "greeting": "Explore {name}: its sources, concepts, and unanswered questions. I answer from the evidence available in this brain.",
+    "inputPlaceholder": "Explore this topic…",
+    "identity": "You are the {name} topic brain assistant at {domain}. Use this {scope} brain’s available sources, documents, concepts, and questions to explain the subject. Ground claims in the available evidence and identify gaps.",
+    "audience": "Audience is the people studying {name}; they need sources and connections as well as answers."
+   },
+   "home": {
+    "layout": "topic",
+    "title": "Explore the evidence and ideas",
+    "description": "Read the material, connect concepts, and discover which questions still need evidence.",
+    "primary": [
+     {
+      "url": "/library/",
+      "label": "Read the source material",
+      "description": "Find the documents available for this subject."
+     },
+     {
+      "url": "/app/brain.html",
+      "label": "Connect the concepts",
+      "description": "Explore records and relationships across the topic."
+     },
+     {
+      "url": "/decisions/",
+      "label": "Follow open questions",
+      "description": "Review recorded questions and conclusions."
+     }
+    ],
+    "sections": [
+     {
+      "id": "topic-evidence",
+      "title": "Sources and reading",
+      "description": "Source material and reading records available to explore.",
+      "url": "/library/",
+      "kinds": [
+       "research-source",
+       "doc",
+       "wiki-page",
+       "reading-session"
+      ],
+      "empty": "No source or reading records are available in this view yet."
+     },
+     {
+      "id": "topic-concepts",
+      "title": "Ideas and connections",
+      "description": "Concepts, terms, and recorded interpretations of the evidence.",
+      "url": "/app/brain.html",
+      "kinds": [
+       "claim",
+       "synthesis",
+       "glossary-term",
+       "kg-entity"
+      ],
+      "empty": "No concepts or interpretations are available in this view yet."
+     },
+     {
+      "id": "topic-questions",
+      "title": "Questions to investigate",
+      "description": "Open lines of inquiry and the questions behind them.",
+      "url": "/decisions/",
+      "kinds": [
+       "open-thread",
+       "open-question"
+      ],
+      "empty": "No research questions are available in this view yet."
+     }
+    ],
+    "prompts": [
+     "What evidence supports the main ideas in this topic?",
+     "How are these concepts connected?",
+     "Which questions remain unanswered in the available material?"
+    ]
+   }
+  },
+  {
+   "id": "personal",
+   "title": "Personal",
+   "topology": "memory-centric, reflective",
+   "frontDoor": {
+    "eyebrow": "Personal Brain",
+    "desc": "Return to your notes, connect what you have learned, and reflect on the questions and decisions you have recorded."
+   },
+   "defaultResolution": "semantic",
+   "foreground": [
+    "memory-note",
+    "doc",
+    "wiki-page",
+    "decision",
+    "open-question",
+    "glossary-term"
+   ],
+   "groups": [
+    {
+     "group": "My knowledge",
+     "pages": [
+      "/library/",
+      "/search/",
+      "/app/brain.html",
+      "/glossary/"
+     ]
+    },
+    {
+     "group": "Reflection",
+     "pages": [
+      "/decisions/",
+      "/timeline/",
+      "/intelligence/",
+      "/proposals/"
+     ]
+    },
+    {
+     "group": "Connections",
+     "pages": [
+      "/federation/",
+      "/stakeholders/",
+      "/catalog/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Personal Brain",
+    "greeting": "Ask about your notes, ideas, and decisions in {name}. I help you revisit and connect what this brain remembers.",
+    "inputPlaceholder": "Ask your brain…",
+    "identity": "You are the {name} personal brain assistant at {domain}. Help the owner of this {scope} brain revisit available notes, documents, decisions, and questions. Ground reflections in recorded material and distinguish gaps from memories.",
+    "audience": "Audience is the person whose knowledge is organized in {name}; support recall, learning, and reflection."
+   },
+   "home": {
+    "layout": "personal",
+    "title": "Pick up your train of thought",
+    "description": "Revisit what you have recorded, reflect on decisions, and connect ideas across your knowledge.",
+    "primary": [
+     {
+      "url": "/library/",
+      "label": "Return to your notes",
+      "description": "Browse the documents and notes in your knowledge library."
+     },
+     {
+      "url": "/search/",
+      "label": "Find a thought",
+      "description": "Search the knowledge available in this brain."
+     },
+     {
+      "url": "/decisions/",
+      "label": "Reflect on a decision",
+      "description": "Revisit recorded choices and open questions."
+     }
+    ],
+    "sections": [
+     {
+      "id": "personal-memory",
+      "title": "Notes and memories",
+      "description": "The records you can return to and build on.",
+      "url": "/library/",
+      "kinds": [
+       "memory-note",
+       "doc",
+       "wiki-page",
+       "session"
+      ],
+      "empty": "No notes or memories are available in this view yet."
+     },
+     {
+      "id": "personal-reflection",
+      "title": "Questions and reflections",
+      "description": "Decisions to revisit and questions to think through.",
+      "url": "/decisions/",
+      "kinds": [
+       "decision",
+       "open-question"
+      ],
+      "empty": "No decisions or questions are available in this view yet."
+     },
+     {
+      "id": "personal-concepts",
+      "title": "Ideas worth connecting",
+      "description": "Terms and concepts across your available knowledge.",
+      "url": "/app/brain.html",
+      "kinds": [
+       "glossary-term",
+       "kg-entity"
+      ],
+      "empty": "No concepts are available in this view yet."
+     }
+    ],
+    "prompts": [
+     "What have I recorded about this idea before?",
+     "Which past decisions are relevant to this question?",
+     "What connections can I draw across my notes?"
+    ]
+   }
+  },
+  {
+   "id": "wiki",
+   "title": "Wiki",
+   "topology": "entity-centric, evergreen",
+   "frontDoor": {
+    "eyebrow": "Knowledge Base",
+    "desc": "A maintained wiki over everything this brain knows: registers, concepts, decisions and the documents behind them, cross-referenced and kept current."
+   },
+   "defaultResolution": "relational",
+   "foreground": [
+    "organization",
+    "stakeholder",
+    "glossary-term",
+    "decision",
+    "doc",
+    "wiki-page"
+   ],
+   "groups": [
+    {
+     "group": "Registers",
+     "pages": [
+      "/stakeholders/",
+      "/glossary/",
+      "/federation/"
+     ]
+    },
+    {
+     "group": "Knowledge",
+     "pages": [
+      "/library/",
+      "/app/brain.html",
+      "/app/",
+      "/decisions/",
+      "/media/",
+      "/search/",
+      "/app/deck.html",
+      "/catalog/"
+     ]
+    },
+    {
+     "group": "Record",
+     "pages": [
+      "/intelligence/",
+      "/timeline/",
+      "/action-items/",
+      "/proposals/"
+     ]
+    },
+    {
+     "group": "Delivery",
+     "pages": [
+      "/status/",
+      "/roadmap/",
+      "/specs/",
+      "/deliverables/",
+      "/user-stories/",
+      "/issues/",
+      "/raid/",
+      "/dependencies/",
+      "/blueprint/",
+      "/simulator/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Brain",
+    "greeting": "Ask me anything about {name}: what it knows, its decisions and the documents behind them. I answer from this brain's knowledge base.",
+    "inputPlaceholder": "Ask this brain…",
+    "identity": "You are the {name} brain assistant at {domain}. You answer questions about {name}, a {scope} brain, using its knowledge base: its records, decisions, documents and knowledge graph.",
+    "audience": "Audience is the people this {scope} brain serves; they know its subject, not every record."
+   }
+  },
+  {
+   "id": "catalog",
+   "title": "Catalog",
+   "topology": "source-centric",
+   "frontDoor": {
+    "eyebrow": "Data Catalog",
+    "desc": "The systems of record this brain knows, their shapes, lineage and freshness — catalogued, not copied."
+   },
+   "defaultResolution": "exact",
+   "foreground": [
+    "source",
+    "source-entity",
+    "source-field",
+    "catalog",
+    "artifact-node",
+    "collection"
+   ],
+   "groups": [
+    {
+     "group": "Sources",
+     "pages": [
+      "/catalog/",
+      "/library/",
+      "/media/",
+      "/app/brain.html",
+      "/app/",
+      "/search/",
+      "/intelligence/",
+      "/timeline/",
+      "/app/deck.html"
+     ]
+    },
+    {
+     "group": "Registers",
+     "pages": [
+      "/federation/",
+      "/stakeholders/",
+      "/glossary/"
+     ]
+    },
+    {
+     "group": "Decisions",
+     "pages": [
+      "/decisions/",
+      "/raid/",
+      "/action-items/",
+      "/proposals/"
+     ]
+    },
+    {
+     "group": "Delivery",
+     "pages": [
+      "/status/",
+      "/roadmap/",
+      "/specs/",
+      "/deliverables/",
+      "/user-stories/",
+      "/issues/",
+      "/dependencies/",
+      "/blueprint/",
+      "/simulator/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Brain",
+    "greeting": "Ask me anything about {name}: what it knows, its decisions and the documents behind them. I answer from this brain's knowledge base.",
+    "inputPlaceholder": "Ask this brain…",
+    "identity": "You are the {name} brain assistant at {domain}. You answer questions about {name}, a {scope} brain, using its knowledge base: its records, decisions, documents and knowledge graph.",
+    "audience": "Audience is the people this {scope} brain serves; they know its subject, not every record."
+   }
+  },
+  {
+   "id": "federation",
+   "title": "Federation",
+   "topology": "brain-centric",
+   "frontDoor": {
+    "eyebrow": "Federation",
+    "desc": "The brains this one federates: children, peers, what each publishes, how fresh each is, and where the engine generations diverge."
+   },
+   "defaultResolution": "abstract",
+   "foreground": [
+    "organization",
+    "decision",
+    "glossary-term"
+   ],
+   "groups": [
+    {
+     "group": "Brains",
+     "pages": [
+      "/federation/",
+      "/app/brain.html",
+      "/app/",
+      "/library/",
+      "/proposals/",
+      "/search/",
+      "/catalog/",
+      "/media/",
+      "/app/deck.html"
+     ]
+    },
+    {
+     "group": "Registers",
+     "pages": [
+      "/stakeholders/",
+      "/glossary/"
+     ]
+    },
+    {
+     "group": "Record",
+     "pages": [
+      "/decisions/",
+      "/action-items/",
+      "/raid/",
+      "/intelligence/",
+      "/timeline/"
+     ]
+    },
+    {
+     "group": "Delivery",
+     "pages": [
+      "/status/",
+      "/roadmap/",
+      "/specs/",
+      "/deliverables/",
+      "/user-stories/",
+      "/issues/",
+      "/dependencies/",
+      "/blueprint/",
+      "/simulator/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Brain",
+    "greeting": "Ask me anything about {name}: what it knows, its decisions and the documents behind them. I answer from this brain's knowledge base.",
+    "inputPlaceholder": "Ask this brain…",
+    "identity": "You are the {name} brain assistant at {domain}. You answer questions about {name}, a {scope} brain, using its knowledge base: its records, decisions, documents and knowledge graph.",
+    "audience": "Audience is the people this {scope} brain serves; they know its subject, not every record."
+   }
+  },
+  {
+   "id": "console",
+   "title": "Console",
+   "topology": "agent-centric",
+   "frontDoor": {
+    "eyebrow": "Agent Console",
+    "desc": "What the organizer proposed, what a curator accepted, what is queued — the working memory of an agent node and the log that makes it reviewable."
+   },
+   "defaultResolution": "exact",
+   "foreground": [
+    "action-item",
+    "open-question",
+    "decision",
+    "memory-note"
+   ],
+   "groups": [
+    {
+     "group": "Work",
+     "pages": [
+      "/action-items/",
+      "/decisions/",
+      "/raid/",
+      "/status/",
+      "/proposals/"
+     ]
+    },
+    {
+     "group": "Memory",
+     "pages": [
+      "/library/",
+      "/app/brain.html",
+      "/app/",
+      "/glossary/",
+      "/stakeholders/",
+      "/media/",
+      "/search/",
+      "/federation/",
+      "/catalog/",
+      "/intelligence/",
+      "/timeline/",
+      "/app/deck.html"
+     ]
+    },
+    {
+     "group": "Plan",
+     "pages": [
+      "/roadmap/",
+      "/specs/",
+      "/deliverables/",
+      "/user-stories/",
+      "/issues/",
+      "/dependencies/",
+      "/blueprint/",
+      "/simulator/"
+     ]
+    }
+   ],
+   "assistantCopy": {
+    "portalTitle": "{name} — Brain",
+    "greeting": "Ask me anything about {name}: what it knows, its decisions and the documents behind them. I answer from this brain's knowledge base.",
+    "inputPlaceholder": "Ask this brain…",
+    "identity": "You are the {name} brain assistant at {domain}. You answer questions about {name}, a {scope} brain, using its knowledge base: its records, decisions, documents and knowledge graph.",
+    "audience": "Audience is the people this {scope} brain serves; they know its subject, not every record."
+   }
+  }
+ ],
+ "version": 1,
+ "updated": "2026-09-25",
+ "changelog": [
+  {
+   "date": "2026-09-25",
+   "note": "Add purpose-specific company, project, topic, and personal home definitions and assistant copy."
+  }
+ ]
+}

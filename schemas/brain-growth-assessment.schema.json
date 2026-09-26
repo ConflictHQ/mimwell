@@ -1,0 +1,2881 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-growth-assessment/v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "brain-growth-assessment/v1"
+    },
+    "asOf": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inputSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "reviewer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "recipe": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ]
+          },
+          "state": {
+            "enum": [
+              "available",
+              "unavailable",
+              "denied"
+            ]
+          },
+          "graph": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stores": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+                },
+                "role": {
+                  "enum": [
+                    "authority",
+                    "projection",
+                    "search-index",
+                    "vector-index",
+                    "blob",
+                    "archive"
+                  ]
+                },
+                "kind": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2048
+                }
+              },
+              "required": [
+                "id",
+                "role",
+                "kind"
+              ]
+            },
+            "minItems": 0,
+            "maxItems": 4096
+          },
+          "metrics": {
+            "type": "object",
+            "properties": {
+              "records": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "edges": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "graphBytes": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "bytes"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "evidenceEntries": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "evidenceMetadataBytes": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "bytes"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "maxNeighbors": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "danglingEdges": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "isolatedRecords": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "labelCollisionCandidates": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "queryLatency": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ms"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "traversalDepth": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "contextCoverage": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ratio"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "ambiguousConcepts": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "writeConcurrency": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "readConcurrency": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "freshnessLag": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ms"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "uiLoad": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ms"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "reviewQueue": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "reviewAge": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ms"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "unownedRecords": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "count"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "contextTokens": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "tokens"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "truncation": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ratio"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "evidenceBlobBytes": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "bytes"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "indexBytes": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "bytes"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "historyBytes": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "bytes"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "backupBytes": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "bytes"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              },
+              "restoreTime": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unknown",
+                      "observed",
+                      "sampled-by-workload"
+                    ]
+                  },
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "unit": {
+                    "const": "ms"
+                  },
+                  "sourceRevision": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "method": {
+                    "const": "explicit-compiled-snapshot"
+                  },
+                  "sampledWorkloads": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "required": [
+                  "status",
+                  "value",
+                  "unit"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "records",
+              "edges",
+              "graphBytes",
+              "evidenceEntries",
+              "evidenceMetadataBytes",
+              "maxNeighbors",
+              "danglingEdges",
+              "isolatedRecords",
+              "labelCollisionCandidates",
+              "queryLatency",
+              "traversalDepth",
+              "contextCoverage",
+              "ambiguousConcepts",
+              "writeConcurrency",
+              "readConcurrency",
+              "freshnessLag",
+              "uiLoad",
+              "reviewQueue",
+              "reviewAge",
+              "unownedRecords",
+              "contextTokens",
+              "truncation",
+              "evidenceBlobBytes",
+              "indexBytes",
+              "historyBytes",
+              "backupBytes",
+              "restoreTime"
+            ],
+            "additionalProperties": false
+          },
+          "modalities": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "sourceRevision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "measurements": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "recipeVerified": {
+            "const": false
+          },
+          "ownershipVerified": {
+            "const": false
+          },
+          "projectionProbes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "receipt": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2048
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "sha256"
+                  ]
+                },
+                "result": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "receipt",
+                "result"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "owner",
+          "reviewer",
+          "recipe",
+          "state",
+          "graph",
+          "stores",
+          "metrics",
+          "modalities",
+          "sourceRevision",
+          "measurements",
+          "recipeVerified",
+          "ownershipVerified"
+        ]
+      }
+    },
+    "topology": {
+      "type": "object",
+      "properties": {
+        "participantCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mountCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reachableParticipants": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "unreachableParticipants": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "maxShortestDeclaredDepth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxDeclaredFanout": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeatedMounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "participant": {
+                "type": "string",
+                "minLength": 1
+              },
+              "mounts": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "participant",
+              "mounts"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "cycleBackEdges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "source",
+              "target"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "authorizationEvaluated": {
+          "const": false
+        },
+        "meaning": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "participantCount",
+        "mountCount",
+        "reachableParticipants",
+        "unreachableParticipants",
+        "maxShortestDeclaredDepth",
+        "maxDeclaredFanout",
+        "repeatedMounts",
+        "cycleBackEdges",
+        "authorizationEvaluated",
+        "meaning"
+      ],
+      "additionalProperties": false
+    },
+    "composed": {
+      "type": "object",
+      "properties": {
+        "subtotals": {
+          "type": "object",
+          "properties": {
+            "records": {
+              "type": "object",
+              "properties": {
+                "observedSubtotal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "observedSubtotal",
+                "unit",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "edges": {
+              "type": "object",
+              "properties": {
+                "observedSubtotal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "observedSubtotal",
+                "unit",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "graphBytes": {
+              "type": "object",
+              "properties": {
+                "observedSubtotal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "observedSubtotal",
+                "unit",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "evidenceEntries": {
+              "type": "object",
+              "properties": {
+                "observedSubtotal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "observedSubtotal",
+                "unit",
+                "complete"
+              ],
+              "additionalProperties": false
+            },
+            "evidenceMetadataBytes": {
+              "type": "object",
+              "properties": {
+                "observedSubtotal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "observedSubtotal",
+                "unit",
+                "complete"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "records",
+            "edges",
+            "graphBytes",
+            "evidenceEntries",
+            "evidenceMetadataBytes"
+          ],
+          "additionalProperties": false
+        },
+        "id": {
+          "const": "composition"
+        },
+        "measurements": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "sourceRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "records": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "edges": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "graphBytes": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "evidenceEntries": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "evidenceMetadataBytes": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "maxNeighbors": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "danglingEdges": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "isolatedRecords": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "labelCollisionCandidates": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "queryLatency": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ms"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "traversalDepth": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "contextCoverage": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ratio"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "ambiguousConcepts": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "writeConcurrency": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "readConcurrency": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "freshnessLag": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ms"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "uiLoad": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ms"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "reviewQueue": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "reviewAge": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ms"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "unownedRecords": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "count"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "contextTokens": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "tokens"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "truncation": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ratio"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "evidenceBlobBytes": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "indexBytes": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "historyBytes": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "backupBytes": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "bytes"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            },
+            "restoreTime": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unknown",
+                    "observed",
+                    "sampled-by-workload"
+                  ]
+                },
+                "value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "unit": {
+                  "const": "ms"
+                },
+                "sourceRevision": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "method": {
+                  "const": "explicit-compiled-snapshot"
+                },
+                "sampledWorkloads": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "value",
+                "unit"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "records",
+            "edges",
+            "graphBytes",
+            "evidenceEntries",
+            "evidenceMetadataBytes",
+            "maxNeighbors",
+            "danglingEdges",
+            "isolatedRecords",
+            "labelCollisionCandidates",
+            "queryLatency",
+            "traversalDepth",
+            "contextCoverage",
+            "ambiguousConcepts",
+            "writeConcurrency",
+            "readConcurrency",
+            "freshnessLag",
+            "uiLoad",
+            "reviewQueue",
+            "reviewAge",
+            "unownedRecords",
+            "contextTokens",
+            "truncation",
+            "evidenceBlobBytes",
+            "indexBytes",
+            "historyBytes",
+            "backupBytes",
+            "restoreTime"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "subtotals",
+        "id",
+        "measurements",
+        "sourceRevision",
+        "metrics"
+      ],
+      "additionalProperties": false
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "enum": [
+              "practice",
+              "navigation",
+              "taxonomy",
+              "ontology",
+              "bounded-query",
+              "index",
+              "record-move",
+              "split",
+              "merge",
+              "store-cutover"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "object"
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "expectedBenefit": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "operation",
+          "reason",
+          "evidence",
+          "alternatives",
+          "expectedBenefit"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "workloads": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "budgets": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "forecast": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "unknown"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "executionAuthorized": {
+      "const": false
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sourcePins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ]
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "format",
+    "asOf",
+    "inputSha256",
+    "implementation",
+    "participants",
+    "topology",
+    "composed",
+    "findings",
+    "workloads",
+    "budgets",
+    "forecast",
+    "executionAuthorized",
+    "limits",
+    "sourcePins",
+    "sha256"
+  ],
+  "additionalProperties": false
+}

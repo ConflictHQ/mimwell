@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stakeholders</title>
+<!-- Schema-rendered page (frontend pass 1, W1.5): this shell declares WHICH
+     kinds it shows and nothing else. Chrome CSS is shared (app/page-shell.css),
+     record rendering is shared (app/kind-page.js + app/kind-page.css) and driven
+     by app/kinds.json, which scripts/gen-kinds.py derives from brain-schema.json
+     and the artifact schemas. Delete a field from the schema and it disappears
+     from this page with no edit here. -->
+<link rel="stylesheet" href="/app/page-shell.css">
+<link rel="stylesheet" href="/app/kind-page.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+<script src="/app/kind-page.js" defer></script>
+</head>
+<body>
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Reference</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title" data-kb-auto="false">Stakeholders</h1>
+  <p class="page-subtitle">Who is involved, in what role, and how to reach them.</p>
+</section>
+
+<!-- Body: rendered by app/kind-page.js from the declared kinds -->
+<main class="kind-page" data-kb-kinds="stakeholder,organization"></main>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+</body>
+</html>

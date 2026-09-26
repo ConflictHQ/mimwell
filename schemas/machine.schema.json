@@ -1,0 +1,461 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/machine/v1",
+  "title": "Living Blueprint machine (app/machine.json)",
+  "description": "The single data spine behind /blueprint/: what exists, when it arrived, what it unlocked, and who it powers — and nothing about how it looks. The renderer owns every pixel; this file owns every claim. Honesty invariants beyond this schema live in scripts/check-machine.py (make machine-check). Pattern: docs/patterns/living-blueprint.md.",
+  "x-conflict": {
+    "version": "1",
+    "editable": true,
+    "source": "app/machine.json"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "updated", "changelog", "views", "components", "connections", "capabilities", "products", "scenarios", "timeline"],
+  "properties": {
+    "$comment": { "type": "string" },
+    "version": { "type": "integer", "minimum": 1 },
+    "updated": { "$ref": "#/$defs/isoDate" },
+    "changelog": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Newest first. Bump version+updated+changelog together on every edit (fill-in envelope convention).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["version", "date", "note"],
+        "properties": {
+          "version": { "type": "integer" },
+          "date": { "$ref": "#/$defs/isoDate" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "views": {
+      "type": "object",
+      "description": "The layer views: same silhouette, different splits. Keys are view ids (slugs); each view defines the ordered groups a component may belong to in that view. Group membership drives layout/regrouping; geometry identity never changes between views.",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z0-9]+(-[a-z0-9]+)*$": { "$ref": "#/$defs/viewDef" }
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/component" }
+    },
+    "connections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connection" }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "products": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/product" }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scenario" }
+    },
+    "timeline": { "$ref": "#/$defs/timeline" }
+  },
+  "$defs": {
+    "isoDate": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "phaseRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must match the id of an entry in timeline.phases (validator V4/V1). Engagements name their own phases; special rendering behaviors come from the phase definition's `kind`, never from magic ids."
+    },
+    "viewDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "groups"],
+      "properties": {
+        "label": { "type": "string" },
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "order"],
+            "properties": {
+              "id": { "$ref": "#/$defs/slug" },
+              "label": { "type": "string" },
+              "order": { "type": "integer", "description": "Band/stack order within the view (0 = first)." }
+            }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ref"],
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "tracker" },
+            "ref": {
+              "type": "string",
+              "pattern": "^([A-Z][A-Z0-9]+-\\d+|#\\d+)$",
+              "description": "A tracker item: Jira-style KEY-123 or GitHub-style #123."
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "pr" },
+            "ref": {
+              "type": "string",
+              "pattern": "^[\\w.-]+#\\d+$",
+              "description": "repo#number, e.g. product-api#212."
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "decision" },
+            "ref": {
+              "type": "string",
+              "pattern": "^d-\\d+$",
+              "description": "A decision id; resolved against app/decisions.json ids when that file exists (validator V5)."
+            }
+          }
+        }
+      ],
+      "properties": {
+        "type": { "enum": ["tracker", "pr", "decision"] },
+        "ref": { "type": "string" }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "phase"],
+      "properties": {
+        "status": { "enum": ["built", "in-progress", "planned"] },
+        "phase": { "$ref": "#/$defs/phaseRef" },
+        "date": { "$ref": "#/$defs/isoDate", "description": "Real delivery date (tracker done-date). Required when built." },
+        "started": { "$ref": "#/$defs/isoDate", "description": "Required when in-progress." },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Tie-break for colorization order when components share a delivery date: lower colorizes first."
+        },
+        "gated": {
+          "type": "boolean",
+          "default": false,
+          "description": "Built but activation-gated: colorizes at its build date — the one deliberate legend exception, never ghosted — and carries an activation label ('built <phase> · activated <activationPhase>'). Requires activationPhase."
+        },
+        "activationPhase": { "$ref": "#/$defs/phaseRef" },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "built" } } },
+          "then": { "required": ["date", "evidence"], "properties": { "evidence": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "in-progress" } } },
+          "then": { "required": ["started"], "not": { "required": ["date"] } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "planned" } } },
+          "then": { "not": { "anyOf": [{ "required": ["date"] }, { "required": ["started"] }] } }
+        },
+        {
+          "if": { "properties": { "gated": { "const": true } }, "required": ["gated"] },
+          "then": { "required": ["activationPhase"] }
+        }
+      ]
+    },
+    "feedCadence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "ratePerMin"],
+      "description": "How fast, and in what shape, data arrives on an ingestion channel. The ONLY source of flow animation rate: the renderer reads mode + ratePerMin and never hardcodes a per-channel speed. Rate drives density (spawn interval, dash-march), never velocity — 'speed is time-scale, density is volume' (blueprint/design/motion-language.md).",
+      "properties": {
+        "mode": {
+          "enum": ["burst", "continuous", "scheduled"],
+          "description": "Arrival shape: burst = clustered trains between idle gaps (batch pulls) · continuous = evenly spaced trickle (webhooks, streams, CDC) · scheduled = one discrete arrival per interval (file drops). Usual pairings with channelType, not enforced ones."
+        },
+        "ratePerMin": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Average records per minute over the channel's own cycle. 0 = provisioned but not yet fed: the route draws live and empty."
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "officialName", "realName", "execCopy", "valueLine", "views", "delivery"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "officialName": {
+          "type": "string",
+          "description": "PRIMARY display name, in the engagement's real spec/portal vocabulary. What every renderer shows by default, in every view, at every depth. Not an invented coinage, not a vendor/product name."
+        },
+        "metaphorName": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "OPTIONAL visual-metaphor flavor name (see blueprint/design/metaphor-dictionary.md). Never replaces officialName; at most a secondary/subtitle line. Must not contain any realName token (validator V7)."
+        },
+        "realName": {
+          "type": "string",
+          "description": "Engineer-depth name; vendor and product names allowed here. Its tokens (minus officialName's) form the V7 denylist for exec surfaces."
+        },
+        "execCopy": {
+          "type": "string",
+          "description": "The card's what-it-does body: one sentence, capability language, no technology names (V7)."
+        },
+        "valueLine": {
+          "type": "string",
+          "description": "The card's why-it-matters line: one line of value language (V7 applies). Must not restate execCopy in different words — that is a review failure no schema can catch."
+        },
+        "engCopy": { "type": "string", "description": "Optional engineer-depth description; tech names allowed." },
+        "deepLink": { "type": "string", "description": "Engineer-mode link (repo path, portal page, dashboard). Never shown at exec depth." },
+        "specRef": {
+          "type": "string",
+          "description": "Optional plan-node id in specs/manifest.json whose status this component's delivery tracks; scripts/sync-machine.py refreshes delivery from it (make machine-sync)."
+        },
+        "handlesPii": {
+          "type": "boolean",
+          "default": false,
+          "description": "True if raw PII/sensitive data transits or rests here. Drives validator V6 on connections."
+        },
+        "existing": {
+          "type": "boolean",
+          "default": false,
+          "description": "True for systems that predate the project: colorized from timeline start at every scrub position."
+        },
+        "channelType": {
+          "enum": ["batch-pull", "webhook", "stream", "file", "cdc"],
+          "description": "INGESTION-CHANNEL COMPONENTS ONLY — the intake form this channel takes and the typed flow it feeds. Omit on non-intake components. Present ⇒ feedCadence required."
+        },
+        "feedCadence": { "$ref": "#/$defs/feedCadence" },
+        "views": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "Membership per layer view: key = a view id defined at top level, value = a group id defined in that view. Key present = component appears in that view.",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z0-9]+(-[a-z0-9]+)*$": { "$ref": "#/$defs/slug" }
+          }
+        },
+        "slot": {
+          "type": "string",
+          "pattern": "^slot\\.[a-z0-9.-]+$",
+          "description": "Optional named geometry slot — the bridge to hand-drawn frame art (slice 2 of the design spec). Absent components render as auto-laid-out placeholder blocks; no coordinates ever live in this file."
+        },
+        "internals": {
+          "type": "array",
+          "description": "Sub-parts revealed at detail depth (slice 2 explode). Frame-local; authored without knowledge of placement.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "officialName"],
+            "properties": {
+              "id": { "$ref": "#/$defs/slug" },
+              "officialName": { "type": "string" },
+              "metaphorName": { "type": ["string", "null"], "default": null },
+              "realName": { "type": "string" }
+            }
+          }
+        },
+        "delivery": { "$ref": "#/$defs/delivery" }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["channelType"] },
+          "then": { "required": ["feedCadence"] }
+        }
+      ]
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "flow", "pii"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "from": { "$ref": "#/$defs/slug" },
+        "to": { "$ref": "#/$defs/slug" },
+        "flow": {
+          "enum": ["stream", "batch", "request", "reference"],
+          "description": "stream = continuous flow · batch = scheduled runs · request = call/response · reference = lookup/read-only."
+        },
+        "pii": {
+          "type": "boolean",
+          "description": "True if untokenized PII/sensitive data travels this path. Both endpoints must declare handlesPii (V6)."
+        },
+        "label": { "type": "string", "description": "Exec-safe payload label ('customer records', 'events'). No tech names (V7)." },
+        "delivery": {
+          "$ref": "#/$defs/delivery",
+          "description": "Optional override. If absent, derived: built iff both endpoints built (date = later endpoint date); else the least-advanced endpoint status."
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "body", "valueLine", "problem", "products", "unlockedBy", "phase"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "name": { "type": "string", "description": "Capability language; leads every exec surface (V7)." },
+        "body": { "type": "string", "description": "What it does, stated directly — no before/after scaffold. For planned capabilities the renderer casts this in future tense; the copy stays declarative." },
+        "valueLine": { "type": "string", "description": "Why it matters, one line of value language. Not a restatement of body." },
+        "problem": { "type": "string", "description": "The business problem this addresses. Pure value language: no names, no meeting attribution." },
+        "problemRef": { "type": "string", "pattern": "^ps-\\d+$", "description": "Optional stable id of a canonical problem statement; verbatim text lives in `problem`, attribution stripped." },
+        "products": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/slug" },
+          "description": "CANONICAL capability→product edge. Product cards derive their consumed-capabilities list by inverting this; the edge is stored exactly once."
+        },
+        "status": {
+          "enum": ["solves", "partially-solves", "blocked-on-data"],
+          "description": "The ASSESSED STATUS ONCE UNLOCKED — what the capability honestly claims when its machinery is built (done AND usable in a live environment). Optional and IGNORED while the card is locked: until at least one unlockedBy component is built, the renderer suppresses the chip entirely (V3c)."
+        },
+        "statusNote": { "type": "string", "description": "Required when status is present and != 'solves' (V3b): what is partial, or what unblocks it." },
+        "unlockedBy": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/slug" },
+          "description": "ALL listed components must be built for the capability to unlock at a timeline position (V3)."
+        },
+        "phase": { "$ref": "#/$defs/phaseRef" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "enum": ["partially-solves", "blocked-on-data"] } },
+            "required": ["status"]
+          },
+          "then": { "required": ["statusNote"] }
+        }
+      ]
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "execCopy"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "name": { "type": "string", "description": "The downstream product/consumer this machine powers." },
+        "execCopy": { "type": "string" },
+        "slot": { "type": "string", "pattern": "^slot\\.[a-z0-9.-]+$" }
+      }
+    },
+    "beat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["beat", "action"],
+      "properties": {
+        "beat": { "type": "integer", "minimum": 1, "description": "Ordinal within the scenario. Pacing/duration is presentation, not data." },
+        "action": {
+          "enum": ["arrive", "travel", "process", "split", "merge", "hold", "divert", "flag", "emit", "deliver", "camera", "card", "caption", "wait"],
+          "description": "Closed 14-verb vocabulary — the single source of truth for the beat player. New verbs require a schema version bump."
+        },
+        "target": {
+          "$ref": "#/$defs/slug",
+          "description": "Component id (arrive/process/split/merge/hold/divert/emit/deliver), connection id (travel), component|connection id (flag/camera), component|capability id (card). Optional anchor for caption; absent for wait. Enforced by V2a."
+        },
+        "payload": { "type": "string", "description": "Exec-safe token label carried through the machine. No tech names (V7)." },
+        "execNote": { "type": "string", "description": "Exec-depth caption for this beat." },
+        "engNote": { "type": "string", "description": "Engineer-depth caption; tech names allowed." }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "not": { "enum": ["caption", "wait"] } } } },
+          "then": { "required": ["target"] }
+        },
+        {
+          "if": { "properties": { "action": { "const": "wait" } }, "required": ["action"] },
+          "then": { "not": { "required": ["target"] } }
+        }
+      ]
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "execIntro", "demonstrates", "beats"],
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "title": { "type": "string" },
+        "execIntro": { "type": "string", "description": "The problem this walkthrough answers, in value language. No attribution." },
+        "problemRef": { "type": "string", "pattern": "^ps-\\d+$" },
+        "demonstrates": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/slug" },
+          "description": "Capability ids this scenario proves out."
+        },
+        "beats": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/beat" }
+        }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phases", "milestones"],
+      "description": "Scrub positions are DERIVED from component delivery dates — never hand-listed. This object holds only the fixed frame: phase windows and named markers.",
+      "properties": {
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label"],
+            "properties": {
+              "id": { "$ref": "#/$defs/slug" },
+              "label": { "type": "string" },
+              "start": { "$ref": "#/$defs/isoDate", "description": "Required for delivery-kind phases (the V4 window); optional for reference/unnumbered, which have no window." },
+              "end": { "$ref": "#/$defs/isoDate", "description": "Absent = open/future phase." },
+              "kind": {
+                "enum": ["delivery", "reference", "unnumbered"],
+                "default": "delivery",
+                "description": "delivery (default) = normal phase, dates checked against the window (V4). reference = machinery outside the delivery timeline: reference treatment, never colorizes, exempt from V4. unnumbered = deliberately un-dated later work ('a later phase'): ghosted, rendered without a numeral, exempt from V4."
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "anyOf": [
+                    { "not": { "required": ["kind"] } },
+                    { "properties": { "kind": { "const": "delivery" } } }
+                  ]
+                },
+                "then": { "required": ["start"] }
+              }
+            ]
+          }
+        },
+        "milestones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "date", "label", "kind"],
+            "properties": {
+              "id": { "$ref": "#/$defs/slug" },
+              "date": { "$ref": "#/$defs/isoDate" },
+              "label": { "type": "string" },
+              "kind": { "enum": ["phase-boundary", "release", "external"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

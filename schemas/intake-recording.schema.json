@@ -1,0 +1,651 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-recording/v1",
+  "title": "Bounded recording preparation and parent-linked frame plans",
+  "description": "Historical source preparation, not transcription or completion. Runtime recomputes coverage, hashes and exact frame bounds. Profiles are private host configuration; plans contain no executable or spool paths.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/profile"
+    },
+    {
+      "$ref": "#/$defs/preparation"
+    },
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/chunk"
+    }
+  ],
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "ffmpeg",
+        "threads",
+        "maxSourceBytes",
+        "maxAudioSeconds",
+        "maxSpoolBytes",
+        "decodeTimeoutSeconds"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-recording-profile/v1"
+        },
+        "ffmpeg": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "libraryDirectories"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "libraryDirectories": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          }
+        },
+        "threads": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "maxSourceBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
+        },
+        "maxAudioSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 21600
+        },
+        "maxSpoolBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483648
+        },
+        "decodeTimeoutSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 600
+        }
+      }
+    },
+    "normalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "item",
+        "profileSha256",
+        "decoderSha256",
+        "audio"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-recording-normalization/v1"
+        },
+        "item": {
+          "$ref": "conflict:schema/intake/v1#/$defs/item"
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "decoderSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "audio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "selector",
+            "origin",
+            "sampleRate",
+            "channels",
+            "encoding",
+            "sampleFrames",
+            "sha256"
+          ],
+          "properties": {
+            "selector": {
+              "const": "0:a:0"
+            },
+            "origin": {
+              "const": "decoded-audio-start"
+            },
+            "sampleRate": {
+              "const": 16000
+            },
+            "channels": {
+              "const": 1
+            },
+            "encoding": {
+              "const": "s16le"
+            },
+            "sampleFrames": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 345600000
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 345599999
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 345600000
+        }
+      }
+    },
+    "chunkRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "range"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "start",
+            "end"
+          ],
+          "properties": {
+            "kind": {
+              "const": "audio-frames"
+            },
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 345599999
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 345600000
+            }
+          }
+        }
+      }
+    },
+    "preparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "normalization",
+        "normalizationSha256",
+        "principal",
+        "policySha256",
+        "bindingsSha256",
+        "protection",
+        "registrationSha256",
+        "rootSha256",
+        "observation",
+        "preparedAt",
+        "usage"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-recording-preparation/v1"
+        },
+        "normalization": {
+          "$ref": "#/$defs/normalization"
+        },
+        "normalizationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bindingsSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policySha256",
+            "requirements"
+          ],
+          "properties": {
+            "policySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requirements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "encryption",
+                "mediation",
+                "opaqueMetadata",
+                "offline",
+                "plaintextCopies",
+                "derivatives",
+                "verifiedAuthorship"
+              ],
+              "properties": {
+                "encryption": {
+                  "type": "boolean"
+                },
+                "mediation": {
+                  "type": "boolean"
+                },
+                "opaqueMetadata": {
+                  "type": "boolean"
+                },
+                "offline": {
+                  "type": "boolean"
+                },
+                "plaintextCopies": {
+                  "type": "boolean"
+                },
+                "derivatives": {
+                  "type": "boolean"
+                },
+                "verifiedAuthorship": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "registrationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "rootSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "device",
+            "inode",
+            "size",
+            "modifiedNs",
+            "changedNs"
+          ],
+          "properties": {
+            "device": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "maxLength": 32
+            },
+            "inode": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "maxLength": 32
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modifiedNs": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$",
+              "maxLength": 32
+            },
+            "changedNs": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$",
+              "maxLength": 32
+            }
+          }
+        },
+        "preparedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sourceBytes",
+            "normalizedBytes",
+            "spoolBytes",
+            "processCalls",
+            "modelExecutions",
+            "elapsedMs"
+          ],
+          "properties": {
+            "sourceBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1073741824
+            },
+            "normalizedBytes": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 691200000
+            },
+            "spoolBytes": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 2147483648
+            },
+            "processCalls": {
+              "const": 1
+            },
+            "modelExecutions": {
+              "const": 0
+            },
+            "elapsedMs": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "normalization",
+        "normalizationSha256",
+        "windowFrames",
+        "maxOverlapFrames",
+        "maxChunks",
+        "chunks",
+        "coverage"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-recording-plan/v1"
+        },
+        "normalization": {
+          "$ref": "#/$defs/normalization"
+        },
+        "normalizationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "windowFrames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9600000
+        },
+        "maxOverlapFrames": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9599999
+        },
+        "maxChunks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "chunks": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/chunkRange"
+          },
+          "minItems": 1
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "union",
+            "gaps",
+            "overlaps",
+            "coveredFrames"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "complete",
+                "partial"
+              ]
+            },
+            "union": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/interval"
+              }
+            },
+            "gaps": {
+              "type": "array",
+              "maxItems": 257,
+              "items": {
+                "$ref": "#/$defs/interval"
+              }
+            },
+            "overlaps": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/interval"
+              }
+            },
+            "coveredFrames": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 345600000
+            }
+          }
+        }
+      }
+    },
+    "chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "normalization",
+        "normalizationSha256",
+        "principal",
+        "policySha256",
+        "bindingsSha256",
+        "protection",
+        "preparationSha256",
+        "planSha256",
+        "chunk",
+        "evaluatedAt",
+        "audio",
+        "usage"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-recording-chunk/v1"
+        },
+        "normalization": {
+          "$ref": "#/$defs/normalization"
+        },
+        "normalizationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bindingsSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policySha256",
+            "requirements"
+          ],
+          "properties": {
+            "policySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requirements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "encryption",
+                "mediation",
+                "opaqueMetadata",
+                "offline",
+                "plaintextCopies",
+                "derivatives",
+                "verifiedAuthorship"
+              ],
+              "properties": {
+                "encryption": {
+                  "type": "boolean"
+                },
+                "mediation": {
+                  "type": "boolean"
+                },
+                "opaqueMetadata": {
+                  "type": "boolean"
+                },
+                "offline": {
+                  "type": "boolean"
+                },
+                "plaintextCopies": {
+                  "type": "boolean"
+                },
+                "derivatives": {
+                  "type": "boolean"
+                },
+                "verifiedAuthorship": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "preparationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "planSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "chunk": {
+          "$ref": "#/$defs/chunkRange"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "audio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mediaType",
+            "sampleFrames",
+            "sha256",
+            "byteLength"
+          ],
+          "properties": {
+            "mediaType": {
+              "const": "audio/wav"
+            },
+            "sampleFrames": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9600000
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "byteLength": {
+              "type": "integer",
+              "minimum": 46,
+              "maximum": 19200044
+            }
+          }
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sourceBytes",
+            "modelExecutions"
+          ],
+          "properties": {
+            "sourceBytes": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 19200000
+            },
+            "modelExecutions": {
+              "const": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

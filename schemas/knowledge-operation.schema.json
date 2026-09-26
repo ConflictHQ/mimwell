@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation/v1",
+  "title": "Native result preserved by a shared operation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "authority",
+    "operation",
+    "contract",
+    "authorization",
+    "state",
+    "native",
+    "nativeSha256",
+    "nativeWire",
+    "requestWire",
+    "requestSha256"
+  ],
+  "properties": {
+    "format": {
+      "const": "knowledge-operation/v1"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "operation": {
+      "enum": [
+        "authority.inspect",
+        "source.inspect",
+        "source.capture",
+        "source.extraction-preview",
+        "source.extract",
+        "publication.preview",
+        "publication.deliver",
+        "record.get",
+        "proposal.propose",
+        "proposal.inspect",
+        "proposal.review",
+        "proposal.dispose",
+        "proposal.commit",
+        "record.patch-propose"
+      ]
+    },
+    "contract": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principal",
+        "evaluatedAt",
+        "revalidatedAt"
+      ],
+      "properties": {
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "revalidatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "state": {
+      "const": "completed"
+    },
+    "native": {},
+    "nativeSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nativeWire": {
+      "type": "string",
+      "description": "Exact UTF-8 canonical native result; SHA-256 equals nativeSha256 without numeric reserialization."
+    },
+    "requestWire": {
+      "type": "string"
+    },
+    "requestSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

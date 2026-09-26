@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/export-basis/v1",
+  "title": "Revision-bound export basis: preview and download",
+  "description": "A producer's export preview names the format, the selected revision and the loss report computed for that exact revision; a download binds to that same basis and must refuse or re-preview when the current revision has moved. A graph or bundle export preserves selected content only and is never a full authority/history backup.",
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format"],
+      "properties": {
+        "format": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": ["string", "null"], "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "what"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "what": { "type": "string", "minLength": 1, "maxLength": 2000 }
+      }
+    },
+    "losses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lossless", "items"],
+      "properties": {
+        "lossless": { "type": "boolean" },
+        "items": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/loss" }
+        }
+      }
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "target", "revision", "losses", "note", "previewSha256"],
+      "properties": {
+        "format": { "const": "export-basis-preview/v1" },
+        "target": { "$ref": "#/$defs/target" },
+        "revision": {
+          "description": "The exact selected-basis revision the losses below were computed for. Never empty: a format that cannot name a revision has not computed a basis.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "losses": { "$ref": "#/$defs/losses" },
+        "filename": { "type": ["string", "null"], "minLength": 1, "maxLength": 300 },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "note": {
+          "const": "A graph or bundle export preserves selected content only; it is not a full authority/history backup."
+        },
+        "previewSha256": {
+          "description": "Digest binding target, revision and losses together, so a later download can prove it still matches this exact basis.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "download": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "target", "expectedRevision", "currentRevision", "previewSha256", "outcome"],
+      "properties": {
+        "format": { "const": "export-basis-download/v1" },
+        "target": { "$ref": "#/$defs/target" },
+        "expectedRevision": {
+          "description": "The revision the caller's acknowledged preview was bound to.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "currentRevision": {
+          "description": "The producer's actual revision at download time.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "previewSha256": {
+          "description": "Must name a previewSha256 that was actually issued for this target/expectedRevision.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "outcome": {
+          "enum": ["downloaded", "refused", "re-previewed"]
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/preview" },
+    { "$ref": "#/$defs/download" }
+  ]
+}

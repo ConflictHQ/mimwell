@@ -1,0 +1,12 @@
+{
+  "name": "mimwell-portal",
+  "private": true,
+  "description": "Client knowledge portal worker — static knowledge base + chat agent endpoint",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.93.0"
+  }
+}

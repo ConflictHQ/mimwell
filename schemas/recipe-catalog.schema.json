@@ -1,0 +1,850 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "recipes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recipe"
+      },
+      "minItems": 1
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          },
+          "provides": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                }
+              },
+              "required": [
+                "id",
+                "version"
+              ]
+            },
+            "minItems": 1
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                }
+              },
+              "required": [
+                "id",
+                "version"
+              ]
+            },
+            "minItems": 0
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "version": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                }
+              },
+              "required": [
+                "id",
+                "version"
+              ]
+            },
+            "minItems": 0
+          },
+          "implementation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "mode": {
+                "enum": [
+                  "local",
+                  "external"
+                ]
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "sha256"
+                  ]
+                },
+                "minItems": 0
+              },
+              "runtimes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "minItems": 0
+              }
+            },
+            "required": [
+              "mode",
+              "files",
+              "runtimes"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "provides",
+          "requires",
+          "dependencies",
+          "implementation"
+        ]
+      },
+      "minItems": 0
+    },
+    "collectionProfiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "useCase": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "category": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "ownerRole": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "criterion": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "cadence": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "maxAgeDays": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "triggers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "maxAgeDays",
+                    "triggers"
+                  ]
+                },
+                "evidence": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "minSources": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "modalities": {
+                      "type": "array",
+                      "items": {
+                        "enum": [
+                          "text",
+                          "image",
+                          "audio",
+                          "video",
+                          "structured",
+                          "code"
+                        ]
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "minSources",
+                    "modalities"
+                  ]
+                },
+                "allowNotApplicable": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "useCase",
+                "text",
+                "category",
+                "ownerRole",
+                "criterion",
+                "cadence",
+                "evidence",
+                "allowNotApplicable"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "questions"
+        ]
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "recipes",
+    "components",
+    "collectionProfiles"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/recipe-catalog/v1",
+  "$defs": {
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+        },
+        "type": {
+          "enum": [
+            "fragment",
+            "recipe"
+          ]
+        },
+        "extends": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ]
+          },
+          "minItems": 0
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "description": "What the brain is about, independent of its owning scope. Open vocabulary; topic, initiative and research are subject types on any owning scope, never scope levels.",
+              "examples": ["project", "company", "initiative", "product", "topic", "research", "agent-memory"],
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "required": [
+            "type",
+            "id"
+          ]
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "level": {
+              "enum": [
+                "federation",
+                "company",
+                "domain",
+                "project",
+                "workspace",
+                "person",
+                "agent"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "owner": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "required": [
+            "level",
+            "id",
+            "owner"
+          ]
+        },
+        "consumers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "kind": {
+                "enum": [
+                  "human",
+                  "agent",
+                  "service"
+                ]
+              },
+              "useCases": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "\\S"
+                },
+                "minItems": 1
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "useCases"
+            ]
+          },
+          "minItems": 0
+        },
+        "ontologyLayers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              },
+              "role": {
+                "enum": [
+                  "base",
+                  "overlay"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "role"
+            ]
+          },
+          "minItems": 0
+        },
+        "collectionProfiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ]
+          },
+          "minItems": 0
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ]
+          },
+          "minItems": 0
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              },
+              "required": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "version"
+            ]
+          },
+          "minItems": 0
+        },
+        "practices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              },
+              "review": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "mutations": {
+                "enum": [
+                  "read-only",
+                  "propose-only",
+                  "owner-reviewed"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "review",
+              "mutations"
+            ]
+          },
+          "minItems": 0
+        },
+        "stores": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "driver": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "roles": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "records",
+                    "evidence",
+                    "journal",
+                    "projection",
+                    "external-authority",
+                    "backup"
+                  ]
+                },
+                "minItems": 1
+              },
+              "authorities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "collection": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "collection",
+                    "fields"
+                  ]
+                },
+                "minItems": 0
+              },
+              "writerPractice": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "requires": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version"
+                  ]
+                },
+                "minItems": 0
+              },
+              "required": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "driver",
+              "roles",
+              "authorities",
+              "requires",
+              "required"
+            ]
+          },
+          "minItems": 0
+        },
+        "surfaces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "kind": {
+                "enum": [
+                  "cli",
+                  "web",
+                  "chat",
+                  "notebook",
+                  "api",
+                  "mcp"
+                ]
+              },
+              "profile": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "version": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version"
+                ]
+              },
+              "requires": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "version": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "version"
+                  ]
+                },
+                "minItems": 0
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "requires"
+            ]
+          },
+          "minItems": 0
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "local",
+                "hosted"
+              ]
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "mode",
+            "requires"
+          ]
+        },
+        "federation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "standalone",
+                "parent-child",
+                "peers",
+                "mixed"
+              ]
+            },
+            "participants": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "minItems": 0
+            },
+            "publication": {
+              "enum": [
+                "none",
+                "explicit"
+              ]
+            },
+            "offline": {
+              "enum": [
+                "partial",
+                "fail"
+              ]
+            }
+          },
+          "required": [
+            "mode",
+            "participants",
+            "publication",
+            "offline"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "type",
+        "extends"
+      ]
+    },
+    "resolved": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recipe"
+        },
+        {
+          "required": [
+            "id",
+            "version",
+            "type",
+            "extends",
+            "purpose",
+            "subject",
+            "scope",
+            "consumers",
+            "ontologyLayers",
+            "collectionProfiles",
+            "components",
+            "requirements",
+            "practices",
+            "stores",
+            "surfaces",
+            "runtime",
+            "federation"
+          ]
+        }
+      ]
+    }
+  }
+}

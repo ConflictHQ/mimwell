@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brain</title>
+  <style>
+    :root {
+      /* ── Branding seam: defaults below are overwritten at runtime from
+         /client.config.json (branding.colors + branding.fonts). ── */
+      --kb-primary:      #1E9C8F;
+      --kb-link:         #2F97BF;
+      --kb-accent:       #B98536;
+      --kb-bg:           #000000;
+      --kb-bg-deep:      #000000;
+      --kb-surface:      rgba(30, 30, 30, 0.85);
+      --kb-border:       #444443;
+      --kb-border-light: #2a2a2a;
+      --kb-text:         #E6EFEE;
+      --kb-text-muted:   #D6D6D6;
+      --kb-text-faint:   #888;
+      --kb-font-heading: 'Fraunces', Georgia, serif;
+      --kb-font-body:    'Inter', system-ui, sans-serif;
+      --kb-font-mono:    'JetBrains Mono', monospace;
+
+      /* Local aliases — the source stylesheet rules reference these short names. */
+      --bg:        var(--kb-bg);
+      --surface:   var(--kb-surface);
+      --surface2:  rgba(255,255,255,.05);
+      --border:    var(--kb-border);
+      --border2:   var(--kb-border-light);
+      --red:       var(--kb-primary);
+      --text:      var(--kb-text);
+      --muted:     var(--kb-text-muted);
+      --dim:       var(--kb-text-faint);
+      --link:      var(--kb-link);
+      --accent:    var(--kb-accent);
+      --radius:    6px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--kb-font-body); font-size: 14px; line-height: 1.6;
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0 1.5rem; height: 54px;
+      border-bottom: 1px solid var(--border); background: var(--bg);
+      position: sticky; top: 0; z-index: 200;
+    }
+    .wordmark {
+      font-family: var(--kb-font-heading); font-size: 1.1rem; color: var(--red);
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .wordmark span { color: var(--muted); font-size: 0.85rem; letter-spacing: 0.02em; }
+    .sep { color: var(--border); margin: 0 0.25rem; }
+    .stats { font-size: 0.75rem; color: var(--dim); white-space: nowrap; }
+
+    /* ── Portal top-nav (shared grouped nav, rendered by app/nav.js) ── */
+    .topnav { display: flex; align-items: center; gap: 4px; margin-left: 1rem; }
+    .topnav a {
+      font-family: var(--kb-font-mono); font-size: 0.62rem; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--dim); text-decoration: none;
+      padding: 4px 8px; border-radius: 3px; transition: color .15s, background .15s;
+    }
+    .topnav a:hover { color: var(--text); background: var(--surface); }
+    .topnav a.active { color: var(--red); }
+    .topnav-group { display: flex; align-items: center; gap: 2px; }
+    .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+    .topnav-group-label {
+      font-family: var(--kb-font-mono); font-size: 0.5rem; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+    }
+    @media (max-width: 1100px) { .topnav { display: none; } }
+
+    /* ── Toolbar (search + filters) ── */
+    .toolbar {
+      max-width: 920px; width: 100%; margin: 0 auto; padding: 28px 24px 0;
+    }
+    .toolbar-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #search {
+      flex: 1; min-width: 220px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text); font-family: var(--kb-font-mono); font-size: 0.82rem;
+      padding: 0.5rem 0.85rem; outline: none;
+    }
+    #search:focus { border-color: var(--red); }
+    #search::placeholder { color: var(--dim); }
+    .count { font-family: var(--kb-font-mono); font-size: 0.72rem; color: var(--dim); white-space: nowrap; }
+
+    .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+    .chip {
+      font-family: var(--kb-font-mono); font-size: 0.66rem; letter-spacing: .04em;
+      color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 4px 11px; cursor: pointer; user-select: none;
+      transition: color .12s, background .12s, border-color .12s;
+    }
+    .chip:hover { color: var(--text); border-color: var(--border2); }
+    .chip.active { color: var(--bg); background: var(--red); border-color: var(--red); }
+    .chip .chip-n { opacity: .65; margin-left: 5px; }
+
+    /* ── Node list ── */
+    .list { max-width: 920px; width: 100%; margin: 18px auto 64px; padding: 0 24px; flex: 1; }
+    .node {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface); margin-bottom: 10px; overflow: hidden;
+    }
+    .node-head {
+      display: flex; align-items: center; gap: 12px; padding: 13px 16px;
+      cursor: pointer; transition: background .12s;
+    }
+    .node-head:hover { background: var(--surface2); }
+    .kind-tag {
+      font-family: var(--kb-font-mono); font-size: 0.6rem; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--link); border: 1px solid var(--border);
+      border-radius: 3px; padding: 3px 7px; white-space: nowrap; flex-shrink: 0;
+    }
+    .node-title { font-size: 0.92rem; color: var(--text); flex: 1; min-width: 0; }
+    .node-title .nt-id {
+      display: block; font-family: var(--kb-font-mono); font-size: 0.66rem;
+      color: var(--dim); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .node-edges-n { font-family: var(--kb-font-mono); font-size: 0.66rem; color: var(--dim); flex-shrink: 0; }
+    .caret { color: var(--dim); font-size: 0.8rem; flex-shrink: 0; transition: transform .15s; }
+    .node.open .caret { transform: rotate(90deg); }
+
+    .node-body { display: none; padding: 4px 16px 18px; border-top: 1px solid var(--border); }
+    .node.open .node-body { display: block; }
+    .node-body p.text { color: var(--muted); margin: 14px 0; }
+
+    .meta-row { display: flex; gap: 8px; margin: 4px 0; font-size: 0.8rem; }
+    .meta-k { font-family: var(--kb-font-mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); min-width: 92px; flex-shrink: 0; padding-top: 1px; }
+    .meta-v { color: var(--text); word-break: break-word; }
+    .meta-v code { font-family: var(--kb-font-mono); font-size: 0.74rem; color: var(--muted); }
+    .labels { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+    .label-pill { font-family: var(--kb-font-mono); font-size: 0.62rem; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
+
+    .sec-h { font-family: var(--kb-font-mono); font-size: 0.62rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 18px 0 8px; }
+    .data-grid { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 0.8rem; }
+    .data-grid dt { font-family: var(--kb-font-mono); font-size: 0.7rem; color: var(--muted); }
+    .data-grid dd { color: var(--text); word-break: break-word; }
+
+    .edge { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 0.8rem; }
+    .edge-rel { font-family: var(--kb-font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: .04em; color: var(--accent); min-width: 96px; flex-shrink: 0; }
+    .edge a { color: var(--link); text-decoration: none; cursor: pointer; }
+    .edge a:hover { text-decoration: underline; }
+    .edge .missing { color: var(--dim); font-style: italic; }
+
+    /* ── States ── */
+    .statebox {
+      border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+      padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+      max-width: 560px; margin: 64px auto;
+    }
+    .statebox.error { border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+    .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+    .statebox.error .st-title { color: var(--red); }
+    .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+    .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 560px) {
+      header { padding: 0 1rem; }
+      .toolbar, .list { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+  <!-- Shared light/dark theme: loaded AFTER the page's own <style> so its
+       :root[data-theme] alias overrides win the cascade. theme.js owns the toggle. -->
+  <link rel="stylesheet" href="/app/theme.css">
+  <script src="/app/nav.js" defer></script>
+  <script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<header>
+  <a href="/" class="wordmark" style="text-decoration:none" aria-label="Portal home"><span id="brand-label">Portal</span> <span class="sep">/</span> <span id="header-label">Brain</span></a>
+  <div class="stats" id="header-stats">—</div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<div class="toolbar" id="toolbar" style="display:none">
+  <div class="toolbar-row">
+    <input id="search" type="text" placeholder="search the brain — id, title, text…" autocomplete="off" spellcheck="false">
+    <span class="count" id="count"></span>
+  </div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="list" id="list">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Fetching the brain…</div>
+  </div>
+</div>
+
+<script>
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// ── Branding: fetch /client.config.json and re-brand the page ────────────────
+var brandReady = fetch('/client.config.json', { cache: 'no-cache' })
+  .then(function (r) { return r.json(); })
+  .then(function (cfg) {
+    var b = (cfg && cfg.branding) || {};
+    var colors = b.colors || {};
+    var fonts = b.fonts || {};
+    var root = document.documentElement.style;
+    function setVar(name, val) { if (val) root.setProperty(name, val); }
+    setVar('--kb-primary',      colors.primary);
+    setVar('--kb-link',         colors.link);
+    setVar('--kb-accent',       colors.accent);
+    setVar('--kb-bg',           colors.bg);
+    setVar('--kb-bg-deep',      colors.bgDeep);
+    setVar('--kb-surface',      colors.surface);
+    setVar('--kb-border',       colors.border);
+    setVar('--kb-border-light', colors.borderLight);
+    setVar('--kb-text',         colors.text);
+    setVar('--kb-text-muted',   colors.textMuted);
+    setVar('--kb-text-faint',   colors.textFaint);
+    setVar('--kb-font-heading', fonts.heading);
+    setVar('--kb-font-body',    fonts.body);
+    setVar('--kb-font-mono',    fonts.mono);
+
+    var label = b.headerLabel || KBNav.brainShortName(cfg);
+    if (label) document.getElementById('brand-label').textContent = label;
+    document.title = (label ? label + ' — ' : '') + 'Brain';
+
+    // Grouped portal top-nav (shared module) — marks /app/brain.html active.
+    if (window.KBNav) KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+  })
+  .catch(function () {});
+
+(function () {
+  var listEl = document.getElementById('list');
+  var toolbarEl = document.getElementById('toolbar');
+  var searchEl = document.getElementById('search');
+  var chipsEl = document.getElementById('chips');
+  var countEl = document.getElementById('count');
+  var statsEl = document.getElementById('header-stats');
+
+  var NODES = [];           // all nodes
+  var BY_ID = {};           // id -> node
+  var OUT = {};             // id -> [edge] (this node is source)
+  var IN = {};              // id -> [edge] (this node is target)
+  var activeKinds = null;   // Set of kinds currently shown; null = all
+  var openIds = {};         // id -> true for expanded nodes
+
+  function showError(title, detail) {
+    listEl.innerHTML = '<div class="statebox error">' +
+      '<div class="st-title">' + esc(title) + '</div>' +
+      '<div>' + detail + '</div>' +
+    '</div>';
+  }
+
+  function titleOf(node) {
+    if (!node) return '';
+    return node.title || node.text || node.id || '';
+  }
+
+  function build(graph) {
+    NODES = Array.isArray(graph.nodes) ? graph.nodes.slice() : [];
+    var edges = Array.isArray(graph.edges) ? graph.edges : [];
+    BY_ID = {}; OUT = {}; IN = {};
+    NODES.forEach(function (n) { if (n && n.id != null) BY_ID[n.id] = n; });
+    edges.forEach(function (e) {
+      if (!e) return;
+      (OUT[e.source] || (OUT[e.source] = [])).push(e);
+      (IN[e.target] || (IN[e.target] = [])).push(e);
+    });
+    // Deterministic ordering: stable sort by id.
+    NODES.sort(function (a, b) {
+      return String(a && a.id).localeCompare(String(b && b.id));
+    });
+  }
+
+  // Distinct kinds present, in stable alphabetical order, with counts.
+  function kindCounts() {
+    var counts = {};
+    NODES.forEach(function (n) {
+      var k = (n && n.kind) || '—';
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    return Object.keys(counts).sort().map(function (k) {
+      return { kind: k, n: counts[k] };
+    });
+  }
+
+  function renderChips() {
+    var kinds = kindCounts();
+    if (!kinds.length) { chipsEl.innerHTML = ''; return; }
+    chipsEl.innerHTML = kinds.map(function (k) {
+      var on = activeKinds === null || activeKinds.has(k.kind);
+      return '<button type="button" class="chip' + (on ? ' active' : '') +
+        '" data-kind="' + esc(k.kind) + '">' + esc(k.kind) +
+        '<span class="chip-n">' + k.n + '</span></button>';
+    }).join('');
+    Array.prototype.forEach.call(chipsEl.querySelectorAll('.chip'), function (btn) {
+      btn.addEventListener('click', function () { toggleKind(btn.getAttribute('data-kind')); });
+    });
+  }
+
+  function toggleKind(kind) {
+    var all = kindCounts().map(function (k) { return k.kind; });
+    if (activeKinds === null) activeKinds = new Set(all);
+    if (activeKinds.has(kind)) activeKinds.delete(kind); else activeKinds.add(kind);
+    // All on -> collapse back to null (the "all" state).
+    if (activeKinds.size === all.length) activeKinds = null;
+    renderChips();
+    renderList();
+  }
+
+  function matchesSearch(node, q) {
+    if (!q) return true;
+    var hay = (String(node.id || '') + ' ' + String(node.title || '') + ' ' +
+               String(node.text || '')).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  }
+
+  function filtered() {
+    var q = searchEl.value.trim().toLowerCase();
+    return NODES.filter(function (n) {
+      if (activeKinds !== null && !activeKinds.has(n.kind)) return false;
+      return matchesSearch(n, q);
+    });
+  }
+
+  function edgeRow(e, selfId, dir) {
+    var otherId = dir === 'out' ? e.target : e.source;
+    var other = BY_ID[otherId];
+    var rel = e.rel || (dir === 'out' ? '→' : '←');
+    var label = other
+      ? '<a href="?node=' + esc(encodeURIComponent(otherId)) + '" data-goto="' + esc(otherId) + '">' + esc(titleOf(other)) + '</a>'
+      : '<span class="missing">' + esc(otherId) + '</span>';
+    var fields = e.data && Array.isArray(e.data.fields) ? e.data.fields : [];
+    return '<div class="edge"><span class="edge-rel">' + esc(rel) + '</span>' +
+      '<span>' + label + (fields.length ? '<small> · ' + fields.map(esc).join(', ') + '</small>' : '') + '</span></div>';
+  }
+
+  function renderDataGrid(data) {
+    var keys = Object.keys(data || {}).sort();
+    if (!keys.length) return '';
+    var rows = keys.map(function (k) {
+      var v = data[k];
+      if (v && typeof v === 'object') v = JSON.stringify(v);
+      return '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>';
+    }).join('');
+    return '<div class="sec-h">Data</div><dl class="data-grid">' + rows + '</dl>';
+  }
+
+  function renderBody(node) {
+    var html = '';
+    if (node.text && node.text !== node.title) html += '<p class="text">' + esc(node.text) + '</p>';
+
+    if (node.source) html += '<div class="meta-row"><span class="meta-k">Source</span><span class="meta-v"><code>' + esc(node.source) + '</code></span></div>';
+    html += '<div class="meta-row"><span class="meta-k">ID</span><span class="meta-v"><code>' + esc(node.id) + '</code></span></div>';
+    if (Array.isArray(node.labels) && node.labels.length) {
+      html += '<div class="meta-row"><span class="meta-k">Labels</span><span class="meta-v labels">' +
+        node.labels.map(function (l) { return '<span class="label-pill">' + esc(l) + '</span>'; }).join('') +
+        '</span></div>';
+    }
+
+    html += renderDataGrid(node.data);
+
+    var out = (OUT[node.id] || []).slice().sort(function (a, b) {
+      return String(a.target).localeCompare(String(b.target)) || String(a.rel).localeCompare(String(b.rel));
+    });
+    var inb = (IN[node.id] || []).slice().sort(function (a, b) {
+      return String(a.source).localeCompare(String(b.source)) || String(a.rel).localeCompare(String(b.rel));
+    });
+    if (out.length) {
+      html += '<div class="sec-h">Outbound (' + out.length + ')</div>' +
+        out.map(function (e) { return edgeRow(e, node.id, 'out'); }).join('');
+    }
+    if (inb.length) {
+      html += '<div class="sec-h">Inbound (' + inb.length + ')</div>' +
+        inb.map(function (e) { return edgeRow(e, node.id, 'in'); }).join('');
+    }
+    if (!out.length && !inb.length) {
+      html += '<div class="sec-h">Edges</div><div class="edge"><span class="missing">No connections.</span></div>';
+    }
+    return html;
+  }
+
+  function renderNode(node) {
+    var edgeN = (OUT[node.id] || []).length + (IN[node.id] || []).length;
+    var open = !!openIds[node.id];
+    var el = document.createElement('div');
+    el.className = 'node' + (open ? ' open' : '');
+    el.setAttribute('data-id', node.id);
+    el.innerHTML =
+      '<div class="node-head">' +
+        '<span class="kind-tag">' + esc(node.kind || '—') + '</span>' +
+        '<span class="node-title">' + esc(titleOf(node)) +
+          (node.title || node.text ? '<span class="nt-id">' + esc(node.id) + '</span>' : '') +
+        '</span>' +
+        '<span class="node-edges-n">' + edgeN + (edgeN === 1 ? ' edge' : ' edges') + '</span>' +
+        '<span class="caret">▶</span>' +
+      '</div>' +
+      '<div class="node-body">' + (open ? renderBody(node) : '') + '</div>';
+
+    var head = el.querySelector('.node-head');
+    var body = el.querySelector('.node-body');
+    head.addEventListener('click', function () {
+      var nowOpen = !el.classList.contains('open');
+      el.classList.toggle('open', nowOpen);
+      openIds[node.id] = nowOpen;
+      if (nowOpen && !body.innerHTML) body.innerHTML = renderBody(node);
+    });
+    body.addEventListener('click', function (ev) {
+      var a = ev.target.closest && ev.target.closest('[data-goto]');
+      if (a) { ev.preventDefault(); gotoNode(a.getAttribute('data-goto')); }
+    });
+    return el;
+  }
+
+  function gotoNode(id) {
+    if (!BY_ID[id]) return;
+    // Clear filters that would hide the target, expand it, scroll into view.
+    searchEl.value = '';
+    activeKinds = null;
+    openIds[id] = true;
+    renderChips();
+    renderList();
+    var el = listEl.querySelector('.node[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+    if (el) {
+      el.classList.add('open');
+      var body = el.querySelector('.node-body');
+      if (body && !body.innerHTML) body.innerHTML = renderBody(BY_ID[id]);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function renderList() {
+    var rows = filtered();
+    countEl.textContent = rows.length + ' of ' + NODES.length + ' node' + (NODES.length === 1 ? '' : 's');
+    if (!rows.length) {
+      listEl.innerHTML = '<div class="statebox">' +
+        '<div class="st-title">No matches</div>' +
+        'No nodes match the current search or kind filters.' +
+      '</div>';
+      return;
+    }
+    var frag = document.createDocumentFragment();
+    rows.forEach(function (n) { frag.appendChild(renderNode(n)); });
+    listEl.innerHTML = '';
+    listEl.appendChild(frag);
+  }
+
+  searchEl.addEventListener('input', renderList);
+
+  fetch('/app/brain.json', { cache: 'no-cache' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (graph) {
+      build(graph);
+      var edgeCount = Array.isArray(graph.edges) ? graph.edges.length : 0;
+      statsEl.textContent = NODES.length + ' nodes · ' + edgeCount + ' edges';
+
+      if (!NODES.length) {
+        toolbarEl.style.display = 'none';
+        listEl.innerHTML = '<div class="statebox">' +
+          '<div class="st-title">No nodes yet</div>' +
+          'The brain is empty. Author the source artifacts (decisions, sessions, specs, ' +
+          'the knowledge graph, …) then recompile with <code>make brain</code> to populate ' +
+          '<code>app/brain.json</code>. Nodes appear here, searchable and expandable.' +
+        '</div>';
+        return;
+      }
+
+      toolbarEl.style.display = 'block';
+      renderChips();
+      renderList();
+      var requestedNode = new URLSearchParams(window.location.search).get('node');
+      if (requestedNode) gotoNode(requestedNode);
+    })
+    .catch(function (err) {
+      toolbarEl.style.display = 'none';
+      showError('Failed to load', 'Could not fetch <code>app/brain.json</code> (' + esc(err.message) + ').');
+    });
+})();
+</script>
+</body>
+</html>

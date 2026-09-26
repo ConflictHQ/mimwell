@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/artifact-catalog/v1",
+  "title": "Artifact catalog (the artifacts manifest)",
+  "description": "The manifest of standalone analysis artifacts (issue #14). Each artifact is a self-contained deliverable rendered under analysis/artifacts/<id>/ with a catalog STUB describing it. This file (analysis/artifacts/catalog.json) lists every stub so the portal and the brain can enumerate artifacts without crawling the directory. An artifact is the generic escape hatch for any bespoke deliverable — a golden record, an identity strategy, a timeline, an integration catalog — that does not fit one of the first-class authoring tools: a stub (catalog metadata) + canonical data JSON + an index.html render. AUTHORED, not derived: hand-write the stub + its data + render, then list the stub here. Feeds the gen-brain.py `artifacts` adapter (Catalog/Artifact nodes + in_catalog edges + relates_to edges to referenced sessions).",
+  "x-conflict": { "version": "1", "editable": true, "source": "analysis/artifacts/catalog.json" },
+  "type": "object",
+  "required": ["artifacts"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "integer" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "description": "One catalog stub: the metadata for a standalone artifact. The render itself lives at `href`; the canonical data lives beside it under analysis/artifacts/<id>/.",
+      "type": "object",
+      "required": ["id", "title", "description", "icon", "href", "updated"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "Stable slug — also the directory name under analysis/artifacts/." },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "icon": { "type": "string", "description": "Short glyph or mono label shown on the artifact card." },
+        "href": { "type": "string", "description": "Relative path to the render (e.g. artifacts/<id>/index.html)." },
+        "updated": { "type": "string", "description": "ISO date the artifact was last revised." },
+        "type": { "type": "string", "description": "Artifact category — e.g. design, catalog, tracker, timeline, strategy." },
+        "source_sessions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Session ids the artifact was distilled from; the brain links the artifact to each via a relates_to edge."
+        }
+      }
+    }
+  }
+}

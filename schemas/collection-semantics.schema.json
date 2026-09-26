@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/collection-semantics/v1",
+  "title": "Adopted collection semantics and owning-writer routes",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "collection",
+    "owner",
+    "ontology",
+    "kind",
+    "identity",
+    "taxonomy",
+    "taxonomyScope",
+    "relationships",
+    "writer",
+    "taxonomyChange",
+    "executionAuthorized"
+  ],
+  "properties": {
+    "format": {
+      "const": "collection-semantics/v1"
+    },
+    "collection": {
+      "type": "object"
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "authority",
+        "participant",
+        "participantState"
+      ],
+      "properties": {
+        "contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1
+        },
+        "participant": {
+          "type": "null"
+        },
+        "participantState": {
+          "const": "not-declared-by-this-authority-contract"
+        }
+      }
+    },
+    "ontology": {
+      "type": "object"
+    },
+    "kind": {
+      "type": "object"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "convention",
+        "declaration",
+        "scope",
+        "equivalence"
+      ],
+      "properties": {
+        "convention": {
+          "type": "string",
+          "minLength": 1
+        },
+        "declaration": {
+          "type": "object"
+        },
+        "scope": {
+          "const": "selected-authority; federation participant must be independently resolved"
+        },
+        "equivalence": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "taxonomy": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "taxonomyScope": {
+      "const": "adopted-ontology-declarations; no record classification inferred"
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "writer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "operations",
+        "instruction"
+      ],
+      "properties": {
+        "type": {
+          "const": "native-authority"
+        },
+        "operations": {
+          "const": [
+            "record.get",
+            "record.patch-propose",
+            "proposal.inspect",
+            "proposal.review",
+            "proposal.dispose",
+            "proposal.commit"
+          ]
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "taxonomyChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "instruction"
+      ],
+      "properties": {
+        "type": {
+          "const": "versioned-ontology-workflow"
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "executionAuthorized": {
+      "const": false
+    }
+  }
+}

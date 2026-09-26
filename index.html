@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engagement Portal</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.05);
+    --surface2: rgba(255,255,255,0.08);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 10%, transparent);
+    --red-dark: #9C2633;
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    --green:    var(--kb-accent); --green-dim: rgba(76,175,80,0.1);
+    --yellow:   #F5A623; --yellow-dim: rgba(245,166,35,0.08);
+    --blue:     var(--kb-link); --blue-dim: rgba(74,127,165,0.1);
+    --purple:   #7A5BA8; --purple-dim: rgba(122,91,168,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  /* ── Hero ── */
+  .hero {
+    max-width: 860px; margin: 0 auto; padding: 72px 32px 60px;
+    text-align: center; position: relative;
+  }
+  .hero-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+  }
+  .hero-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .hero-mark { margin: 0 auto 28px; display: block; }
+  .hero-title {
+    font-family: var(--kb-font-heading); font-size: 64px; letter-spacing: .04em;
+    text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px;
+  }
+  .hero-subtitle {
+    font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 24px;
+  }
+  .hero-desc { font-size: 14px; color: var(--muted); max-width: 540px; margin: 0 auto 24px; line-height: 1.75; }
+  .hero-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); }
+  .hero-meta span { color: var(--text); }
+
+  /* ── Stats strip ── */
+  .stats-strip {
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    display: flex; justify-content: center; flex-wrap: wrap;
+  }
+  .stat { padding: 16px 32px; text-align: center; border-right: 1px solid var(--border); }
+  .stat:last-child { border-right: none; }
+  .stat-val { font-family: var(--kb-font-heading); font-size: 20px; color: var(--text); line-height: 1; margin-bottom: 4px; }
+  .stat-val.accent { color: var(--red); }
+  .stat-key { font-family: var(--kb-font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+
+  /* ── Needs attention strip ── */
+  .attn-section { max-width: 1100px; margin: 0 auto; padding: 40px 32px 0; }
+  .attn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .attn-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px 20px; text-decoration: none; color: inherit;
+    display: flex; align-items: center; gap: 16px;
+    transition: border-color .15s, background .15s;
+  }
+  a.attn-card:hover { border-color: var(--border2); background: var(--surface2); }
+  .attn-num { font-family: var(--kb-font-heading); font-size: 32px; line-height: 1; color: var(--text); min-width: 42px; }
+  .attn-card.warn .attn-num { color: var(--yellow); }
+  .attn-card.alert .attn-num { color: var(--red); }
+  .attn-card.clear .attn-num { color: var(--green); }
+  .attn-body { display: flex; flex-direction: column; gap: 3px; }
+  .attn-label { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); }
+  .attn-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  @media (max-width: 880px) { .attn-grid { grid-template-columns: 1fr; } }
+
+  /* ── What's next (build-readiness) ── */
+  .whatsnext-section { max-width: 1100px; margin: 0 auto; padding: 40px 32px 0; }
+  .wn-more { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); text-decoration: none; }
+  .wn-more:hover { color: var(--text); }
+  .wn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .wn-col { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .wn-col-label { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; }
+  .wn-list { display: flex; flex-direction: column; gap: 8px; }
+  .wn-item { display: flex; align-items: baseline; gap: 10px; text-decoration: none; color: inherit; }
+  a.wn-item:hover .wn-item-title { color: var(--text); }
+  .wn-item-title { font-size: 12px; color: var(--muted); line-height: 1.4; flex: 1; }
+  .wn-badge { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+  .wn-badge.est { color: var(--blue); }
+  .wn-empty { font-size: 12px; color: var(--dim); line-height: 1.5; }
+  @media (max-width: 700px) { .wn-grid { grid-template-columns: 1fr; } }
+
+  /* ── Brain stats ── */
+  .brain-section { max-width: 1100px; margin: 0 auto; padding: 40px 32px 0; }
+  .brain-strip { display: flex; flex-wrap: wrap; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .bstat { padding: 16px 28px; text-align: center; border-right: 1px solid var(--border); flex: 1; min-width: 120px; }
+  .bstat:last-child { border-right: none; }
+  .bstat-val { font-family: var(--kb-font-heading); font-size: 22px; color: var(--text); line-height: 1; margin-bottom: 5px; }
+  .bstat-key { font-family: var(--kb-font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); }
+
+  /* ── Navigate section ── */
+  .nav-section { max-width: 1100px; margin: 0 auto; padding: 52px 32px 0; }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  }
+  .section-label { font-family: var(--kb-font-heading); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+
+  .nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+  /* Grouped nav cards: each config `group` becomes a labeled band of cards. */
+  .nav-group + .nav-group { margin-top: 32px; }
+  .nav-group-label {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--dim); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .nav-group-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .nav-group-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+  .nav-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; text-decoration: none; color: inherit;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: border-color .15s, background .15s; position: relative; overflow: hidden;
+  }
+  .nav-card:hover { border-color: var(--border2); background: var(--surface2); }
+  .nav-card.primary { border-color: color-mix(in srgb, var(--kb-primary) 30%, transparent); }
+  .nav-card.primary:hover { border-color: color-mix(in srgb, var(--kb-primary) 60%, transparent); background: color-mix(in srgb, var(--kb-primary) 5%, transparent); }
+
+  .nav-card-top { display: flex; align-items: flex-start; justify-content: space-between; }
+  .nav-type-badge {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .08em;
+    padding: 2px 7px; border-radius: 3px; border: 1px solid; white-space: nowrap;
+  }
+  .nt-0 { color: var(--red);    border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent);  background: var(--red-dim); }
+  .nt-1 { color: var(--purple); border-color: rgba(122,91,168,.4); background: var(--purple-dim); }
+  .nt-2 { color: var(--blue);   border-color: rgba(74,127,165,.4); background: var(--blue-dim); }
+  .nt-3 { color: var(--yellow); border-color: rgba(245,166,35,.4); background: var(--yellow-dim); }
+  .nt-4 { color: var(--green);  border-color: rgba(76,175,80,.4);  background: var(--green-dim); }
+  .nt-5 { color: var(--muted);  border-color: var(--border);       background: var(--surface); }
+
+  .nav-arrow { font-size: 16px; color: var(--dim); transition: color .15s, transform .15s; }
+  .nav-card:hover .nav-arrow { color: var(--text); transform: translateX(3px); }
+
+  .nav-title { font-family: var(--kb-font-heading); font-size: 21px; letter-spacing: .02em; text-transform: uppercase; color: var(--text); line-height: 1.1; }
+  .nav-desc { font-size: 12px; color: var(--muted); line-height: 1.65; flex: 1; }
+
+  /* ── Recent activity ── */
+  .recent-section { max-width: 1100px; margin: 0 auto; padding: 40px 32px 56px; }
+  .recent-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow-y: auto; overflow-x: hidden; max-height: 420px; scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+  .recent-list::-webkit-scrollbar { width: 8px; }
+  .recent-list::-webkit-scrollbar-track { background: transparent; }
+  .recent-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+  .recent-list::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  .recent-count { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); letter-spacing: .04em; margin-left: 10px; }
+  .recent-item {
+    display: flex; align-items: center; gap: 16px; padding: 12px 16px;
+    border-bottom: 1px solid var(--border); background: var(--surface);
+    transition: background .1s;
+  }
+  .recent-item:last-child { border-bottom: none; }
+  .recent-item:hover { background: var(--surface2); }
+  .recent-date { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); white-space: nowrap; width: 80px; flex-shrink: 0; }
+  .recent-hash { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); white-space: nowrap; width: 56px; flex-shrink: 0; }
+  .recent-type { font-family: var(--kb-font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); width: 72px; flex-shrink: 0; }
+  .recent-title { font-size: 12px; color: var(--muted); flex: 1; }
+  .recent-type.t-feature { color: var(--green); }
+  .recent-type.t-fix     { color: var(--red); }
+  .recent-type.t-chore   { color: var(--dim); }
+  .recent-type.t-docs    { color: var(--blue); }
+  .recent-item { cursor: pointer; flex-wrap: wrap; }
+  .recent-row  { display: flex; align-items: center; gap: 16px; width: 100%; }
+  .recent-chevron { font-size: 9px; color: var(--dim); margin-left: auto; flex-shrink: 0; transition: transform .15s; }
+  .recent-item[open] .recent-chevron { transform: rotate(90deg); }
+  .recent-detail {
+    display: none; width: 100%;
+    border-top: 1px solid var(--border); background: rgba(0,0,0,.15);
+  }
+  .recent-item[open] .recent-detail { display: block; }
+  .recent-body {
+    font-family: var(--kb-font-mono); font-size: 11px; color: var(--muted);
+    line-height: 1.6; white-space: pre-wrap; padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .recent-body:last-child { border-bottom: none; }
+  .recent-files {
+    width: 100%; padding: 10px 16px 12px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 3px 24px;
+  }
+  .recent-file { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recent-file .fs { width: 52px; display: inline-block; }
+  .recent-file .fs.added    { color: var(--green); }
+  .recent-file .fs.modified { color: var(--blue); }
+  .recent-file .fs.deleted  { color: var(--red); }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 880px) {
+    .nav-grid, .nav-group-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .topbar, .hero, .nav-section, .recent-section, .attn-section, .footer { padding-left: 18px; padding-right: 18px; }
+    .nav-grid, .nav-group-grid { grid-template-columns: 1fr; }
+    .hero-title { font-size: 48px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+<link rel="stylesheet" href="/app/purpose-home.css">
+<script src="/app/purpose-home.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-eyebrow">
+    <span class="hero-eyebrow-line"></span>
+    <span id="hero-eyebrow-text">Engagement</span>
+    <span class="hero-eyebrow-line"></span>
+  </div>
+  <!-- Hero mark: defaults to the Mimwell mark (a dark/light pair swapped by the
+       theme.css logo-on-* classes); if the client config supplies
+       branding.heroMark, it is swapped for that image at runtime. -->
+  <div id="hero-mark-slot">
+    <img class="hero-mark logo-on-dark" src="/app/brand/mimwell-mark-dark.svg" width="96" height="96" alt="Mimwell">
+    <img class="hero-mark logo-on-light" src="/app/brand/mimwell-mark-light.svg" width="96" height="96" alt="Mimwell">
+  </div>
+  <h1 class="hero-title" id="hero-title">—</h1>
+  <div class="hero-subtitle" id="hero-subtitle">—</div>
+  <p class="hero-desc" id="hero-desc">Explore this brain’s knowledge and the sources behind it.</p>
+  <div class="hero-meta" id="hero-meta">Engagement Portal · <span id="hero-engagement">—</span></div>
+</section>
+
+<!-- Stats strip -->
+<div class="stats-strip" id="stats-strip">
+  <div class="stat"><div class="stat-val accent" id="stat-pages">—</div><div class="stat-key">Sections</div></div>
+  <div class="stat"><div class="stat-val" id="stat-entities">—</div><div class="stat-key">Graph Entities</div></div>
+  <div class="stat"><div class="stat-val" id="stat-edges">—</div><div class="stat-key">Connections</div></div>
+  <div class="stat"><div class="stat-val" id="stat-teams">—</div><div class="stat-key">Teams</div></div>
+</div>
+
+<!-- What's next (build-readiness.json #23) -->
+<div class="whatsnext-section" id="whatsnext-section" style="display:none">
+  <div class="section-header">
+    <span class="section-label">What's Next</span>
+    <a class="wn-more" href="/build-readiness/">Build readiness →</a>
+  </div>
+  <div class="wn-grid">
+    <div class="wn-col">
+      <div class="wn-col-label">Ready to build</div>
+      <div class="wn-list" id="wn-ready"></div>
+    </div>
+    <div class="wn-col">
+      <div class="wn-col-label">Critical path</div>
+      <div class="wn-list" id="wn-critical"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Brain stats (app/brain.json #3/#4) -->
+<div class="brain-section" id="brain-section" style="display:none">
+  <div class="section-header">
+    <span class="section-label">The Brain</span>
+    <a class="wn-more" href="/app/brain.html">Open brain →</a>
+  </div>
+  <div class="brain-strip">
+    <div class="bstat"><div class="bstat-val" id="bstat-nodes">—</div><div class="bstat-key">Nodes</div></div>
+    <div class="bstat"><div class="bstat-val" id="bstat-edges">—</div><div class="bstat-key">Edges</div></div>
+    <div class="bstat"><div class="bstat-val" id="bstat-store">—</div><div class="bstat-key">Store</div></div>
+    <div class="bstat"><div class="bstat-val" id="bstat-synced">—</div><div class="bstat-key">Last Synced</div></div>
+  </div>
+</div>
+
+<!-- Needs attention -->
+<div class="attn-section" id="attn-section" style="display:none">
+  <div class="section-header">
+    <span class="section-label">Needs Attention</span>
+  </div>
+  <div class="attn-grid" id="attn-grid"></div>
+</div>
+
+<!-- Navigate -->
+<div class="nav-section">
+  <div class="section-header">
+    <span class="section-label">Navigate</span>
+  </div>
+  <div id="nav-grid">
+    <div class="nav-group-grid"><a class="nav-card" style="cursor:default"><div class="nav-title" style="color:var(--dim)">Loading…</div></a></div>
+  </div>
+</div>
+
+<!-- Recent activity -->
+<div class="recent-section">
+  <div class="section-header">
+    <span class="section-label">Recent Activity</span>
+    <span class="recent-count" id="recent-count"></span>
+  </div>
+  <div class="recent-list" id="recent-list">
+    <div class="recent-item"><span class="recent-title" style="color:var(--dim)">Loading…</span></div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace(/\.0$/,'') + 'k' : String(n);
+const comma = n => Number(n).toLocaleString('en-US');
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title + injected client/engagement text.
+  if (b.portalTitle) document.title = b.portalTitle;
+
+  // Optional client hero mark — falls back to the inline generic mark.
+  // With branding.heroMarkDark, render a theme-aware pair (heroMarkDark shows on
+  // dark chrome, heroMark on light) swapped by the theme.css logo-on-* classes.
+  if (b.heroMark) {
+    const slot = document.getElementById('hero-mark-slot');
+    if (slot) {
+      const mk = (src, cls) => {
+        const img = document.createElement('img');
+        img.className = 'hero-mark' + (cls ? ' ' + cls : '');
+        img.src = src;
+        img.alt = KBNav.brainName(cfg) + ' logo';
+        img.width = b.heroMarkWidth || 180;
+        return img;
+      };
+      if (b.heroMarkDark) {
+        slot.replaceChildren(mk(b.heroMarkDark, 'logo-on-dark'), mk(b.heroMark, 'logo-on-light'));
+      } else {
+        slot.replaceChildren(mk(b.heroMark, ''));
+      }
+    }
+  }
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  // Hero copy (#362) from the shared seam in app/nav.js: name and purpose via
+  // brain.* (#206), the brain's kind from scope.level, and the owner co-brand
+  // (#47, branding.owner) only when the portal owner is another party. The
+  // portal template's framing is applied once it loads (applyPortalTemplate).
+  const hero = KBNav.heroCopy(cfg, null);
+  set('brand-name', KBNav.brainShortName(cfg));
+  set('hero-title', hero.title);
+  set('hero-subtitle', hero.subtitle);
+  set('hero-eyebrow-text', hero.eyebrow);
+  if (hero.desc) set('hero-desc', hero.desc);
+  setHeroMeta(hero);
+  set('footer-text', [KBNav.brainShortName(cfg), hero.coBrand].filter(Boolean).join(' · '));
+  set('stat-teams', (KBNav.brainShortName(cfg))
+    ? [KBNav.brainShortName(cfg), hero.coBrand].filter(Boolean).join(' × ') : '—');
+
+  // Portal template (W1.10): the presentation profile frames the front door.
+  // KBNav learns it from config and regroups the nav; the hero meta line and
+  // description follow the template's own framing. Client/owner eyebrow logic
+  // above is untouched — the template says WHAT KIND of portal this is, the
+  // config says WHOSE.
+  KBNav.config(cfg);
+  // Standard navigation stays available while optional presentation data loads.
+  applyPortalTemplate(cfg).then(function () {
+    if (window.KBPurposeHome) window.KBPurposeHome.mount(cfg);
+  });
+
+  buildNav(cfg.pages || [], cfg.features || {});
+  // Sections stat reflects the *visible* (flag-aware) page count, not the raw
+  // config length, so a lean engagement's hidden surfaces aren't counted.
+  const visible = KBNav.visiblePages(cfg.pages || [], cfg.features || {})
+    .filter(p => p.url !== '/');
+  document.getElementById('stat-pages').textContent = visible.length || '—';
+
+  // Brain stats: store mode is a config value (json | d1); node/edge counts come
+  // from the generated brain.json. Last-synced is derived from the activity feed.
+  loadBrainStats(cfg.brain || {});
+}
+
+// Build the grouped navigate grid + grouped top-nav from config.pages. The home
+// link ("/") shows as a card but is excluded from the top-nav (the logo covers
+// it). Grouping, active-state, flag-aware hiding, and the mobile drawer live in
+// the shared module — see app/nav.js.
+async function applyPortalTemplate(cfg) {
+  const tpl = await KBNav.loadPortalTemplate(cfg);
+  if (!tpl) return;
+  const hero = KBNav.heroCopy(cfg, tpl);
+  setHeroMeta(hero);
+  const desc = document.getElementById('hero-desc');
+  if (desc && hero.desc) desc.textContent = hero.desc;
+  document.documentElement.setAttribute('data-kb-template', tpl.id);
+}
+
+// The hero meta line: the front door's label, then the brain's purpose.
+function setHeroMeta(hero) {
+  const meta = document.getElementById('hero-meta');
+  if (!meta || !hero.label) return;
+  meta.innerHTML = KBNav.esc(hero.label) +
+    (hero.purpose ? ' · <span id="hero-engagement">' + KBNav.esc(hero.purpose) + '</span>' : '');
+}
+
+function buildNav(pages, features) {
+  const opts = { features };
+  KBNav.navGrid(document.getElementById('nav-grid'), (pages || []).filter(p => p.url !== '/'), opts);
+  KBNav.topnav(document.getElementById('topnav'), pages, opts);
+}
+
+// ── Graph stats (reads /app/knowledge_graph.json if present) ─────────────────
+async function loadGraphStats() {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  try {
+    const kg = await fetch('/app/knowledge_graph.json', { cache: 'no-cache' });
+    if (!kg.ok) throw new Error('no graph');
+    const data = await kg.json();
+    const nodes = (data.nodes || data.entities || []).length;
+    const edges = (data.edges || data.relationships || []).length;
+    set('stat-entities', nodes ? fmt(nodes) : '—');
+    set('stat-edges', edges ? fmt(edges) : '—');
+  } catch (e) {
+    set('stat-entities', '—');
+    set('stat-edges', '—');
+  }
+}
+
+// ── What's next (reads /app/build-readiness.json #23) ────────────────────────
+// Surfaces the unblocked/ready set and the critical-path chain — the two things
+// a builder needs to pick up work. Everything is fetched (drift-guarded); a
+// missing/empty artifact leaves the section hidden so the empty-state portal
+// shows nothing rather than a broken cockpit.
+async function loadWhatsNext() {
+  const section = document.getElementById('whatsnext-section');
+  if (!section) return;
+  let data;
+  try {
+    const r = await fetch('/app/build-readiness.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('no readiness');
+    data = await r.json();
+  } catch (e) { return; }
+
+  // Ready: prefer next_actions (curated), fall back to the unblocked set.
+  const ready = (Array.isArray(data.next_actions) && data.next_actions.length
+    ? data.next_actions
+    : (Array.isArray(data.unblocked) ? data.unblocked : [])).slice(0, 6);
+  const chain = (data.critical_path && Array.isArray(data.critical_path.chain))
+    ? data.critical_path.chain.slice(0, 6) : [];
+
+  const row = (it) => {
+    const title = esc(it.title || it.id || 'Untitled');
+    const est = it.estimate ? `<span class="wn-badge est">${esc(it.estimate)}</span>` : '';
+    const status = it.status ? `<span class="wn-badge">${esc(it.status)}</span>` : '';
+    return `<a class="wn-item" href="/build-readiness/">
+      <span class="wn-item-title">${title}</span>${est}${status}</a>`;
+  };
+
+  const readyEl = document.getElementById('wn-ready');
+  const critEl = document.getElementById('wn-critical');
+  readyEl.innerHTML = ready.length
+    ? ready.map(row).join('')
+    : '<div class="wn-empty">Nothing unblocked yet — see build readiness for what\'s gating the plan.</div>';
+  critEl.innerHTML = chain.length
+    ? chain.map(row).join('')
+    : '<div class="wn-empty">No critical path computed yet.</div>';
+
+  // Show only when the artifact carried something meaningful.
+  if (ready.length || chain.length) section.style.display = 'block';
+}
+
+// ── Brain stats (reads /app/brain.json #3 + config brain.store #4) ───────────
+// Node/edge counts come straight off the compiled brain artifact; the store mode
+// is a config value; last-synced is derived from the newest activity entry (the
+// brain artifact carries no meta block to hand-type — see check-portal-literals).
+async function loadBrainStats(brainCfg) {
+  const section = document.getElementById('brain-section');
+  if (!section) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  let brain;
+  try {
+    const r = await fetch('/app/brain.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('no brain');
+    brain = await r.json();
+  } catch (e) { return; }
+
+  const nodes = (brain.nodes || []).length;
+  const edges = (brain.edges || brain.relationships || []).length;
+  set('bstat-nodes', nodes ? comma(nodes) : '0');
+  set('bstat-edges', edges ? comma(edges) : '0');
+  set('bstat-store', (brainCfg && brainCfg.store) ? String(brainCfg.store).toUpperCase() : 'JSON');
+
+  // Derive last-synced from the most recent activity commit date, if any.
+  try {
+    const act = await fetch('/activity.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null);
+    const d = Array.isArray(act) && act.length ? act[0].date : null;
+    set('bstat-synced', d || '—');
+  } catch (e) { set('bstat-synced', '—'); }
+
+  section.style.display = 'block';
+}
+
+// ── Recent activity (reads /activity.json) ───────────────────────────────────
+async function loadActivity() {
+  const list = document.getElementById('recent-list');
+  const plainType = t => ({Feature:'Added',Fix:'Corrected',Chore:'Maintained',Docs:'Documentation',Test:'Checked',Refactor:'Updated',Release:'Released'}[t] || 'Updated');
+  const typeClass = t => ({'Feature':'t-feature','Fix':'t-fix','Chore':'t-chore','Docs':'t-docs'}[t] || '');
+  try {
+    const entries = await fetch('/activity.json', { cache: 'no-cache' }).then(r => {
+      if (!r.ok) throw new Error('no activity');
+      return r.json();
+    });
+    if (!Array.isArray(entries) || !entries.length) {
+      list.innerHTML = '<div class="recent-item"><span class="recent-title" style="color:var(--dim)">No activity recorded yet.</span></div>';
+      return;
+    }
+    list.innerHTML = entries.map(e => {
+      const files = (e.files || []).map(f =>
+        `<span class="recent-file"><span class="fs ${esc(f.status)}">${esc(f.status)}</span>${esc(f.path)}</span>`
+      ).join('');
+      const hasBody = e.body && e.body.trim();
+      const hasFiles = e.files && e.files.length;
+      const expandable = hasBody || hasFiles;
+      const bodyHtml = hasBody ? `<div class="recent-body">${esc(e.body)}</div>` : '';
+      return `<details class="recent-item">
+        <summary class="recent-row">
+          <span class="recent-date">${esc(e.date)}</span>
+          <span class="recent-hash">${esc(e.hash)}</span>
+          <span class="recent-type ${typeClass(e.type)}"><span data-kb-advanced>${esc(e.type)}</span><span class="kb-easy-only">${esc(plainType(e.type))}</span></span>
+          <span class="recent-title">${esc(e.title)}</span>
+          ${expandable ? `<span class="recent-chevron">▶</span>` : ''}
+        </summary>
+        ${expandable ? `<div class="recent-detail">${bodyHtml}<button class="kb-easy-only" type="button" data-kb-show-advanced>Show exact change details</button>${hasFiles ? `<div class="recent-files">${files}</div>` : ''}</div>` : ''}
+      </details>`;
+    }).join('');
+    const count = document.getElementById('recent-count');
+    if (count) count.textContent = entries.length + ' changes';
+  } catch(err) {
+    list.innerHTML = '<div class="recent-item"><span class="recent-title" style="color:var(--dim)">No activity recorded yet.</span></div>';
+  }
+}
+
+// ── Needs attention (reads open counts from the data artifacts) ──────────────
+// Surfaces three at-a-glance counts: open action items, open questions, and
+// deliverables that aren't done yet (planned / at-risk / in-progress). Each
+// source is fetched independently; a missing/empty artifact yields a clean "0"
+// card rather than an error. The whole strip stays hidden until at least one
+// source resolves, so a brand-new portal with no data shows nothing.
+async function loadNeedsAttention() {
+  const section = document.getElementById('attn-section');
+  const grid = document.getElementById('attn-grid');
+  if (!section || !grid) return;
+
+  const fetchJson = async (url) => {
+    try {
+      const r = await fetch(url, { cache: 'no-cache' });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
+  };
+
+  const [ai, oq, dl, raid, iss] = await Promise.all([
+    fetchJson('/app/action-items.json'),
+    fetchJson('/app/open-questions.json'),
+    fetchJson('/app/deliverables.json'),
+    fetchJson('/app/raid.json'),
+    fetchJson('/issues.json'),
+  ]);
+
+  // Action items: items have no done-state by default, so every tracked item
+  // counts as open — but honor an explicit done/status field if one is present.
+  const aiItems = (ai && Array.isArray(ai.items)) ? ai.items : [];
+  const aiOpen = aiItems.filter(it => {
+    if (it && it.done === true) return false;
+    const s = it && it.status != null ? String(it.status).toLowerCase() : '';
+    return !(s === 'done' || s === 'closed' || s === 'completed' || s === 'resolved');
+  }).length;
+
+  // Open questions: count anything not closed/resolved/answered/deferred.
+  const oqRows = (oq && Array.isArray(oq.questions)) ? oq.questions : [];
+  const oqOpen = oqRows.filter(q => {
+    const s = q && q.status != null ? String(q.status).trim().toLowerCase() : 'open';
+    return !(s === 'closed' || s === 'resolved' || s === 'answered' || s === 'deferred');
+  }).length;
+
+  // Deliverables that still need attention: anything not delivered.
+  const dlRows = (dl && Array.isArray(dl.deliverables)) ? dl.deliverables : [];
+  const dlOpen = dlRows.filter(d => {
+    const s = d && d.status != null ? String(d.status).trim().toLowerCase() : 'planned';
+    return s !== 'delivered' && s !== 'done';
+  }).length;
+
+  // Open RAID items: count anything not closed/resolved.
+  const raidRows = (raid && Array.isArray(raid.items)) ? raid.items : [];
+  const raidOpen = raidRows.filter(r => {
+    const s = r && r.status != null ? String(r.status).trim().toLowerCase() : 'open';
+    return !(s === 'closed' || s === 'resolved' || s === 'done' || s === 'mitigated');
+  }).length;
+
+  // Open issues: the live GitHub tracker carries an `issues` array once repos are
+  // configured; count anything not closed. Empty-state has no array → 0, no card.
+  const issRows = (iss && Array.isArray(iss.issues)) ? iss.issues : [];
+  const issOpen = issRows.filter(it => {
+    const s = it && it.state != null ? String(it.state).trim().toLowerCase() : 'open';
+    return s !== 'closed';
+  }).length;
+
+  // Nothing to render against → leave the strip hidden.
+  if (!ai && !oq && !dl && !raid && !iss) return;
+
+  const card = (count, label, sub, href) => {
+    const tone = count > 0 ? (count >= 5 ? 'alert' : 'warn') : 'clear';
+    const subText = count > 0 ? sub : 'All clear';
+    return `<a class="attn-card ${tone}" href="${esc(href)}">
+      <span class="attn-num">${count}</span>
+      <span class="attn-body">
+        <span class="attn-label">${esc(label)}</span>
+        <span class="attn-sub">${esc(subText)}</span>
+      </span>
+    </a>`;
+  };
+
+  // Show the issues card only when the live tracker is actually wired (repos
+  // configured) — an unconfigured engagement shouldn't get a hollow "All clear".
+  const issConfigured = !!(iss && Array.isArray(iss.repos) && iss.repos.length);
+
+  const cards = [
+    card(aiOpen, 'Open Action Items', 'awaiting follow-up', '/action-items/'),
+    card(oqOpen, 'Open Questions', 'need a decision', '/decisions/'),
+    card(dlOpen, 'Deliverables In Flight', 'planned or in progress', '/deliverables/'),
+    card(raidOpen, 'Open RAID Items', 'risks, assumptions, issues, deps', '/raid/'),
+  ];
+  if (issConfigured) cards.push(card(issOpen, 'Open Issues', 'across the project repos', '/issues/'));
+
+  grid.innerHTML = cards.join('');
+  section.style.display = 'block';
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadConfig);
+else loadConfig(); // also loads the purpose home after shared scripts are ready
+loadGraphStats();
+loadWhatsNext();
+loadActivity();
+loadNeedsAttention();
+</script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engagement Timeline</title>
+<style>
+  :root {
+    /* ── Branding seam: overwritten at runtime from /client.config.json. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  rgba(219,57,76,0.08);
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --radius:   6px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--kb-font-body); font-size:13px; line-height:1.6; min-height:100vh; }
+
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  .crumb { max-width: 920px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  .page-header { max-width:920px; margin:0 auto; padding:30px 32px 24px; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  h1 { font-family:var(--kb-font-heading); font-size:34px; letter-spacing:.03em; text-transform:uppercase; color:var(--text); line-height:1; margin-bottom:8px; }
+  .header-desc { font-size:13px; color:var(--muted); max-width:600px; line-height:1.6; }
+  .header-desc code { font-family:var(--kb-font-mono); font-size:11px; background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:1px 5px; color:var(--text); }
+
+  .phase-strip { max-width:920px; margin:0 auto; padding:4px 32px 12px; display:flex; gap:8px; flex-wrap:wrap; }
+  .phase-pill { flex:1; min-width:120px; padding:10px 14px; border:1px solid var(--border); border-radius:4px; background:var(--surface); font-size:11px; text-align:center; }
+  .phase-pill.active { border-color:var(--red); background:var(--red-dim); }
+  .phase-pill-label { font-family:var(--kb-font-heading); font-size:14px; color:var(--text); display:block; margin-bottom:2px; }
+  .phase-pill.active .phase-pill-label { color:var(--red); }
+  .phase-pill-sub { font-size:9px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
+
+  .timeline-wrap { max-width:920px; margin:0 auto; padding:8px 32px 56px; }
+
+  .tl-phase-header {
+    font-family:var(--kb-font-heading); font-size:13px; letter-spacing:.15em; text-transform:uppercase;
+    color:var(--muted); margin:28px 0 16px; padding-bottom:8px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none;
+  }
+  .tl-phase-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .tl-phase-count { font-size:10px; color:var(--green); letter-spacing:.06em; text-transform:none; font-family:var(--kb-font-mono); }
+  .tl-caret { font-size:11px; transition:transform .15s ease; }
+  .tl-phase-group.collapsed .tl-caret { transform:rotate(-90deg); }
+  .tl-phase-group.collapsed .tl-phase-header { margin-bottom:0; }
+  .tl-phase-group.collapsed .tl-phase-steps { display:none; }
+  .tl-phase-badge { font-size:10px; padding:2px 8px; border-radius:3px; border:1px solid; font-family:var(--kb-font-mono); letter-spacing:.06em; }
+  .ph-current { color:var(--red); border-color:rgba(219,57,76,.4); background:var(--red-dim); }
+  .ph-next { color:var(--blue); border-color:rgba(47,71,142,.4); background:var(--blue-dim); }
+  .ph-future { color:var(--dim); border-color:var(--border); background:var(--surface2); }
+  .ph-done { color:var(--green); border-color:rgba(27,161,94,.4); background:var(--green-dim); }
+
+  .tl-item {
+    display:flex; gap:0; margin-bottom:3px;
+    border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden; background:var(--surface); transition:border-color .15s;
+  }
+  .tl-item:hover { border-color:var(--border2); }
+  .tl-item.done { opacity:.78; }
+  a.tl-item { text-decoration:none; color:inherit; cursor:pointer; }
+  a.tl-item:hover .tl-title { color:var(--red); }
+  .tl-link-cue { font-family:var(--kb-font-mono); font-size:13px; color:var(--dim); }
+  a.tl-item:hover .tl-link-cue { color:var(--red); }
+
+  .tl-status-bar { width:4px; flex-shrink:0; }
+  .st-done .tl-status-bar { background:var(--green); }
+  .st-in-progress .tl-status-bar { background:var(--yellow); }
+  .st-planned .tl-status-bar { background:var(--border2); }
+  .st-blocked .tl-status-bar { background:var(--red); }
+
+  .tl-content { flex:1; padding:12px 16px; display:flex; align-items:flex-start; gap:16px; }
+  .tl-main { flex:1; min-width:0; }
+  .tl-title { font-size:13px; font-weight:500; color:var(--text); margin-bottom:3px; }
+  .tl-item.done .tl-title { color:var(--muted); }
+  .tl-desc { font-size:11px; color:var(--dim); line-height:1.5; }
+  .tl-meta { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .tl-tag { font-family:var(--kb-font-mono); font-size:9px; color:var(--dim); background:var(--surface2); border:1px solid var(--border); border-radius:2px; padding:1px 5px; }
+
+  .tl-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; min-width:96px; }
+  .tl-date { font-family:var(--kb-font-mono); font-size:10px; color:var(--dim); white-space:nowrap; }
+  .tl-badge { font-family:var(--kb-font-mono); font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 7px; border-radius:3px; border:1px solid; white-space:nowrap; }
+  .b-done { color:var(--green); border-color:rgba(27,161,94,.4); background:var(--green-dim); }
+  .b-in-progress { color:var(--yellow); border-color:rgba(245,166,35,.4); background:var(--yellow-dim); }
+  .b-planned { color:var(--dim); border-color:var(--border); background:var(--surface2); }
+  .b-blocked { color:var(--red); border-color:rgba(219,57,76,.4); background:var(--red-dim); }
+
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 40px 28px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: rgba(219,57,76,.4); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+
+  .footer { border-top:1px solid var(--border); padding:16px 32px; font-size:11px; color:var(--dim); font-family:var(--kb-font-mono); display:flex; justify-content:space-between; gap:16px; }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. Not baked here: app/nav.js fills this
+         slot from client.config.json branding.owner (KBNav.applyOwnerBrand),
+         falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<nav class="crumb" aria-label="Breadcrumb"><a href="/specs/">← Plan</a></nav>
+
+<div class="page-header">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Engagement Timeline</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1>Engagement Timeline</h1>
+  <p class="header-desc">Phase-by-phase progress tracker, derived from the plan (<code>specs/manifest.json</code>). Each phase folds into its delivery steps; every step links to its spec. Distinct from the chronological <a href="/timeline/" style="color:var(--red)">session timeline</a> of meetings.</p>
+</div>
+
+<div class="phase-strip" id="phase-strip"></div>
+
+<div class="timeline-wrap" id="timeline-wrap">
+  <div class="statebox"><div class="st-title">Loading</div><div>Building the timeline…</div></div>
+</div>
+
+<footer class="footer">
+  <span id="footer-text">—</span>
+  <span id="tl-updated"></span>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const ST = {
+  done:          { bar:'st-done',        badge:'b-done',        label:'Done' },
+  'in-progress': { bar:'st-in-progress', badge:'b-in-progress', label:'In Progress' },
+  planned:       { bar:'st-planned',     badge:'b-planned',     label:'Planned' },
+  blocked:       { bar:'st-blocked',     badge:'b-blocked',     label:'Blocked' },
+};
+function st(s){ return ST[s] || ST.planned; }
+
+// ── Branding + nav. ──────────────────────────────────────────────────────────
+async function loadConfig() {
+  let cfg;
+  try { cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json()); }
+  catch (e) { return; }
+  const b = cfg.branding || {}, colors = b.colors || {}, fonts = b.fonts || {}, client = cfg.client || {};
+  const root = document.documentElement.style;
+  const setVar = (n, v) => { if (v) root.setProperty(n, v); };
+  setVar('--kb-primary', colors.primary); setVar('--kb-link', colors.link); setVar('--kb-accent', colors.accent);
+  setVar('--kb-bg', colors.bg); setVar('--kb-bg-deep', colors.bgDeep); setVar('--kb-surface', colors.surface);
+  setVar('--kb-border', colors.border); setVar('--kb-border-light', colors.borderLight); setVar('--kb-text', colors.text);
+  setVar('--kb-text-muted', colors.textMuted); setVar('--kb-text-faint', colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading); setVar('--kb-font-body', fonts.body); setVar('--kb-font-mono', fonts.mono);
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Engagement Timeline';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Engagement Timeline' : 'Engagement Timeline');
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding), 'Engagement Timeline'].filter(Boolean).join(' · '));
+  if (window.KBNav) KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+}
+
+// ── Timeline derived from the plan. No hand-maintained viz data: phases (top-
+// level nodes) become groups; each phase's leaf delivery items (its stories, or
+// its features when a feature has no child stories) become steps, ordered by
+// date then document order. Step status + date come straight from the spec.
+// A phase badge reflects its rollup: Done / In Progress (current) / Up Next.
+const childrenOf = (kids, id, type) => (kids[id] || []).filter(c => !type || c.type === type);
+
+function leafSteps(kids, phase) {
+  const out = [];
+  const pushStories = (parentId) => {
+    const stories = childrenOf(kids, parentId, 'story');
+    stories.forEach(s => out.push(s));
+    return stories.length;
+  };
+  // epic -> feature -> story; feature -> story; phase -> story.
+  for (const ep of childrenOf(kids, phase.id, 'epic')) {
+    for (const ft of childrenOf(kids, ep.id, 'feature')) {
+      if (!pushStories(ft.id)) out.push(ft);   // a childless feature is itself a step
+    }
+    pushStories(ep.id);
+  }
+  for (const ft of childrenOf(kids, phase.id, 'feature')) {
+    if (!pushStories(ft.id)) out.push(ft);
+  }
+  pushStories(phase.id);
+  // Order by date (dated first, ascending) then by manifest order.
+  const idx = new Map(out.map((s, i) => [s.id, i]));
+  return out.sort((a, b) => {
+    const ad = a.date || '', bd = b.date || '';
+    if (ad && bd && ad !== bd) return ad < bd ? -1 : 1;
+    if (!!ad !== !!bd) return ad ? -1 : 1;
+    return idx.get(a.id) - idx.get(b.id);
+  });
+}
+
+function phaseBadge(steps, phaseStatus) {
+  const total = steps.length;
+  const done = steps.filter(s => (s.status || 'planned') === 'done').length;
+  const active = steps.some(s => (s.status || 'planned') === 'in-progress') || phaseStatus === 'in-progress';
+  if (total && done === total) return { cls:'ph-done', text:'Done' };
+  if (active) return { cls:'ph-current', text:'Current' };
+  if (done > 0) return { cls:'ph-next', text:'Up Next' };
+  return { cls:'ph-future', text:'Planned' };
+}
+
+function stepRow(step) {
+  const s = st(step.status);
+  const doneCls = (step.status === 'done') ? ' done' : '';
+  const tags = (step.labels || []).slice(0, 3).map(t => `<span class="tl-tag">${esc(t)}</span>`).join('');
+  const href = step.path ? ('/library/reader.html?f=' + encodeURIComponent(step.path)) : null;
+  const cue = href ? '<span class="tl-link-cue">→</span>' : '';
+  const inner = `
+    <div class="tl-status-bar"></div>
+    <div class="tl-content">
+      <div class="tl-main">
+        <div class="tl-title">${esc(step.title)}</div>
+        ${tags ? `<div class="tl-meta">${tags}</div>` : ''}
+      </div>
+      <div class="tl-right">
+        <span class="tl-date">${esc(step.date || 'TBD')}</span>
+        <span class="tl-badge ${s.badge}">${esc(s.label)}</span>
+        ${cue}
+      </div>
+    </div>`;
+  return href
+    ? `<a class="tl-item ${s.bar}${doneCls}" href="${esc(href)}">${inner}</a>`
+    : `<div class="tl-item ${s.bar}${doneCls}">${inner}</div>`;
+}
+
+function render(items) {
+  const kids = {};
+  items.forEach(it => { const p = it.parent || ''; (kids[p] = kids[p] || []).push(it); });
+  const phaseNodes = childrenOf(kids, '', 'phase');
+  const phases = phaseNodes.length ? phaseNodes : childrenOf(kids, '');
+
+  // Top phase strip: one pill per phase, the first in-progress phase marked active.
+  let activeMarked = false;
+  document.getElementById('phase-strip').innerHTML = phases.map(p => {
+    const steps = leafSteps(kids, p);
+    const badge = phaseBadge(steps, p.status);
+    const isActive = !activeMarked && badge.text === 'Current';
+    if (isActive) activeMarked = true;
+    return `<div class="phase-pill${isActive ? ' active' : ''}">
+      <span class="phase-pill-label">${esc(p.title)}</span>
+      <span class="phase-pill-sub">${esc(badge.text)} · ${steps.length} ${steps.length === 1 ? 'step' : 'steps'}</span>
+    </div>`;
+  }).join('') || '';
+
+  let html = '';
+  for (const p of phases) {
+    const steps = leafSteps(kids, p);
+    const done = steps.filter(s => (s.status || 'planned') === 'done').length;
+    const allDone = steps.length > 0 && done === steps.length;
+    const badge = phaseBadge(steps, p.status);
+    html += `<div class="tl-phase-group${allDone ? ' collapsed' : ''}">`;
+    html += `<div class="tl-phase-header"><span>${esc(p.title)}</span>` +
+      `<span class="tl-phase-right">` +
+        (steps.length ? `<span class="tl-phase-count">${done}/${steps.length} done</span>` : '') +
+        `<span class="tl-phase-badge ${badge.cls}">${esc(badge.text)}</span>` +
+        `<span class="tl-caret">▾</span>` +
+      `</span></div>`;
+    html += `<div class="tl-phase-steps">${steps.map(stepRow).join('') || '<div style="color:var(--dim);padding:6px 2px;font-size:11px">No delivery steps yet.</div>'}</div>`;
+    html += `</div>`;
+  }
+
+  const wrap = document.getElementById('timeline-wrap');
+  wrap.innerHTML = html || '<div class="statebox"><div class="st-title">No plan yet</div><div>Author the plan under <code>specs/</code>, then run <code>make specs</code>.</div></div>';
+  wrap.querySelectorAll('.tl-phase-header').forEach(h =>
+    h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
+}
+
+async function load() {
+  loadConfig();
+  let data;
+  try {
+    const r = await fetch('/specs/manifest.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (e) {
+    document.getElementById('timeline-wrap').innerHTML =
+      '<div class="statebox error"><div class="st-title">Failed to load</div>'
+      + '<div>Could not fetch <code>specs/manifest.json</code> (' + esc(e.message) + ').</div>'
+      + '<div style="margin-top:10px">Run <code>make specs</code> to generate it.</div></div>';
+    return;
+  }
+  const items = Array.isArray(data.items) ? data.items : [];
+  render(items);
+  const upd = document.getElementById('tl-updated');
+  if (upd && data.generated) upd.textContent = 'Generated ' + data.generated;
+}
+load();
+</script>
+</body>
+</html>

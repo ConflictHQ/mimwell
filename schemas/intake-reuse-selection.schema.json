@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-reuse-selection/v1",
+  "title": "Body-free independently selected processing reuse dependencies",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cache",
+    "sourceResource",
+    "scope",
+    "policySha256",
+    "retainedProtection",
+    "protection",
+    "evaluatedAt",
+    "format",
+    "itemSha256",
+    "original"
+  ],
+  "properties": {
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "configSha256",
+        "producerSha256",
+        "entrySha256",
+        "keySha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "configSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "producerSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "entrySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "keySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "sourceResource": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "\\S"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "\\S"
+    },
+    "policySha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "retainedProtection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policySha256",
+        "requirements"
+      ],
+      "properties": {
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "encryption",
+            "mediation",
+            "opaqueMetadata",
+            "offline",
+            "plaintextCopies",
+            "derivatives",
+            "verifiedAuthorship"
+          ],
+          "properties": {
+            "encryption": {
+              "type": "boolean"
+            },
+            "mediation": {
+              "type": "boolean"
+            },
+            "opaqueMetadata": {
+              "type": "boolean"
+            },
+            "offline": {
+              "type": "boolean"
+            },
+            "plaintextCopies": {
+              "type": "boolean"
+            },
+            "derivatives": {
+              "type": "boolean"
+            },
+            "verifiedAuthorship": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "protection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "originalPolicySha256",
+        "sourcePolicySha256",
+        "requirements"
+      ],
+      "properties": {
+        "originalPolicySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sourcePolicySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "encryption",
+            "mediation",
+            "opaqueMetadata",
+            "offline",
+            "plaintextCopies",
+            "derivatives",
+            "verifiedAuthorship"
+          ],
+          "properties": {
+            "encryption": {
+              "type": "boolean"
+            },
+            "mediation": {
+              "type": "boolean"
+            },
+            "opaqueMetadata": {
+              "type": "boolean"
+            },
+            "offline": {
+              "type": "boolean"
+            },
+            "plaintextCopies": {
+              "type": "boolean"
+            },
+            "derivatives": {
+              "type": "boolean"
+            },
+            "verifiedAuthorship": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "evaluatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "format": {
+      "const": "intake-reuse-selection/v1"
+    },
+    "itemSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "original": {
+      "$ref": "conflict:schema/intake-processing-reuse/v1#/$defs/header"
+    }
+  }
+}

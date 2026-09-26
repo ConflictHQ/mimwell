@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-capture/v1",
+  "title": "Authorized local source capture and verified intake capsules",
+  "description": "A source snapshot is not a claim of current upstream freshness or an authenticated import. The host pins capsules and authorizes source access before reading. Runtime verifies hashes, lengths and local file stability.",
+  "allOf": [
+    {
+      "$ref": "#/$defs/capsule"
+    }
+  ],
+  "$defs": {
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "itemId",
+        "sourceId",
+        "root",
+        "path",
+        "resource",
+        "mediaType",
+        "metadata",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "sourceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "pattern": "\\S"
+        },
+        "resource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "metadata": {
+          "$ref": "conflict:schema/intake/v1#/$defs/item/properties/metadata"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "source",
+        "expectedSha256",
+        "maxBytes"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "expectedSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "registrationSha256",
+        "item",
+        "capturedAt",
+        "principal",
+        "policySha256",
+        "observation",
+        "usage",
+        "rootSha256"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-capture/v1"
+        },
+        "registrationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "item": {
+          "$ref": "conflict:schema/intake/v1#/$defs/item"
+        },
+        "capturedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S"
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "device",
+            "inode",
+            "size",
+            "modifiedNs",
+            "changedNs"
+          ],
+          "properties": {
+            "device": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "maxLength": 32
+            },
+            "inode": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "maxLength": 32
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modifiedNs": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$",
+              "maxLength": 32
+            },
+            "changedNs": {
+              "type": "string",
+              "pattern": "^-?[0-9]+$",
+              "maxLength": 32
+            }
+          }
+        },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sourceBytes",
+            "modelCalls"
+          ],
+          "properties": {
+            "sourceBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 67108864
+            },
+            "modelCalls": {
+              "const": 0
+            }
+          }
+        },
+        "rootSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "capsule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "receipt",
+        "body"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-capsule/v1"
+        },
+        "receipt": {
+          "$ref": "#/$defs/receipt"
+        },
+        "body": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "encoding",
+            "data"
+          ],
+          "properties": {
+            "encoding": {
+              "const": "base64"
+            },
+            "data": {
+              "type": "string",
+              "maxLength": 89478488
+            }
+          }
+        }
+      }
+    }
+  }
+}

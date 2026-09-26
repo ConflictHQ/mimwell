@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Action Items</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.05);
+    --surface2: rgba(255,255,255,0.08);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 10%, transparent);
+    --red-dark: #9C2633;
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    --green:    var(--kb-accent); --green-dim: rgba(76,175,80,0.1);
+    --yellow:   #F5A623; --yellow-dim: rgba(245,166,35,0.08);
+    --blue:     var(--kb-link); --blue-dim: rgba(74,127,165,0.1);
+    --purple:   #7A5BA8; --purple-dim: rgba(122,91,168,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+  /* ── Breadcrumb back-to-home (matches reader.html / session.html) ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1080px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 620px; line-height: 1.7; }
+  .page-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--dim); margin-top: 14px; }
+  .page-meta span { color: var(--text); }
+
+  /* ── Tabs (label filter) ── */
+  .tabbar {
+    max-width: 1080px; margin: 28px auto 0; padding: 0 32px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); background: none;
+    border: none; border-bottom: 2px solid transparent; cursor: pointer;
+    padding: 8px 12px 9px; transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--red); border-bottom-color: var(--red); }
+  .tab-count { color: var(--dim); }
+  .tab.active .tab-count { color: var(--red); }
+
+  /* ── Body ── */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  /* ── Meeting groups ── */
+  .group { margin-bottom: 30px; }
+  .group-head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  }
+  .group-title {
+    font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text); text-decoration: none;
+    transition: color .12s;
+  }
+  a.group-title:hover { color: var(--red); }
+  .group-date { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; color: var(--dim); white-space: nowrap; }
+  .group-count { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); margin-left: auto; white-space: nowrap; }
+
+  /* ── Action item rows ── */
+  .ai-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .ai-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--red-dim); padding: 11px 14px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .ai-text { font-size: 13.5px; color: var(--text); line-height: 1.5; }
+  .ai-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .ai-owner { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .04em; color: var(--muted); }
+  .ai-owner b { color: var(--text); font-weight: 500; }
+  .ai-spacer { flex: 1; }
+  .label-pill {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    color: var(--red); background: var(--red-dim);
+    border: 1px solid var(--red-dim); border-radius: 3px; padding: 2px 8px;
+  }
+
+  /* ── Pager ── */
+  .pager {
+    margin-top: 28px;
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+  }
+  .pager-btn {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 3px; padding: 6px 14px; cursor: pointer;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .pager-btn:hover:not(:disabled) { color: var(--red); border-color: var(--red); background: var(--surface2); }
+  .pager-btn:disabled { color: var(--dim); cursor: default; opacity: .5; }
+  .pager-status { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); }
+  .pager-status span { color: var(--text); }
+
+  /* ── States ── */
+  .statebox, .errorbox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 44px 28px; text-align: center; color: var(--muted); font-size: 13px;
+  }
+  .st-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 6px; }
+  .errorbox { border-color: var(--red); }
+  .errorbox .st-title { color: var(--red); }
+  .statebox code, .errorbox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .tabbar, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+    .group-count { margin-left: 0; }
+  }
+</style>
+<!-- Shared light/dark theme: overrides the local alias vars per theme (loaded
+     AFTER the page's own <style> so its higher-specificity rules win) and
+     injects the toggle into .topbar. theme.js owns all toggle logic. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Action Items</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Action Items</h1>
+  <p class="page-subtitle">Every action item captured across discovery sessions, grouped by meeting. Filter by label and jump to the source session.</p>
+  <div class="page-meta" id="page-meta"><span id="item-count">—</span> action items</div>
+</section>
+
+<!-- Tabs (label filter) -->
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="Filter action items by label"></nav>
+
+<!-- Body -->
+<div class="wrap">
+  <div id="results">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching action items…</div>
+    </div>
+  </div>
+
+  <nav class="pager" id="pager" aria-label="Pagination" hidden></nav>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+  const client = cfg.client || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  // Document title: "<client.name> — Action Items".
+  const name = client.name || client.shortName || '';
+  document.title = (name ? name + ' — ' : '') + 'Action Items';
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', client.shortName || client.name || '');
+  set('page-eyebrow-text', name ? name + ' Action Items' : 'Action Items');
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [client.shortName || client.name, KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Action items tracker (reads /app/action-items.json) ──────────────────────
+const PER_PAGE = 30;
+const ALL_TAB = '__all__';
+const state = { items: [], tab: ALL_TAB, page: 1, tabs: [] };
+
+// Owners are noisy ("", "N/A", "Unspecified", "Unnamed Speaker", …). Only show
+// a meaningful name; drop placeholders so the row stays clean.
+function ownerLabel(owner) {
+  const o = (owner == null ? '' : String(owner)).trim();
+  if (!o) return '';
+  if (/^(n\/a|na|none|unspecified|unknown|tbd)$/i.test(o)) return '';
+  return o;
+}
+
+// Build the tab list dynamically from the union of item.labels.
+// "All" first, then every label that appears in the data, alphabetically.
+// Labels are data-driven — never hardcoded.
+function buildTabList(items) {
+  const seen = new Set();
+  items.forEach(it => (Array.isArray(it.labels) ? it.labels : []).forEach(l => seen.add(l)));
+  const ordered = Array.from(seen).sort((a, b) => a.localeCompare(b));
+  return [{ id: ALL_TAB, label: 'All' }].concat(ordered.map(l => ({ id: l, label: l })));
+}
+
+// An item counts toward a label tab if that label is in its `labels` array;
+// "All" counts every item.
+function itemsForTab(tab) {
+  if (tab === ALL_TAB) return state.items;
+  return state.items.filter(it => (Array.isArray(it.labels) ? it.labels : []).indexOf(tab) !== -1);
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  bar.innerHTML = state.tabs.map(t => {
+    const active = t.id === state.tab;
+    const count = itemsForTab(t.id).length;
+    return '<button class="tab' + (active ? ' active' : '') + '" type="button" role="tab"' +
+      ' aria-selected="' + (active ? 'true' : 'false') + '" data-tab="' + esc(t.id) + '">' +
+      esc(t.label) + ' <span class="tab-count">(' + count + ')</span></button>';
+  }).join('');
+}
+
+// Group header for a meeting. `total` is the meeting's item count across the
+// FULL filtered set so the count stays accurate when a group spans pages.
+function groupHead(item, total) {
+  const sid = item.session && String(item.session).trim();
+  const title = item.session_title || item.session || 'Untitled session';
+  const titleHtml = sid
+    ? '<a class="group-title" href="/app/session.html?id=' + esc(encodeURIComponent(sid)) + '">' + esc(title) + '</a>'
+    : '<span class="group-title">' + esc(title) + '</span>';
+  return '<div class="group-head">' +
+    titleHtml +
+    (item.date ? '<span class="group-date">' + esc(item.date) + '</span>' : '') +
+    '<span class="group-count">' + total + (total === 1 ? ' item' : ' items') + '</span>' +
+  '</div>';
+}
+
+function itemHTML(item) {
+  const labels = Array.isArray(item.labels) ? item.labels : [];
+  const pills = labels.map(l => '<span class="label-pill">' + esc(l) + '</span>').join('');
+  const owner = ownerLabel(item.owner);
+  return '<li class="ai-item">' +
+    '<span class="ai-text">' + esc(item.text || '') + '</span>' +
+    '<span class="ai-foot">' +
+      (owner ? '<span class="ai-owner">Owner: <b>' + esc(owner) + '</b></span>' : '') +
+      '<span class="ai-spacer"></span>' +
+      pills +
+    '</span>' +
+  '</li>';
+}
+
+// Flatten the active filtered set into one ordered list, grouped by meeting
+// (date desc, then session). Carries each meeting's full count so headers stay
+// accurate when a meeting is split across pages.
+function filteredFlat() {
+  const list = itemsForTab(state.tab);
+
+  // Preserve source order of meetings as they first appear (the tracker JSON is
+  // already newest-first), but sort meetings by date desc to be safe.
+  const order = [];
+  const groups = {};
+  list.forEach(it => {
+    const key = (it.session && String(it.session).trim()) || ('__' + (it.session_title || '') + '|' + (it.date || ''));
+    if (!groups[key]) { groups[key] = { key: key, date: it.date || '', items: [] }; order.push(key); }
+    groups[key].items.push(it);
+  });
+  order.sort((a, b) => {
+    const d = String(groups[b].date || '').localeCompare(String(groups[a].date || ''));
+    return d !== 0 ? d : order.indexOf(a) - order.indexOf(b);
+  });
+
+  const flat = [];
+  const counts = {};
+  order.forEach(key => {
+    const items = groups[key].items;
+    counts[key] = items.length;
+    items.forEach(it => flat.push({ key: key, item: it }));
+  });
+  return { flat, counts };
+}
+
+function renderPager(totalPages) {
+  const pager = document.getElementById('pager');
+  if (totalPages <= 1) { pager.hidden = true; pager.innerHTML = ''; return; }
+  pager.hidden = false;
+  const page = state.page;
+  pager.innerHTML =
+    '<button class="pager-btn" type="button" data-nav="prev"' + (page <= 1 ? ' disabled' : '') + '>Prev</button>' +
+    '<span class="pager-status">Page <span>' + page + '</span> of <span>' + totalPages + '</span></span>' +
+    '<button class="pager-btn" type="button" data-nav="next"' + (page >= totalPages ? ' disabled' : '') + '>Next</button>';
+}
+
+function render() {
+  const resultsEl = document.getElementById('results');
+  const { flat, counts } = filteredFlat();
+
+  if (!flat.length) {
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No action items</div>' +
+      '<div>No action items match the current filter.</div>' +
+    '</div>';
+    renderPager(1);
+    renderTabs();
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(flat.length / PER_PAGE));
+  if (state.page > totalPages) state.page = totalPages;
+
+  const start = (state.page - 1) * PER_PAGE;
+  const pageItems = flat.slice(start, start + PER_PAGE);
+
+  // Walk the page slice, opening a new meeting section whenever the group
+  // changes. Group counts reflect the full filtered set (counts[...]).
+  let html = '';
+  let openKey = null;
+  pageItems.forEach(row => {
+    if (row.key !== openKey) {
+      if (openKey !== null) html += '</ul></section>';
+      html += '<section class="group">' + groupHead(row.item, counts[row.key]) + '<ul class="ai-list">';
+      openKey = row.key;
+    }
+    html += itemHTML(row.item);
+  });
+  if (openKey !== null) html += '</ul></section>';
+
+  resultsEl.innerHTML = html;
+  renderPager(totalPages);
+  renderTabs();
+}
+
+// Tab clicks → switch tab, reset to page 1.
+document.getElementById('tabbar').addEventListener('click', e => {
+  const btn = e.target.closest('.tab');
+  if (!btn) return;
+  const tab = btn.getAttribute('data-tab');
+  if (tab === state.tab) return;
+  state.tab = tab;
+  state.page = 1;
+  render();
+});
+
+// Pager clicks → step a page.
+document.getElementById('pager').addEventListener('click', e => {
+  const btn = e.target.closest('.pager-btn');
+  if (!btn || btn.disabled) return;
+  const nav = btn.getAttribute('data-nav');
+  if (nav === 'prev') state.page--;
+  else if (nav === 'next') state.page++;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+async function loadItems() {
+  const resultsEl = document.getElementById('results');
+  let data;
+  try {
+    const r = await fetch('/app/action-items.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    resultsEl.innerHTML = '<div class="errorbox">' +
+      '<div class="st-title">Failed to load</div>' +
+      'Could not fetch <code>app/action-items.json</code> (' + esc(err.message) + ').' +
+    '</div>';
+    document.getElementById('item-count').textContent = '0';
+    return;
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+  const count = (typeof data.count === 'number') ? data.count : items.length;
+  document.getElementById('item-count').textContent = count;
+
+  if (!items.length) {
+    resultsEl.innerHTML = '<div class="statebox">' +
+      '<div class="st-title">No action items yet</div>' +
+      'Action items extracted from discovery sessions will appear here.' +
+    '</div>';
+    return;
+  }
+
+  state.items = items;
+  state.tabs = buildTabList(items);
+  state.tab = ALL_TAB;
+  state.page = 1;
+  render();
+}
+
+loadConfig();
+loadItems();
+</script>
+</body>
+</html>

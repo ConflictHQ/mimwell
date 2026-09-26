@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposals</title>
+<!-- Bespoke surface (frontend pass 3, W1.7): chrome from app/shell.js, content
+     from app/surface-proposals.js over a served primitive (app/proposals.json). The
+     shell declares the surface id and nothing else. -->
+<link rel="stylesheet" href="/app/page-shell.css">
+<link rel="stylesheet" href="/app/surfaces.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+<script src="/app/shell.js" defer></script>
+<script src="/app/surface-proposals.js" defer></script>
+</head>
+<body>
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home; app/nav.js fills the slot from
+         client.config.json branding.owner (KBNav.applyOwnerBrand). -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Curation</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Proposals</h1>
+  <p class="page-subtitle">What the organizer proposed and nobody has accepted yet — with evidence and confidence. Accepting is a deliberate edit to the matching fill-in; nothing here applies itself.</p>
+</section>
+
+<!-- Body: rendered by app/surface-proposals.js -->
+<main class="ks-wrap" data-kb-surface="proposals"></main>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+</body>
+</html>

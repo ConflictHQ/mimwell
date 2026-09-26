@@ -1,0 +1,12 @@
+.fn-toolbar { display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem; }
+.fn-toolbar button, .fn-content button { font:inherit; padding:.45rem .75rem; cursor:pointer; }
+.fn-content { display:grid; grid-template-columns:minmax(12rem,1fr) minmax(0,3fr); gap:1rem; }
+.fn-content > .ks-note { grid-column:1 / -1; }
+.fn-content .ks-card { min-width:0; background:var(--surface,#fff); color:var(--text,#231f20); border-color:var(--border,#e2e8f0); }
+.fn-content li { margin:.6rem 0; }
+.fn-content a { color:var(--blue,var(--kb-link,#255d85)); overflow-wrap:anywhere; text-decoration:underline; }
+.fn-content a:focus-visible, .fn-toolbar button:focus-visible, .fn-content button:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+.fn-content h3 { margin-top:1.5rem; }
+.fn-coordinate, .fn-path { overflow-wrap:anywhere; }
+@media (max-width:700px) { .fn-content { grid-template-columns:minmax(0,1fr); } }
+@media print { .fn-toolbar, .fn-content button { display:none; } .fn-content { display:block; } .fn-content .ks-card { break-inside:avoid; border:1px solid #777; margin-bottom:1rem; } }

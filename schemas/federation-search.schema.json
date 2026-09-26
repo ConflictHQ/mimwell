@@ -1,0 +1,464 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/federation-search/v1",
+  "title": "Bounded source-authorized federation search",
+  "description": "Search request by default; #/$defs/result describes its response. Authorization belongs to the host and source; requests cannot grant access. Query token limits and source revision consistency are additionally enforced by runtime validation.",
+  "x-conflict": {
+    "version": "1.0"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "query",
+    "sources",
+    "budget"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxSources",
+        "maxMatches",
+        "maxBytes"
+      ],
+      "properties": {
+        "maxSources": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxMatches": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "realm",
+        "revision"
+      ],
+      "properties": {
+        "participant": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "realm": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "query",
+        "sources",
+        "budget"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxSources",
+            "maxMatches",
+            "maxBytes"
+          ],
+          "properties": {
+            "maxSources": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxMatches": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "method",
+        "federation",
+        "authorization",
+        "query",
+        "sources",
+        "matches",
+        "truncation",
+        "coverage"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": "1.0"
+        },
+        "method": {
+          "const": "federated-authorized-lexical/v1"
+        },
+        "federation": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal",
+            "evaluatedAt"
+          ],
+          "properties": {
+            "principal": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "evaluatedAt": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceResult"
+          }
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/match"
+          }
+        },
+        "truncation": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "maxBytes",
+              "maxMatches",
+              "maxSources",
+              "sourcePartial"
+            ]
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "const": "not-assessed"
+            }
+          }
+        }
+      }
+    },
+    "sourceResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "status",
+            "truncation"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "status": {
+              "const": "searched"
+            },
+            "truncation": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "maxBytes",
+                  "maxMatches"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/source"
+            },
+            "status": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "enum": [
+                "unavailable",
+                "offline",
+                "revision-changed",
+                "unsupported-contract",
+                "unsupported-transport",
+                "maxBytes",
+                "invalid-response"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "record",
+        "provenance",
+        "matchedTerms",
+        "score",
+        "gaps"
+      ],
+      "properties": {
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "participant",
+            "realm",
+            "revision",
+            "address"
+          ],
+          "properties": {
+            "participant": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "realm": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "revision": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "address": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "record": {
+          "type": "object",
+          "description": "Exact owning-realm validated record; not a new record authority.",
+          "required": [
+            "id",
+            "kind"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "matchedTerms": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 1
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "participant",
+        "realm",
+        "authority",
+        "revision",
+        "evaluatedAt",
+        "recordSha256",
+        "policySha256",
+        "ontologySha256",
+        "bindingsSha256",
+        "publicationSha256"
+      ],
+      "properties": {
+        "participant": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "realm": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "recordSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "policySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ontologySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bindingsSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "publicationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "store": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "bindingSha256",
+            "snapshotSha256",
+            "state",
+            "recordRevision"
+          ],
+          "properties": {
+            "kind": {
+              "const": "sqlite-authority"
+            },
+            "bindingSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "snapshotSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "state": {
+              "const": "active"
+            },
+            "recordRevision": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*:[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deliverable</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults overwritten at runtime from /client.config.json. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — short names used by the rules below. */
+    --bg:var(--kb-bg); --surface:rgba(255,255,255,.05); --surface2:rgba(255,255,255,.08);
+    --border:var(--kb-border); --border2:var(--kb-border-light);
+    --red:var(--kb-primary); --red-dim:rgba(219,57,76,.1);
+    --text:var(--kb-text); --muted:var(--kb-text-muted); --dim:var(--kb-text-faint);
+    --green:var(--kb-accent); --green-dim:rgba(76,175,80,.12);
+    --yellow:#F5A623; --yellow-dim:rgba(245,166,35,.1);
+    --blue:var(--kb-link); --blue-dim:rgba(74,127,165,.12);
+    --radius:6px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--kb-font-body); font-size:14px; line-height:1.7; min-height:100vh; }
+
+  /* ─── Top bar ─── */
+  .topbar {
+    height:54px; background:var(--bg); border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 32px; position:sticky; top:0; z-index:200;
+  }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-logo { display:inline-flex; line-height:0; transition:opacity .15s; }
+  .brand-logo:hover { opacity:.75; }
+  .brand-divider { color:var(--border2); font-size:16px; }
+  .brand-name { font-family:var(--kb-font-heading); font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .topnav { display:flex; align-items:center; gap:4px; }
+  .topnav a {
+    font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--dim); text-decoration:none;
+    padding:5px 10px; border-radius:3px; transition:color .15s,background .15s;
+  }
+  .topnav a:hover { color:var(--text); background:var(--surface); }
+  .topnav a.active { color:var(--red); }
+  .topnav-group { display:flex; align-items:center; gap:2px; }
+  .topnav-group + .topnav-group { margin-left:6px; padding-left:8px; border-left:1px solid var(--border); }
+  .topnav-group-label { font-family:var(--kb-font-mono); font-size:8px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); padding:0 6px 0 2px; opacity:.8; }
+  @media (max-width:920px) { .topnav-group-label { display:none; } .topnav-group + .topnav-group { margin-left:2px; padding-left:4px; } }
+
+  /* ─── Breadcrumb ─── */
+  .crumb { max-width:880px; margin:0 auto; padding:22px 32px 0; font-family:var(--kb-font-mono); font-size:11px; color:var(--dim); display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .crumb a { color:var(--muted); text-decoration:none; }
+  .crumb a:hover { color:var(--red); }
+  .crumb .sep { color:var(--border2); }
+  .crumb .here { color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:46vw; }
+
+  /* ─── Shell ─── */
+  .shell { max-width:880px; margin:0 auto; padding:24px 32px 80px; }
+
+  .d-eyebrow { font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--red); margin-bottom:14px; display:flex; align-items:center; gap:12px; }
+  .d-eyebrow-line { width:40px; height:1px; background:var(--red); opacity:.5; }
+  h1 { font-family:var(--kb-font-heading); font-size:36px; letter-spacing:.03em; text-transform:uppercase; color:var(--text); line-height:1.04; }
+  .d-summary { font-size:15px; color:var(--muted); line-height:1.6; margin-top:12px; max-width:640px; }
+
+  /* ─── Status + meta ─── */
+  .status-row { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:18px; }
+  .badge { font-family:var(--kb-font-mono); font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:.06em; padding:3px 10px; border-radius:3px; border:1px solid; display:inline-flex; align-items:center; gap:6px; }
+  .badge .st-dot { width:7px; height:7px; border-radius:50%; flex:none; }
+  .badge.delivered { color:var(--green); background:var(--green-dim); border-color:rgba(76,175,80,.4); }
+  .badge.delivered .st-dot { background:var(--green); }
+  .badge.in-progress { color:var(--yellow); background:var(--yellow-dim); border-color:rgba(245,166,35,.4); }
+  .badge.in-progress .st-dot { background:var(--yellow); }
+  .badge.planned { color:var(--dim); background:var(--surface2); border-color:var(--border2); }
+  .badge.planned .st-dot { background:var(--dim); }
+
+  .meta-grid { display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:18px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+  .meta-item { display:flex; flex-direction:column; gap:3px; }
+  .meta-lbl { font-family:var(--kb-font-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); }
+  .meta-val { font-size:13px; color:var(--text); }
+
+  .d-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
+  .tag-pill { font-family:var(--kb-font-mono); font-size:9px; font-weight:500; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:2px 8px; }
+
+  /* ─── Actions ─── */
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
+  .action {
+    font-family:var(--kb-font-mono); font-size:11px; letter-spacing:.04em;
+    color:var(--muted); text-decoration:none; border:1px solid var(--border);
+    border-radius:4px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px;
+    transition:color .12s,border-color .12s,background .12s;
+  }
+  .action:hover { color:var(--red); border-color:var(--red); }
+  .action.primary { color:var(--red); border-color:rgba(219,57,76,.4); }
+  .action.primary:hover { background:var(--red-dim); }
+
+  /* ─── Sections ─── */
+  .section-h { font-family:var(--kb-font-heading); font-size:14px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin:40px 0 16px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .d-detail { font-size:14px; color:var(--muted); line-height:1.75; max-width:680px; }
+
+  /* Rendered markdown body uses the shared render.css (class .md). */
+
+  /* ─── Related ─── */
+  .related-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .related-link {
+    font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--blue); text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+    border:1px solid var(--border); border-radius:3px; padding:5px 11px;
+    transition:color .12s,border-color .12s,background .12s;
+  }
+  .related-link:hover { color:var(--text); border-color:var(--blue); background:var(--blue-dim); }
+  .related-link .rk { color:var(--dim); }
+
+  /* ─── States ─── */
+  .statebox { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:48px 32px; text-align:center; color:var(--muted); font-size:14px; }
+  .statebox .st-title { font-family:var(--kb-font-heading); font-size:20px; letter-spacing:.1em; text-transform:uppercase; color:var(--text); margin-bottom:8px; }
+  .statebox.error { border-color:rgba(219,57,76,.4); }
+  .statebox.error .st-title { color:var(--red); }
+  .statebox code { font-family:var(--kb-font-mono); font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:2px 6px; }
+  .statebox .back-link { display:inline-block; margin-top:20px; color:var(--red); text-decoration:none; font-size:12px; border:1px solid rgba(219,57,76,.4); border-radius:4px; padding:6px 14px; }
+  .statebox .back-link:hover { background:var(--red-dim); }
+  .spinner { display:inline-block; width:22px; height:22px; border:2px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .7s linear infinite; margin-bottom:16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .doc-foot { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); }
+  .doc-foot a { color:var(--muted); text-decoration:none; font-size:12px; border:1px solid var(--border); border-radius:4px; padding:7px 15px; transition:border-color .12s,color .12s; }
+  .doc-foot a:hover { border-color:var(--red); color:var(--red); }
+
+  @media (max-width:560px) {
+    .topbar, .crumb, .shell { padding-left:18px; padding-right:18px; }
+    h1 { font-size:28px; }
+  }
+</style>
+<!-- Shared rich-markdown styles (callouts, tables, task lists, code, mermaid). -->
+<link rel="stylesheet" href="/app/render.css">
+<!-- Shared theme + nav. theme.js injects the toggle; nav.js builds the top-nav. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. Not baked here: app/nav.js fills this
+         slot from client.config.json branding.owner (KBNav.applyOwnerBrand),
+         falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="21"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Breadcrumb -->
+<nav class="crumb" aria-label="Breadcrumb">
+  <a href="/">Home</a><span class="sep">/</span>
+  <a href="/deliverables/">Deliverables</a><span class="sep">/</span>
+  <span class="here" id="crumb-here">…</span>
+</nav>
+
+<div class="shell" id="shell">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Fetching deliverable…</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="/app/render.js"></script>
+<script>
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+// ── Status helpers (match the deliverables list page) ────────────────────────
+var STATUS_LABEL = { 'delivered': 'Delivered', 'in-progress': 'In progress', 'planned': 'Planned' };
+function statusClass(s) { return STATUS_LABEL[s] ? s : 'planned'; }
+function statusLabel(s) { return STATUS_LABEL[s] || 'Planned'; }
+
+function slugify(s) {
+  return String(s == null ? '' : s).toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function itemId(it) {
+  var id = (it.id == null ? '' : String(it.id)).trim();
+  return id || slugify(it.title);
+}
+
+// Owners can be placeholders; show only a real name.
+function ownerLabel(owner) {
+  var o = (owner == null ? '' : String(owner)).trim();
+  if (!o) return '';
+  if (/^(n\/a|na|none|unspecified|unknown|tbd)$/i.test(o)) return '';
+  return o;
+}
+
+// ── Branding + nav ───────────────────────────────────────────────────────────
+var BRAND = { titleSuffix: '' };
+var brandReady = (function () {
+  return fetch('/client.config.json', { cache: 'no-cache' })
+    .then(function (r) { return r.json(); })
+    .then(function (cfg) {
+      var b = (cfg && cfg.branding) || {};
+      var colors = b.colors || {};
+      var fonts = b.fonts || {};
+      var client = (cfg && cfg.client) || {};
+      var root = document.documentElement.style;
+      function setVar(name, val) { if (val) root.setProperty(name, val); }
+      setVar('--kb-primary',      colors.primary);
+      setVar('--kb-link',         colors.link);
+      setVar('--kb-accent',       colors.accent);
+      setVar('--kb-bg',           colors.bg);
+      setVar('--kb-bg-deep',      colors.bgDeep);
+      setVar('--kb-surface',      colors.surface);
+      setVar('--kb-border',       colors.border);
+      setVar('--kb-border-light', colors.borderLight);
+      setVar('--kb-text',         colors.text);
+      setVar('--kb-text-muted',   colors.textMuted);
+      setVar('--kb-text-faint',   colors.textFaint);
+      setVar('--kb-font-heading', fonts.heading);
+      setVar('--kb-font-body',    fonts.body);
+      setVar('--kb-font-mono',    fonts.mono);
+
+      var label = client.shortName || client.name || '';
+      BRAND.titleSuffix = [label, KBNav.ownerName(cfg && cfg.branding)].filter(Boolean).join(' · ');
+      var brandEl = document.getElementById('brand-name');
+      if (brandEl) brandEl.textContent = label || KBNav.ownerName(cfg && cfg.branding);
+      if (window.KBNav) KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+    })
+    .catch(function () {});
+})();
+
+function setDocTitle(name) {
+  brandReady.then(function () {
+    document.title = name + (BRAND.titleSuffix ? ' — ' + BRAND.titleSuffix : '');
+  });
+}
+
+// ── Related cross-references ─────────────────────────────────────────────────
+function relatedLink(href, kind, id) {
+  return '<a class="related-link" href="' + esc(href) + '"><span class="rk">' + esc(kind) + '</span>' + esc(id) + '</a>';
+}
+function relatedHTML(it) {
+  var arr = function (v) { return (Array.isArray(v) ? v : []).map(function (x) { return String(x).trim(); }).filter(Boolean); };
+  var links = []
+    .concat(arr(it.stories).map(function (id) { return relatedLink('/user-stories/', 'Story', id); }))
+    .concat(arr(it.specs).map(function (id) { return relatedLink('/specs/', 'Spec', id); }))
+    .concat(arr(it.sessions).map(function (id) { return relatedLink('/app/session.html?id=' + encodeURIComponent(id), 'Session', id); }));
+  if (!links.length) return '';
+  return '<div class="section-h">Related</div><div class="related-grid">' + links.join('') + '</div>';
+}
+
+// ── Render the deliverable ───────────────────────────────────────────────────
+function metaItem(lbl, val) {
+  if (!val) return '';
+  return '<div class="meta-item"><span class="meta-lbl">' + esc(lbl) + '</span><span class="meta-val">' + esc(val) + '</span></div>';
+}
+
+function renderDeliverable(it, shell) {
+  var sc = statusClass(it.status);
+  var owner = ownerLabel(it.owner);
+  var group = (it.phase || it.category || '').toString().trim();
+  var tags = Array.isArray(it.tags) ? it.tags : [];
+
+  var meta = metaItem('Type', it.type) + metaItem(it.phase ? 'Phase' : 'Category', group) +
+    metaItem('Date', it.date) + metaItem('Owner', owner);
+
+  // Actions: external link and/or in-portal reader for a linked doc.
+  var actions = [];
+  if (it.link && String(it.link).trim()) {
+    actions.push('<a class="action primary" href="' + esc(String(it.link).trim()) + '" target="_blank" rel="noopener">' +
+      esc(it.linkLabel || 'Open') + ' ↗</a>');
+  }
+  if (it.doc && String(it.doc).trim()) {
+    actions.push('<a class="action" href="/app/reader.html?f=' + encodeURIComponent(String(it.doc).trim()) + '">Open in reader →</a>');
+  }
+  var actionsHtml = actions.length ? '<div class="actions">' + actions.join('') + '</div>' : '';
+
+  var tagsHtml = tags.length
+    ? '<div class="d-tags">' + tags.map(function (t) { return '<span class="tag-pill">' + esc(t) + '</span>'; }).join('') + '</div>'
+    : '';
+
+  shell.innerHTML =
+    '<div class="d-eyebrow"><span>Deliverable</span><span class="d-eyebrow-line"></span></div>' +
+    '<h1>' + esc(it.title || 'Untitled deliverable') + '</h1>' +
+    (it.summary ? '<p class="d-summary">' + esc(it.summary) + '</p>' : '') +
+    '<div class="status-row"><span class="badge ' + sc + '"><span class="st-dot"></span>' + esc(statusLabel(it.status)) + '</span></div>' +
+    (meta ? '<div class="meta-grid">' + meta + '</div>' : '') +
+    tagsHtml +
+    actionsHtml +
+    (it.detail ? '<div class="section-h">Detail</div><p class="d-detail">' + esc(it.detail) + '</p>' : '') +
+    '<div id="body-section"></div>' +
+    relatedHTML(it) +
+    '<div class="doc-foot"><a href="/deliverables/">← All deliverables</a></div>';
+
+  // Rich body: inline `body` markdown wins; else fetch a linked `doc` markdown.
+  var bodySection = document.getElementById('body-section');
+  if (it.body && String(it.body).trim()) {
+    bodySection.innerHTML = '<div class="section-h">Document</div><div class="md" id="body-md"></div>';
+    if (window.KBRender) KBRender.render(String(it.body), document.getElementById('body-md'));
+  } else if (it.doc && String(it.doc).trim()) {
+    renderLinkedDoc(String(it.doc).trim(), bodySection);
+  }
+}
+
+// Fetch a knowledge-base markdown doc and render it inline (best-effort: a
+// missing doc just shows a small note with a reader link).
+function renderLinkedDoc(docPath, container) {
+  var clean = docPath.replace(/^\/+/, '');
+  if (clean.indexOf('..') !== -1 || /^https?:/i.test(clean)) return;
+  container.innerHTML = '<div class="section-h">Document</div><div class="md" id="body-md"><div style="color:var(--dim)">Loading document…</div></div>';
+  fetch('../' + clean, { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(function (md) {
+      // Drop YAML frontmatter so it doesn't render as raw text.
+      var body = md.replace(/^﻿/, '').replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '');
+      var target = document.getElementById('body-md');
+      if (window.KBRender) KBRender.render(body, target);
+      else target.textContent = body;
+    })
+    .catch(function () {
+      var target = document.getElementById('body-md');
+      if (target) target.innerHTML = '<div style="color:var(--dim)">Document preview unavailable. ' +
+        '<a href="/app/reader.html?f=' + encodeURIComponent(clean) + '" style="color:var(--blue)">Open in reader →</a></div>';
+    });
+}
+
+function showError(title, detail) {
+  document.getElementById('crumb-here').textContent = 'Not found';
+  document.getElementById('shell').innerHTML = '<div class="statebox error">' +
+    '<div class="st-title">' + esc(title) + '</div><div>' + detail + '</div>' +
+    '<a class="back-link" href="/deliverables/">← All deliverables</a></div>';
+}
+
+(function load() {
+  var shell = document.getElementById('shell');
+  var crumbHere = document.getElementById('crumb-here');
+  var id = new URLSearchParams(window.location.search).get('id');
+
+  if (!id) {
+    showError('No deliverable specified', 'This page expects an <code>?id=</code> query parameter. ' +
+      'Pick one from the <a href="/deliverables/" style="color:var(--blue)">deliverables list</a>.');
+    return;
+  }
+
+  if (typeof window.KBRender === 'undefined' || typeof marked === 'undefined') {
+    showError('Renderer unavailable', 'The markdown renderer failed to load from the CDN.');
+    return;
+  }
+
+  fetch('/app/deliverables.json', { cache: 'no-cache' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (data) {
+      var items = Array.isArray(data.deliverables) ? data.deliverables : [];
+      var it = null;
+      for (var i = 0; i < items.length; i++) {
+        if (itemId(items[i]) === id) { it = items[i]; break; }
+      }
+      if (!it) {
+        showError('Deliverable not found', 'No deliverable matches <code>' + esc(id) + '</code>.');
+        return;
+      }
+      crumbHere.textContent = it.title || 'Deliverable';
+      setDocTitle(it.title || 'Deliverable');
+      renderDeliverable(it, shell);
+    })
+    .catch(function (err) {
+      showError('Failed to load', 'Could not fetch <code>app/deliverables.json</code> (' + esc(err.message) + ').');
+    });
+})();
+</script>
+</body>
+</html>

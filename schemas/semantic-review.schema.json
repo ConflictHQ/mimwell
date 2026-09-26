@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/semantic-review/v1",
+  "title": "Typed diagnostic findings beside an authorized context inspection",
+  "description": "Read-only review of captured context. Findings require review through the owning writer and do not establish continuing access or approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "inspection",
+    "findings",
+    "findingsWire",
+    "findingsSha256",
+    "executionAuthorized"
+  ],
+  "properties": {
+    "format": {
+      "const": "semantic-review/v1"
+    },
+    "inspection": {
+      "$ref": "context-inspection.schema.json"
+    },
+    "findings": {
+      "$ref": "maintenance-proposals.schema.json"
+    },
+    "findingsWire": {
+      "type": "string",
+      "description": "Exact canonical JSON without trailing newline; SHA-256 equals findingsSha256. Preserve this wire rather than reserializing large numeric values."
+    },
+    "findingsSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "executionAuthorized": {
+      "const": false
+    }
+  }
+}

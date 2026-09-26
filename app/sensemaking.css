@@ -1,0 +1,15 @@
+[data-kb-sensemaking] { max-width: 1200px; margin: auto; padding: 1.5rem; }
+[data-kb-sensemaking] section { margin-block: 1.5rem; }
+.sm-actions, .sm-fields { display: flex; flex-wrap: wrap; gap: .8rem; }
+.sm-fields label { display: flex; flex-direction: column; gap: .3rem; flex: 1 1 260px; }
+[data-kb-sensemaking] input, [data-kb-sensemaking] select, [data-kb-sensemaking] textarea, [data-kb-sensemaking] button { font: inherit; padding: .65rem; border: 1px solid currentColor; border-radius: .3rem; background: var(--kb-bg, #fff); color: var(--kb-text, #222); max-width: 100%; box-sizing: border-box; }
+[data-kb-sensemaking] textarea { min-height: 5rem; width: 100%; }
+[data-kb-sensemaking] button { cursor: pointer; margin: .3rem; }
+[data-kb-sensemaking] button:disabled { opacity: .5; cursor: not-allowed; }
+[data-kb-sensemaking] :focus-visible { outline: 3px solid var(--kb-accent, #4769dd); outline-offset: 3px; }
+[data-kb-sensemaking] article { border: 1px solid currentColor; border-radius: .3rem; padding: .8rem; margin-block: .5rem; }
+[data-kb-sensemaking] pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sm-diagram { overflow: auto; min-height: 3rem; }
+.sm-error { color: var(--kb-danger, #b42318); }
+.sm-error:empty, .sm-diff:empty { display: none; }
+@media (max-width: 600px) { [data-kb-sensemaking] { padding: .7rem; } .sm-fields label { flex-basis: 100%; } }

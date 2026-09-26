@@ -1,0 +1,666 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-text-projection/v2",
+  "title": "Text projection with independently governed reused processing",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/profile"
+    },
+    {
+      "$ref": "#/$defs/entry"
+    },
+    {
+      "$ref": "#/$defs/projection"
+    }
+  ],
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "selection",
+        "maxTextBytes",
+        "maxSegments"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-text-profile/v1"
+        },
+        "selection": {
+          "const": "ordered-prefix/v1"
+        },
+        "maxTextBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16384
+        },
+        "maxSegments": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        }
+      }
+    },
+    "entry": {
+      "oneOf": [
+        {
+          "$ref": "conflict:schema/intake-text-projection/v1#/$defs/entry"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "itemSha256",
+            "representationSha256",
+            "receiptSha256",
+            "processingProfileSha256",
+            "processingPolicySha256",
+            "processingFormat",
+            "sourceResource",
+            "scope",
+            "processingModel",
+            "inheritedProtection",
+            "coverage",
+            "reuse"
+          ],
+          "properties": {
+            "itemSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "representationSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "receiptSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "processingProfileSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "processingPolicySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "processingFormat": {
+              "const": "intake-processing-reuse/v1"
+            },
+            "sourceResource": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "scope": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "processingModel": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "identity",
+                    "resource"
+                  ],
+                  "properties": {
+                    "identity": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "resource": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096,
+                      "pattern": "\\S"
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "inheritedProtection": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "policySha256",
+                "requirements"
+              ],
+              "properties": {
+                "policySha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "requirements": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "encryption",
+                    "mediation",
+                    "opaqueMetadata",
+                    "offline",
+                    "plaintextCopies",
+                    "derivatives",
+                    "verifiedAuthorship"
+                  ],
+                  "properties": {
+                    "encryption": {
+                      "type": "boolean"
+                    },
+                    "mediation": {
+                      "type": "boolean"
+                    },
+                    "opaqueMetadata": {
+                      "type": "boolean"
+                    },
+                    "offline": {
+                      "type": "boolean"
+                    },
+                    "plaintextCopies": {
+                      "type": "boolean"
+                    },
+                    "derivatives": {
+                      "type": "boolean"
+                    },
+                    "verifiedAuthorship": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            },
+            "coverage": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "reuse": {
+              "$ref": "conflict:schema/intake-reuse-selection/v1"
+            }
+          }
+        }
+      ]
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "profile",
+        "profileSha256",
+        "entry",
+        "classifier",
+        "protection",
+        "authorization",
+        "modelInputId",
+        "requestSha256",
+        "inputBytes",
+        "segments",
+        "totalSegments",
+        "totalTextBytes",
+        "textBytes",
+        "textSha256",
+        "truncated",
+        "gaps"
+      ],
+      "properties": {
+        "format": {
+          "const": "intake-text-projection/v2"
+        },
+        "profile": {
+          "$ref": "#/$defs/profile"
+        },
+        "profileSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "entry": {
+          "$ref": "#/$defs/entry"
+        },
+        "classifier": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "identity",
+            "resource"
+          ],
+          "properties": {
+            "identity": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "resource": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            }
+          }
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policySha256",
+            "requirements"
+          ],
+          "properties": {
+            "policySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "requirements": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "encryption",
+                "mediation",
+                "opaqueMetadata",
+                "offline",
+                "plaintextCopies",
+                "derivatives",
+                "verifiedAuthorship"
+              ],
+              "properties": {
+                "encryption": {
+                  "type": "boolean"
+                },
+                "mediation": {
+                  "type": "boolean"
+                },
+                "opaqueMetadata": {
+                  "type": "boolean"
+                },
+                "offline": {
+                  "type": "boolean"
+                },
+                "plaintextCopies": {
+                  "type": "boolean"
+                },
+                "derivatives": {
+                  "type": "boolean"
+                },
+                "verifiedAuthorship": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "principal",
+            "evaluatedAt",
+            "policySha256",
+            "bindingsSha256",
+            "scopes"
+          ],
+          "properties": {
+            "principal": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096,
+              "pattern": "\\S"
+            },
+            "evaluatedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "policySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "bindingsSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "scopes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "\\S"
+              }
+            }
+          }
+        },
+        "modelInputId": {
+          "type": "string",
+          "pattern": "^intake-text:[a-f0-9]{64}$"
+        },
+        "requestSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "inputBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "segments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index",
+              "coordinates",
+              "segmentTextBytes",
+              "startByte",
+              "endByte",
+              "textSha256",
+              "gaps"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 999
+              },
+              "coordinates": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "locator"
+                    ],
+                    "properties": {
+                      "locator": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "kind",
+                              "start",
+                              "end"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "bytes"
+                              },
+                              "start": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "end": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "kind",
+                              "start",
+                              "end"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "audio-ms"
+                              },
+                              "start": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "end": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            }
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "kind",
+                              "number"
+                            ],
+                            "properties": {
+                              "kind": {
+                                "const": "page"
+                              },
+                              "number": {
+                                "type": "integer",
+                                "minimum": 1
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "reportedLocator",
+                      "sourceWindow",
+                      "timingStatus"
+                    ],
+                    "properties": {
+                      "reportedLocator": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "audio-ms"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "sourceWindow": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "audio-frames"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "timingStatus": {
+                        "enum": [
+                          "within-audio-estimate",
+                          "extends-past-audio"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "reportedLocator",
+                      "sourceWindow",
+                      "parentWindow",
+                      "timingStatus"
+                    ],
+                    "properties": {
+                      "reportedLocator": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "audio-ms"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "sourceWindow": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "audio-frames"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "parentWindow": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "audio-frames"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      },
+                      "timingStatus": {
+                        "enum": [
+                          "within-audio-estimate",
+                          "extends-past-audio"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "segmentTextBytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4195304
+              },
+              "startByte": {
+                "const": 0
+              },
+              "endByte": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16384
+              },
+              "textSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "gaps": {
+                "type": "array",
+                "maxItems": 128,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096,
+                  "pattern": "\\S"
+                }
+              }
+            }
+          }
+        },
+        "totalSegments": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "totalTextBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4195304
+        },
+        "textBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16384
+        },
+        "textSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "gaps": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "\\S"
+          }
+        }
+      }
+    }
+  }
+}

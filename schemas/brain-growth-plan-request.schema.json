@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-growth-plan-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "brain-growth-plan-request/v1"
+    },
+    "assessmentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "operation": {
+      "enum": [
+        "practice",
+        "navigation",
+        "taxonomy",
+        "ontology",
+        "bounded-query",
+        "index",
+        "record-move",
+        "split",
+        "merge",
+        "store-cutover"
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "findingIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "minItems": 0,
+      "maxItems": 4096
+    },
+    "affected": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "queries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "urls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "incomingLinks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "policies": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "extensions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "records",
+        "queries",
+        "urls",
+        "collections",
+        "incomingLinks",
+        "policies",
+        "extensions"
+      ]
+    },
+    "preservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ids": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "history": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "incomingLinks": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "extensions": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "policy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "interveningWrites": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "recovery": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "ids",
+        "evidence",
+        "history",
+        "incomingLinks",
+        "extensions",
+        "policy",
+        "interveningWrites",
+        "recovery"
+      ]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "reviewer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "expectedBenefit": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      },
+      "minItems": 1,
+      "maxItems": 64
+    },
+    "authorityChange": {
+      "enum": [
+        "unchanged",
+        "cutover"
+      ]
+    }
+  },
+  "required": [
+    "format",
+    "assessmentSha256",
+    "operation",
+    "scope",
+    "reason",
+    "findingIds",
+    "affected",
+    "preservation",
+    "owner",
+    "reviewer",
+    "expectedBenefit",
+    "alternatives",
+    "authorityChange"
+  ]
+}

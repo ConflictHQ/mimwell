@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/intake-completion/v1",
+  "title": "Bounded native intake completion replay",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "processed",
+    "inputBytes",
+    "complete",
+    "truncation"
+  ],
+  "properties": {
+    "format": {
+      "const": "intake-completion-refresh/v1"
+    },
+    "processed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "inputBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16777216
+    },
+    "complete": {
+      "type": "boolean"
+    },
+    "truncation": {
+      "type": "array",
+      "maxItems": 1,
+      "items": {
+        "enum": [
+          "maxEvents",
+          "maxBytes"
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "complete": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "truncation": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "truncation": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
+}

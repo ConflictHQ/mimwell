@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Graph</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root {
+      /* ── Branding seam: defaults below are overwritten at runtime from
+         /client.config.json (branding.colors + branding.fonts). ── */
+      --kb-primary:      #1E9C8F;
+      --kb-link:         #2F97BF;
+      --kb-accent:       #B98536;
+      --kb-bg:           #000000;
+      --kb-bg-deep:      #000000;
+      --kb-surface:      rgba(30, 30, 30, 0.85);
+      --kb-border:       #444443;
+      --kb-border-light: #2a2a2a;
+      --kb-text:         #E6EFEE;
+      --kb-text-muted:   #D6D6D6;
+      --kb-text-faint:   #888;
+      --kb-font-heading: 'Fraunces', Georgia, serif;
+      --kb-font-body:    'Inter', system-ui, sans-serif;
+      --kb-font-mono:    'JetBrains Mono', monospace;
+
+      /* Local aliases — the source stylesheet rules reference these short names. */
+      --bg:        var(--kb-bg);
+      --surface:   var(--kb-surface);
+      --border:    var(--kb-border);
+      --red:       var(--kb-primary);
+      --red-light: #E26170;
+      --text:      var(--kb-text);
+      --muted:     var(--kb-text-muted);
+      --dim:       var(--kb-text-faint);
+
+      /* Entity-type palette (generic categories, not client entities). */
+      --concept:      var(--kb-link);
+      --technology:   var(--kb-primary);
+      --person:       var(--kb-accent);
+      --organization: #A87C3E;
+      --time:         #7A5BA8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--kb-font-body);
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      grid-template-columns: 320px 1fr;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .wordmark {
+      font-family: var(--kb-font-heading);
+      font-size: 1.1rem;
+      color: var(--red);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .wordmark span {
+      color: var(--muted);
+      font-size: 0.85rem;
+      letter-spacing: 0.02em;
+    }
+
+    .sep { color: var(--border); margin: 0 0.25rem; }
+
+    #search {
+      margin-left: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-family: var(--kb-font-mono);
+      font-size: 0.8rem;
+      padding: 0.35rem 0.75rem;
+      width: 260px;
+      outline: none;
+    }
+    #search:focus { border-color: var(--red); }
+    #search::placeholder { color: var(--dim); }
+
+    .stats {
+      font-size: 0.75rem;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    /* ── Portal top-nav (shared grouped nav, rendered by app/nav.js) ── */
+    .topnav { display: flex; align-items: center; gap: 4px; margin-left: 1rem; }
+    .topnav a {
+      font-family: var(--kb-font-mono); font-size: 0.62rem; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--dim); text-decoration: none;
+      padding: 4px 8px; border-radius: 3px; transition: color .15s, background .15s;
+    }
+    .topnav a:hover { color: var(--text); background: var(--surface); }
+    .topnav a.active { color: var(--red); }
+    .topnav-group { display: flex; align-items: center; gap: 2px; }
+    .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+    .topnav-group-label {
+      font-family: var(--kb-font-mono); font-size: 0.5rem; letter-spacing: .12em;
+      text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+    }
+    @media (max-width: 1100px) { .topnav { display: none; } }
+
+    /* ── Sidebar ── */
+    aside {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      background: var(--bg);
+    }
+
+    aside h2 {
+      font-family: var(--kb-font-heading);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      margin-bottom: 0.5rem;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0.2rem 0.3rem;
+      border-radius: 3px;
+      transition: background 0.15s;
+    }
+    .legend-item:hover { background: var(--surface); }
+    .legend-item.dimmed { opacity: 0.35; }
+
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-count {
+      margin-left: auto;
+      color: var(--dim);
+      font-size: 0.72rem;
+      font-family: var(--kb-font-mono);
+    }
+
+    /* detail panel */
+    #detail {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.9rem;
+      font-size: 0.8rem;
+      min-height: 120px;
+      flex-shrink: 0;
+    }
+
+    #detail h3 {
+      font-family: var(--kb-font-heading);
+      font-size: 1rem;
+      color: var(--red);
+      margin-bottom: 0.4rem;
+      word-break: break-word;
+    }
+
+    #detail .type-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-family: var(--kb-font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.15rem 0.4rem;
+      border-radius: 2px;
+      margin-bottom: 0.5rem;
+      border: 1px solid currentColor;
+    }
+
+    #detail .desc {
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 0.5rem;
+    }
+
+    #detail .connections {
+      color: var(--dim);
+      font-size: 0.72rem;
+      font-family: var(--kb-font-mono);
+    }
+
+    #detail .neighbor-list {
+      margin-top: 0.4rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+
+    #detail .neighbor-chip {
+      background: color-mix(in srgb, var(--kb-primary) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--kb-primary) 30%, transparent);
+      border-radius: 3px;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.68rem;
+      cursor: pointer;
+      color: var(--red-light);
+      transition: background 0.15s;
+    }
+    #detail .neighbor-chip:hover { background: color-mix(in srgb, var(--kb-primary) 25%, transparent); }
+
+    #detail .detail-refs {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    #detail .refs-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      margin-bottom: 2px;
+    }
+    #detail .ref-link {
+      font-size: 0.78rem;
+      color: var(--red);
+      text-decoration: none;
+      line-height: 1.35;
+    }
+    #detail .ref-link:hover { text-decoration: underline; }
+
+    #detail-placeholder {
+      color: var(--dim);
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+
+    /* results list */
+    #results {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    #results h2 { margin-bottom: 0.4rem; }
+
+    .result-item {
+      padding: 0.4rem 0.5rem;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.12s;
+    }
+    .result-item:hover, .result-item.active { background: var(--surface); }
+    .result-name { flex: 1; word-break: break-word; }
+    .result-type {
+      font-size: 0.65rem;
+      color: var(--dim);
+      font-family: var(--kb-font-mono);
+      flex-shrink: 0;
+    }
+
+    /* ── Graph canvas ── */
+    #graph {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .link {
+      stroke: #333;
+      stroke-width: 1px;
+      stroke-opacity: 0.6;
+    }
+    .link.highlighted { stroke: var(--red); stroke-opacity: 1; stroke-width: 1.5px; }
+
+    .node circle {
+      stroke: #000;
+      stroke-width: 1.5px;
+      cursor: pointer;
+      transition: r 0.15s;
+    }
+    .node circle:hover { stroke: var(--text); stroke-width: 2px; }
+    .node.selected circle { stroke: var(--red); stroke-width: 2.5px; }
+    .node.dimmed { opacity: 0.1; }
+    .node.neighbor circle { stroke: var(--red-light); stroke-width: 1.5px; }
+
+    .node text {
+      font-size: 9px;
+      font-family: var(--kb-font-body);
+      fill: var(--muted);
+      pointer-events: none;
+      dominant-baseline: middle;
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .ctrl-btn {
+      width: 32px; height: 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s;
+    }
+    .ctrl-btn:hover { border-color: var(--red); }
+
+    #loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0.5rem;
+      color: var(--dim);
+      font-size: 0.85rem;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    #loading .empty-title {
+      font-family: var(--kb-font-heading);
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    #loading code {
+      font-family: var(--kb-font-mono);
+      font-size: 0.74rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 2px 6px;
+    }
+
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <!-- Shared light/dark theme: loaded AFTER the page's own <style> so its
+       :root[data-theme] alias overrides win the cascade. theme.js owns the toggle. -->
+  <link rel="stylesheet" href="/app/theme.css">
+  <script src="/app/nav.js" defer></script>
+  <script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<header>
+  <a href="/" class="wordmark" style="text-decoration:none" aria-label="Portal home"><span id="brand-label">Portal</span> <span class="sep">/</span> <span id="header-label">Knowledge Graph</span></a>
+  <div class="stats" id="header-stats">—</div>
+  <nav class="topnav" id="topnav"></nav>
+  <input id="search" type="text" placeholder="search entities…" autocomplete="off" spellcheck="false">
+</header>
+
+<aside>
+  <div>
+    <h2>Entity Types</h2>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div id="detail">
+    <div id="detail-placeholder">Click a node to explore its connections.</div>
+    <div id="detail-content" style="display:none"></div>
+  </div>
+
+  <div id="results">
+    <h2>Entities</h2>
+    <div id="results-list"></div>
+  </div>
+</aside>
+
+<div id="graph">
+  <div id="loading"><div class="spinner"></div><span>Loading knowledge graph…</span></div>
+  <div class="controls">
+    <button class="ctrl-btn" id="zoom-in" title="Zoom in">+</button>
+    <button class="ctrl-btn" id="zoom-out" title="Zoom out">−</button>
+    <button class="ctrl-btn" id="zoom-fit" title="Fit to screen">⊡</button>
+  </div>
+</div>
+
+<script>
+const TYPE_COLORS = {
+  concept:      'var(--concept)',
+  technology:   'var(--technology)',
+  person:       'var(--person)',
+  organization: 'var(--organization)',
+  time:         'var(--time)',
+};
+
+const TYPE_RADIUS = {
+  person: 9, organization: 8, technology: 7, concept: 5, time: 5,
+};
+
+let allNodes = [], allEdges = [];
+let simulation, svg, linkSel, nodeSel, zoom;
+let activeTypes = new Set(Object.keys(TYPE_COLORS));
+let selectedNode = null;
+
+// ── Branding: fetch /client.config.json and re-brand the page ────────────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  if (b.kgViewerTitle) document.title = b.kgViewerTitle;
+  // Header label: prefer explicit branding.headerLabel, else the brain short name (KBNav.brainShortName).
+  const label = b.headerLabel || KBNav.brainShortName(cfg);
+  if (label) {
+    document.getElementById('header-label').textContent = label + ' Knowledge Graph';
+  }
+
+  // Grouped portal top-nav (shared module) — marks /app/ active.
+  if (window.KBNav) KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+}
+
+// ── Empty state ──────────────────────────────────────────────────────────────
+function showEmptyState() {
+  document.getElementById('loading').innerHTML =
+    '<div class="empty-title">No knowledge graph yet</div>' +
+    '<span>Generate one and place it at <code>app/knowledge_graph.json</code>.</span>';
+}
+
+// ── Load data ──────────────────────────────────────────────────────────────
+async function loadGraph() {
+  let data = null;
+  try {
+    const r = await fetch('./knowledge_graph.json', { cache: 'no-cache' });
+    if (r.ok) data = await r.json();
+  } catch {}
+
+  // The semantic KG only exists once recordings are ingested; until then show
+  // the compiled brain (terms, decisions, stakeholders, specs) — same
+  // envelope. Brain nodes carry `kind` rather than `type`; map it.
+  if (!data || !(data.nodes || data.entities || []).length) {
+    try {
+      const b = await fetch('./brain.json', { cache: 'no-cache' });
+      if (b.ok) {
+        const brain = await b.json();
+        if ((brain.nodes || []).length) {
+          data = {
+            nodes: brain.nodes.map(n => ({ ...n, type: (n.kind || 'concept').toLowerCase() })),
+            edges: brain.edges || [],
+          };
+        }
+      }
+    } catch {}
+  }
+
+  // Missing / 404 graph and no compiled brain → clear empty-state message, not a JS error.
+  if (!data || !(data.nodes || data.entities || []).length) { showEmptyState(); return; }
+
+  // Curated concept → repo-doc reference map (hand-maintained, optional).
+  window.KG_REFS = {};
+  try { const rr = await fetch('./kg-references.json', { cache: 'no-cache' }); if (rr.ok) window.KG_REFS = (await rr.json()).refs || {}; } catch {}
+
+  allNodes = (data.nodes || data.entities || []).map((n, i) => ({
+    ...n,
+    id: n.name || n.id || `node-${i}`,
+    type: (n.type || n.entity_type || 'concept').toLowerCase(),
+  }));
+
+  allEdges = (data.edges || data.relationships || []).map(e => ({
+    source: e.source,
+    target: e.target,
+    type: e.type || e.relationship_type || '',
+  }));
+
+  // Graph present but no nodes → same empty-state guard.
+  if (!allNodes.length) { showEmptyState(); return; }
+
+  document.getElementById('loading').style.display = 'none';
+  buildLegend();
+  buildGraph();
+  buildResultsList(allNodes);
+  updateHeaderStats();
+}
+
+// ── Legend ─────────────────────────────────────────────────────────────────
+function buildLegend() {
+  const counts = {};
+  allNodes.forEach(n => { counts[n.type] = (counts[n.type] || 0) + 1; });
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+
+  Object.entries(TYPE_COLORS).forEach(([type, color]) => {
+    const count = counts[type] || 0;
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.dataset.type = type;
+    item.innerHTML = `
+      <div class="dot" style="background:${color}"></div>
+      <span>${type}</span>
+      <span class="legend-count">${count}</span>`;
+    item.addEventListener('click', () => toggleType(type, item));
+    legend.appendChild(item);
+  });
+}
+
+function toggleType(type, el) {
+  if (activeTypes.has(type)) {
+    activeTypes.delete(type);
+    el.classList.add('dimmed');
+  } else {
+    activeTypes.add(type);
+    el.classList.remove('dimmed');
+  }
+  filterGraph();
+}
+
+// ── D3 graph ───────────────────────────────────────────────────────────────
+function buildGraph() {
+  const container = document.getElementById('graph');
+  const W = container.clientWidth, H = container.clientHeight;
+
+  svg = d3.select('#graph').append('svg');
+  const g = svg.append('g').attr('class', 'graph-root');
+
+  zoom = d3.zoom().scaleExtent([0.05, 4]).on('zoom', e => g.attr('transform', e.transform));
+  svg.call(zoom);
+
+  // Defs — arrowhead
+  svg.append('defs').append('marker')
+    .attr('id', 'arrow').attr('viewBox', '0 -4 8 8')
+    .attr('refX', 14).attr('refY', 0)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', '#444');
+
+  linkSel = g.append('g').attr('class', 'links').selectAll('line');
+  nodeSel = g.append('g').attr('class', 'nodes').selectAll('g');
+
+  simulation = d3.forceSimulation()
+    .force('link', d3.forceLink().id(d => d.id).distance(60).strength(0.4))
+    .force('charge', d3.forceManyBody().strength(-120).distanceMax(300))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collision', d3.forceCollide().radius(d => (TYPE_RADIUS[d.type] || 5) + 3))
+    .on('tick', ticked);
+
+  filterGraph();
+
+  // Zoom controls
+  document.getElementById('zoom-in').onclick = () => svg.transition().call(zoom.scaleBy, 1.4);
+  document.getElementById('zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 0.7);
+  document.getElementById('zoom-fit').onclick = fitView;
+}
+
+function filterGraph() {
+  const visNodes = allNodes.filter(n => activeTypes.has(n.type));
+  const visIds = new Set(visNodes.map(n => n.id));
+  const visEdges = allEdges.filter(e => visIds.has(e.source?.id || e.source) && visIds.has(e.target?.id || e.target));
+
+  // Rebind data
+  linkSel = d3.select('.links').selectAll('line').data(visEdges, d => `${d.source?.id||d.source}-${d.target?.id||d.target}-${d.type}`);
+  linkSel.exit().remove();
+  linkSel = linkSel.enter().append('line').attr('class', 'link')
+    .attr('marker-end', 'url(#arrow)')
+    .merge(linkSel);
+
+  nodeSel = d3.select('.nodes').selectAll('g').data(visNodes, d => d.id);
+  nodeSel.exit().remove();
+
+  const nodeEnter = nodeSel.enter().append('g')
+    .attr('class', 'node')
+    .call(d3.drag()
+      .on('start', dragStart)
+      .on('drag', dragged)
+      .on('end', dragEnd))
+    .on('click', (e, d) => { e.stopPropagation(); selectNode(d); });
+
+  nodeEnter.append('circle')
+    .attr('r', d => TYPE_RADIUS[d.type] || 5)
+    .attr('fill', d => TYPE_COLORS[d.type] || '#555');
+
+  nodeEnter.append('text')
+    .attr('x', d => (TYPE_RADIUS[d.type] || 5) + 3)
+    .attr('y', 0)
+    .text(d => d.id.length > 22 ? d.id.slice(0, 20) + '…' : d.id);
+
+  nodeSel = nodeEnter.merge(nodeSel);
+
+  svg.on('click', () => clearSelection());
+
+  simulation.nodes(visNodes);
+  simulation.force('link').links(visEdges);
+  simulation.alpha(0.5).restart();
+}
+
+function ticked() {
+  linkSel
+    .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+}
+
+function dragStart(e, d) {
+  if (!e.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x; d.fy = d.y;
+}
+function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+function dragEnd(e, d) {
+  if (!e.active) simulation.alphaTarget(0);
+  d.fx = null; d.fy = null;
+}
+
+// ── Selection ──────────────────────────────────────────────────────────────
+function selectNode(d) {
+  selectedNode = d;
+
+  const edgeMap = allEdges.reduce((acc, e) => {
+    const s = e.source?.id || e.source;
+    const t = e.target?.id || e.target;
+    if (s === d.id) { acc[t] = acc[t] || []; acc[t].push({ dir: '→', type: e.type, name: t }); }
+    if (t === d.id) { acc[s] = acc[s] || []; acc[s].push({ dir: '←', type: e.type, name: s }); }
+    return acc;
+  }, {});
+
+  const neighborIds = new Set(Object.keys(edgeMap));
+
+  nodeSel
+    .classed('selected', n => n.id === d.id)
+    .classed('neighbor', n => neighborIds.has(n.id))
+    .classed('dimmed', n => n.id !== d.id && !neighborIds.has(n.id));
+
+  linkSel
+    .classed('highlighted', e => (e.source?.id||e.source) === d.id || (e.target?.id||e.target) === d.id)
+    .attr('stroke-opacity', e => ((e.source?.id||e.source) === d.id || (e.target?.id||e.target) === d.id) ? 1 : 0.08);
+
+  showDetail(d, edgeMap);
+}
+
+function clearSelection() {
+  selectedNode = null;
+  nodeSel.classed('selected dimmed neighbor', false);
+  linkSel.classed('highlighted', false).attr('stroke-opacity', 0.6);
+  document.getElementById('detail-placeholder').style.display = '';
+  document.getElementById('detail-content').style.display = 'none';
+}
+
+function showDetail(d, edgeMap) {
+  const color = TYPE_COLORS[d.type] || '#555';
+  const desc = (d.descriptions || [])[0] || '';
+  const neighbors = Object.values(edgeMap).flat();
+
+  document.getElementById('detail-placeholder').style.display = 'none';
+  const content = document.getElementById('detail-content');
+  content.style.display = '';
+  content.innerHTML = `
+    <h3>${d.id}</h3>
+    <span class="type-badge" style="color:${color}">${d.type}</span>
+    ${desc ? `<div class="desc">${desc}</div>` : ''}
+    <div class="connections">${neighbors.length} connection${neighbors.length !== 1 ? 's' : ''}</div>
+    ${neighbors.length ? `
+      <div class="neighbor-list">
+        ${neighbors.slice(0, 12).map(n => `
+          <span class="neighbor-chip" data-id="${n.name}">${n.dir} ${n.name}</span>
+        `).join('')}
+        ${neighbors.length > 12 ? `<span style="color:var(--dim);font-size:0.68rem">+${neighbors.length - 12} more</span>` : ''}
+      </div>` : ''}
+    ${(window.KG_REFS && window.KG_REFS[d.id] && window.KG_REFS[d.id].length) ? `
+      <div class="detail-refs">
+        <div class="refs-label">References</div>
+        ${window.KG_REFS[d.id].map(r => `<a class="ref-link" href="${r.href}" target="_blank" rel="noopener">${r.title} ↗</a>`).join('')}
+      </div>` : ''}
+  `;
+
+  content.querySelectorAll('.neighbor-chip').forEach(chip => {
+    chip.addEventListener('click', e => {
+      e.stopPropagation();
+      const target = allNodes.find(n => n.id === chip.dataset.id);
+      if (target) { selectNode(target); centerOn(target); }
+    });
+  });
+}
+
+function centerOn(d) {
+  const container = document.getElementById('graph');
+  const W = container.clientWidth, H = container.clientHeight;
+  svg.transition().duration(500).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(W / 2 - d.x, H / 2 - d.y)
+  );
+}
+
+function fitView() {
+  const container = document.getElementById('graph');
+  const W = container.clientWidth, H = container.clientHeight;
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(W / 2, H / 2).scale(0.4));
+}
+
+// ── Search + results list ──────────────────────────────────────────────────
+function buildResultsList(nodes) {
+  const list = document.getElementById('results-list');
+  list.innerHTML = '';
+  nodes.slice(0, 80).forEach(n => {
+    const item = document.createElement('div');
+    item.className = 'result-item';
+    item.innerHTML = `
+      <div class="dot" style="background:${TYPE_COLORS[n.type]||'#555'}"></div>
+      <span class="result-name">${n.id}</span>
+      <span class="result-type">${n.type}</span>`;
+    item.addEventListener('click', () => {
+      if (!activeTypes.has(n.type)) return;
+      selectNode(n);
+      centerOn(n);
+    });
+    list.appendChild(item);
+  });
+  if (nodes.length > 80) {
+    const more = document.createElement('div');
+    more.style.cssText = 'color:var(--dim);font-size:0.72rem;padding:0.3rem 0.5rem;';
+    more.textContent = `+${nodes.length - 80} more — refine your search`;
+    list.appendChild(more);
+  }
+}
+
+document.getElementById('search').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) { buildResultsList(allNodes); return; }
+  const filtered = allNodes.filter(n => n.id.toLowerCase().includes(q) ||
+    (n.descriptions || []).some(d => d.toLowerCase().includes(q)));
+  buildResultsList(filtered);
+});
+
+function updateHeaderStats() {
+  document.getElementById('header-stats').textContent =
+    `${allNodes.length} entities · ${allEdges.length} relationships`;
+}
+
+loadConfig();
+loadGraph();
+</script>
+</body>
+</html>

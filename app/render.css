@@ -1,0 +1,212 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Shared rich-markdown styles for the client portal template.
+
+   Paired with app/render.js (window.KBRender). Every rendered markdown surface
+   gets the `.md` class on its container, so all rules below are scoped to `.md`
+   to avoid bleeding into page chrome.
+
+   These rules reference the LOCAL ALIAS vars (--bg, --surface, --surface2,
+   --border, --border2, --text, --muted, --dim, --red, --green, --yellow,
+   --blue and their *-dim variants, --radius). Those are defined per page and
+   re-themed light/dark by app/theme.css — so this file is theme-agnostic and
+   never hardcodes a palette. Missing aliases fall back gracefully.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Fallbacks so the file is safe to drop on a page that defines only a subset
+   of the alias vars (e.g. no --*-dim). color-mix keeps it palette-driven. */
+.md {
+  --kb-r:        var(--red, #1E9C8F);
+  --kb-g:        var(--green, #4CAF50);
+  --kb-y:        var(--yellow, #F5A623);
+  --kb-b:        var(--blue, #2F97BF);
+  --kb-r-dim:    var(--red-dim,    color-mix(in srgb, var(--red, #1E9C8F) 12%, transparent));
+  --kb-g-dim:    var(--green-dim,  color-mix(in srgb, var(--green, #4CAF50) 12%, transparent));
+  --kb-y-dim:    var(--yellow-dim, color-mix(in srgb, var(--yellow, #F5A623) 14%, transparent));
+  --kb-b-dim:    var(--blue-dim,   color-mix(in srgb, var(--blue, #2F97BF) 12%, transparent));
+  --kb-rad:      var(--radius, 6px);
+}
+
+/* ─── Typography ─── */
+.md { color: var(--text); }
+.md > *:first-child { margin-top: 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 {
+  font-family: var(--kb-font-heading, inherit); letter-spacing: .03em; text-transform: uppercase;
+  color: var(--text); line-height: 1.15; margin: 36px 0 14px;
+}
+.md h1 { font-size: 30px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.md h2 { font-size: 23px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.md h3 { font-size: 18px; color: var(--kb-r); }
+.md h4 { font-size: 15px; letter-spacing: .08em; color: var(--muted); }
+.md h5, .md h6 { font-size: 13px; letter-spacing: .1em; color: var(--muted); }
+.md p { margin: 0 0 16px; }
+.md a { color: var(--kb-r); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--kb-r) 35%, transparent); }
+.md a:hover { border-bottom-color: var(--kb-r); }
+.md strong { font-weight: 700; color: var(--text); }
+.md em { color: var(--text); }
+.md ul, .md ol { margin: 0 0 16px; padding-left: 24px; }
+.md li { margin: 5px 0; }
+.md li::marker { color: var(--kb-r); }
+.md hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+.md blockquote {
+  border-left: 3px solid var(--kb-r); background: var(--surface); margin: 0 0 16px;
+  padding: 12px 18px; color: var(--muted); border-radius: 0 var(--kb-rad) var(--kb-rad) 0;
+}
+.md blockquote p:last-child { margin-bottom: 0; }
+
+/* ─── Inline + block code ─── */
+.md code {
+  font-family: var(--kb-font-mono, monospace); font-size: .86em; color: var(--kb-y);
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
+}
+.md pre {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--kb-rad);
+  padding: 16px 18px; overflow-x: auto; margin: 0 0 18px; line-height: 1.55; position: relative;
+}
+.md pre code {
+  color: var(--text); background: none; border: none; padding: 0; font-size: 12.5px; white-space: pre;
+}
+/* Optional language tag on fenced blocks (set by render.js). */
+.md pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute; top: 0; right: 0;
+  font-family: var(--kb-font-mono, monospace); font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--dim); background: var(--surface2); border-left: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  border-radius: 0 var(--kb-rad) 0 var(--kb-rad); padding: 2px 7px;
+}
+
+/* ─── Tables ─── */
+.md table { width: 100%; border-collapse: collapse; margin: 0 0 18px; font-size: 13px; display: block; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+.md th {
+  font-family: var(--kb-font-mono, monospace); font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); background: var(--surface2); font-weight: 500;
+}
+.md tr:nth-child(even) td { background: var(--surface); }
+
+/* ─── Images / responsive embeds ─── */
+.md img { max-width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--kb-rad); margin: 4px 0 18px; }
+.md figure { margin: 0 0 18px; }
+.md figure figcaption { font-size: 11px; color: var(--dim); margin-top: 6px; text-align: center; }
+.md .kb-embed {
+  position: relative; width: 100%; aspect-ratio: 16 / 9; margin: 4px 0 18px;
+  border: 1px solid var(--border); border-radius: var(--kb-rad); overflow: hidden; background: var(--surface);
+}
+.md .kb-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+/* ─── Cloud-drive link preview chip (#66) ─── */
+/* Sits after the link text inline; aria-hidden (the link itself already
+   carries the accessible name), so it's decoration confirming what's on the
+   other end, not a second interactive element. */
+.md .kb-drive-chip {
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
+  font-family: var(--kb-font-mono, monospace); font-size: 10px; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px 1px 4px;
+  margin-left: 2px;
+}
+.md .kb-drive-ico { font-size: 11px; line-height: 1; opacity: .75; }
+
+/* ─── GFM task lists ─── */
+.md ul.contains-task-list,
+.md ul li.task-list-item { list-style: none; }
+.md ul.contains-task-list { padding-left: 4px; }
+.md li.task-list-item { padding-left: 2px; }
+.md li.task-list-item > input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; margin: 0 8px 0 0; vertical-align: -2px;
+  width: 15px; height: 15px; border: 1px solid var(--border2); border-radius: 3px;
+  background: var(--surface); cursor: default; position: relative; flex: none;
+}
+.md li.task-list-item > input[type="checkbox"]:checked {
+  background: var(--kb-g); border-color: var(--kb-g);
+}
+.md li.task-list-item > input[type="checkbox"]:checked::after {
+  content: ''; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+  border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+
+/* ─── Callouts / admonitions (GitHub-style [!NOTE] etc.) ─── */
+.md .callout {
+  border: 1px solid var(--border); border-left: 4px solid var(--kb-cl, var(--kb-b));
+  background: var(--kb-cl-bg, var(--kb-b-dim)); border-radius: var(--kb-rad);
+  padding: 12px 16px; margin: 0 0 18px;
+}
+.md .callout > .callout-title {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  font-family: var(--kb-font-mono, monospace); font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--kb-cl, var(--kb-b));
+}
+.md .callout > .callout-title .callout-ico { font-size: 13px; line-height: 1; }
+.md .callout > .callout-body > *:last-child { margin-bottom: 0; }
+.md .callout > .callout-body p { color: var(--text); }
+.md .callout.callout-note      { --kb-cl: var(--kb-b); --kb-cl-bg: var(--kb-b-dim); }
+.md .callout.callout-tip       { --kb-cl: var(--kb-g); --kb-cl-bg: var(--kb-g-dim); }
+.md .callout.callout-important  { --kb-cl: var(--kb-r); --kb-cl-bg: var(--kb-r-dim); }
+.md .callout.callout-warning   { --kb-cl: var(--kb-y); --kb-cl-bg: var(--kb-y-dim); }
+.md .callout.callout-caution   { --kb-cl: var(--kb-r); --kb-cl-bg: var(--kb-r-dim); }
+
+/* ─── Footnotes ─── */
+.md .footnotes { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+.md .footnotes ol { padding-left: 20px; }
+.md .footnotes li { margin: 4px 0; }
+.md a.footnote-ref { border-bottom: none; font-size: .8em; vertical-align: super; }
+.md a.footnote-backref { border-bottom: none; }
+
+/* ─── Mermaid ─── */
+.md .mermaid {
+  margin: 0 0 18px; padding: 14px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--kb-rad);
+  overflow-x: auto; text-align: center;
+}
+.md .mermaid svg { max-width: 100%; height: auto; }
+.md .mermaid[data-failed] {
+  text-align: left; font-family: var(--kb-font-mono, monospace); font-size: 12px;
+  color: var(--muted); white-space: pre-wrap;
+}
+
+/* Exported docs may carry inline light backgrounds + dark text — neutralize for
+   the dark theme. The !important overrides the non-important inline styles. */
+.md .panel, .md .panelContent, .md .code, .md .codeContent,
+.md [style*="background-color"], .md [style*="background:"], .md [style*="background-image"] {
+  background: var(--surface) !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+.md .panel, .md .code { border: 1px solid var(--border) !important; border-radius: var(--kb-rad); padding: 2px 0; }
+.md [style*="color:"] { color: var(--text) !important; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Viewer component wrappers. Append-only; all rules stay scoped to .md and
+   reference the same --kb-* local aliases, so they never hardcode a palette
+   and re-theme light/dark with the rest of the surface. The viewer COMPONENTS
+   bring their own stylesheets (media-player.css, kb-canvas.css, doc-viewer.css
+   equivalents live inline in their .js); these rules cover only how those
+   components sit inside rendered markdown.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Plotly chart container (the ```plotly transform in render.js replaces the
+   code block with a .kb-plotly div; Plotly sizes itself, this just frames it). */
+.md .kb-plotly {
+  width: 100%; min-height: 320px; margin: 4px 0 18px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--kb-rad);
+  padding: 8px;
+}
+.md .kb-plotly[data-failed] {
+  display: flex; align-items: center; justify-content: center; min-height: 80px;
+  font-family: var(--kb-font-mono, monospace); font-size: 12px; color: var(--muted);
+}
+
+/* The "Full view" affordance render.js attaches to inline diagrams needs a
+   positioning context on the host. Mermaid blocks become .kb-has-canvas. */
+.md .mermaid.kb-has-canvas { position: relative; }
+
+/* In-place media inside markdown (media-player.js drops a .kb-media player
+   into a .md surface; this keeps its block rhythm — the component itself
+   owns the 16:9 frame + lightbox chrome). */
+.md .kb-media { margin: 4px 0 18px; }
+
+/* Document viewer mounted inside a reading surface (doc-viewer.js routes
+   .pdf/.docx/.csv/.xlsx here). The component owns the inner chrome; this
+   just gives it block spacing within .md. */
+.md .kb-doc { margin: 4px 0 18px; }

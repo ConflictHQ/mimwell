@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "people.schema.json",
+  "title": "People register",
+  "description": "The person register (#212): a scope-level entity table, authored and reviewed, never extracted. Each entry compiles to a Person node `person:<slug>`. `principal` is the OIDC issuer + subject the entry binds to, the one identity every host trusts; `identities` lists the host-side identities that resolve to it (a Cloudflare Access email, a federation or context consumer credential actor, the issuer + subject another identity provider asserts). An identity bound to two principals is refused, never guessed at. Identity across brains is an equivalence edge in app/equivalences.json, never a merge.",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "oidc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["issuer", "subject"],
+      "properties": {
+        "issuer": {"type": "string", "pattern": "^https://[^#?\\s]+$", "description": "The OIDC `iss` claim, exactly as the identity provider asserts it."},
+        "subject": {"type": "string", "pattern": "^\\S+$", "description": "The OIDC `sub` claim, case-sensitive."}
+      }
+    }
+  },
+  "properties": {
+    "$comment": {"type": "string"},
+    "version": {"type": ["integer", "string"]},
+    "updated": {"type": "string"},
+    "changelog": {"type": "array"},
+    "people": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "pattern": "\\S"},
+          "aliases": {"type": "array", "items": {"type": "string"}},
+          "principal": {"$ref": "#/definitions/oidc"},
+          "identities": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "access": {"type": "array", "items": {"type": "string", "pattern": "^[^@\\s]+@[^@\\s]+$"}, "description": "Cloudflare Access authenticated emails."},
+              "consumers": {"type": "array", "items": {"type": "string", "pattern": "^\\S+$"}, "description": "Federation or context-service consumer credential actors."},
+              "oidc": {"type": "array", "items": {"$ref": "#/definitions/oidc"}, "description": "Issuer + subject pairs other identity providers assert (Cognito behind an ALB, IAP, Entra ID)."}
+            }
+          },
+          "scope_id": {"type": "string"},
+          "notes": {"type": "string"},
+          "labels": {"type": "array", "items": {"type": "string"}},
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asserted_by"],
+            "properties": {
+              "asserted_by": {"type": "string", "pattern": "\\S"},
+              "date": {"type": "string"},
+              "evidence": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

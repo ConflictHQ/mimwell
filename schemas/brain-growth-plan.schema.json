@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/brain-growth-plan/v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "brain-growth-plan/v1"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "brain-growth-plan-request/v1"
+        },
+        "assessmentSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "operation": {
+          "enum": [
+            "practice",
+            "navigation",
+            "taxonomy",
+            "ontology",
+            "bounded-query",
+            "index",
+            "record-move",
+            "split",
+            "merge",
+            "store-cutover"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,79}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "findingIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "minItems": 0,
+          "maxItems": 4096
+        },
+        "affected": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "records": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "queries": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "urls": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "collections": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "incomingLinks": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "policies": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            },
+            "extensions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "minItems": 0,
+              "maxItems": 4096
+            }
+          },
+          "required": [
+            "records",
+            "queries",
+            "urls",
+            "collections",
+            "incomingLinks",
+            "policies",
+            "extensions"
+          ]
+        },
+        "preservation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ids": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "history": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "incomingLinks": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "extensions": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "policy": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "interveningWrites": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "recovery": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "ids",
+            "evidence",
+            "history",
+            "incomingLinks",
+            "extensions",
+            "policy",
+            "interveningWrites",
+            "recovery"
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "expectedBenefit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "authorityChange": {
+          "enum": [
+            "unchanged",
+            "cutover"
+          ]
+        }
+      },
+      "required": [
+        "format",
+        "assessmentSha256",
+        "operation",
+        "scope",
+        "reason",
+        "findingIds",
+        "affected",
+        "preservation",
+        "owner",
+        "reviewer",
+        "expectedBenefit",
+        "alternatives",
+        "authorityChange"
+      ]
+    },
+    "sourcePins": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "path",
+          "sha256"
+        ]
+      }
+    },
+    "asOf": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "review-required"
+    },
+    "executionAuthorized": {
+      "const": false
+    },
+    "migrationVerified": {
+      "const": false
+    },
+    "handoff": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiresMigrationProof": {
+          "type": "boolean"
+        },
+        "commandExecuted": {
+          "const": false
+        }
+      },
+      "required": [
+        "tool",
+        "purpose",
+        "requiresMigrationProof",
+        "commandExecuted"
+      ],
+      "additionalProperties": false
+    },
+    "effects": {
+      "type": "object",
+      "properties": {
+        "navigation": {
+          "type": "boolean"
+        },
+        "classification": {
+          "type": "boolean"
+        },
+        "semanticContract": {
+          "type": "boolean"
+        },
+        "canonicalMovement": {
+          "type": "boolean"
+        },
+        "authorityCutover": {
+          "type": "boolean"
+        },
+        "accessChangeApproved": {
+          "const": false
+        }
+      },
+      "required": [
+        "navigation",
+        "classification",
+        "semanticContract",
+        "canonicalMovement",
+        "authorityCutover",
+        "accessChangeApproved"
+      ],
+      "additionalProperties": false
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "remainingProofs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "unknown"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredBeforeExecution": {
+          "const": true
+        },
+        "blockers": {
+          "const": [
+            "source-and-target-contract-preview-missing"
+          ]
+        },
+        "handoff": {
+          "type": "object",
+          "properties": {
+            "tool": {
+              "const": "scripts/brain-upgrade.py"
+            },
+            "commandExecuted": {
+              "const": false
+            },
+            "requiredInputs": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "retain": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "required": [
+            "tool",
+            "commandExecuted",
+            "requiredInputs",
+            "retain"
+          ],
+          "additionalProperties": false
+        },
+        "limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "requiredBeforeExecution",
+        "blockers",
+        "handoff",
+        "limits"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "format",
+    "request",
+    "sourcePins",
+    "asOf",
+    "status",
+    "executionAuthorized",
+    "migrationVerified",
+    "handoff",
+    "effects",
+    "preconditions",
+    "remainingProofs",
+    "sha256",
+    "compatibility"
+  ],
+  "additionalProperties": false
+}

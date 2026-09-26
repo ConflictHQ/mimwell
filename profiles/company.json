@@ -1,0 +1,188 @@
+{
+ "overlay": "company",
+ "revision": "1.0.0",
+ "$comment": "The company overlay: how an organization runs itself — its business functions, the policies that govern them, the teammates and roles that carry authority, the initiatives it sponsors and the accounts it holds with other organizations. Composes as core + company (+ data); it carries no plan DAG or delivery records, so it does not compose with engagement (both refine contextRecipes.default). Kinds are declared, not yet compiled (node null): records live in their fill-in artifacts until a source adapter compiles them.",
+ "idConventions": {
+  "slug": [
+   "business-function",
+   "policy",
+   "teammate",
+   "role",
+   "initiative",
+   "account"
+  ]
+ },
+ "kinds": [
+  {
+   "id": "business-function",
+   "title": "Business Function",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/functions.json",
+   "description": "An organizational function of the company (finance, sales, delivery, people): the unit that owns roles, policies and budgets."
+  },
+  {
+   "id": "policy",
+   "title": "Policy",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/policies.json",
+   "description": "A company rule with an owner and an effective date: what may be committed, by whom, under which conditions. A change is a new policy that supersedes the old one."
+  },
+  {
+   "id": "teammate",
+   "title": "Teammate",
+   "class": "record",
+   "mutability": "slow",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/people.json",
+   "description": "A person who works for or with the company (employee, contractor, advisor). Holds roles; affiliates to the owning organization."
+  },
+  {
+   "id": "role",
+   "title": "Role",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/roles.json",
+   "description": "A named position with decision authority inside a business function, held by one or more teammates. Authority attaches to the role, not the person."
+  },
+  {
+   "id": "initiative",
+   "title": "Initiative",
+   "class": "work",
+   "mutability": "slow",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/initiatives.json",
+   "description": "A company-level effort with a sponsor, a desired change and measures; it may span projects and functions without joining the scope hierarchy."
+  },
+  {
+   "id": "account",
+   "title": "Account",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "fill-in",
+   "node": null,
+   "artifact": "app/accounts.json",
+   "description": "A commercial relationship the company holds with another organization (customer, partner, vendor): status, owner and terms."
+  }
+ ],
+ "edges": [
+  {
+   "id": "holds_role",
+   "description": "A teammate holds a role.",
+   "domain": [
+    "teammate"
+   ],
+   "range": [
+    "role"
+   ]
+  },
+  {
+   "id": "role_in",
+   "description": "A role sits inside a business function.",
+   "domain": [
+    "role"
+   ],
+   "range": [
+    "business-function"
+   ]
+  },
+  {
+   "id": "governs",
+   "description": "A policy governs a function, role, initiative or account.",
+   "domain": [
+    "policy"
+   ],
+   "range": [
+    "business-function",
+    "role",
+    "initiative",
+    "account"
+   ]
+  },
+  {
+   "id": "leads",
+   "description": "A teammate or role leads a business function, initiative or account.",
+   "domain": [
+    "teammate",
+    "role"
+   ],
+   "range": [
+    "business-function",
+    "initiative",
+    "account"
+   ]
+  },
+  {
+   "id": "account_with",
+   "description": "An account is held with this organization register entry.",
+   "domain": [
+    "account"
+   ],
+   "range": [
+    "organization"
+   ]
+  }
+ ],
+ "contextRecipes": {
+  "$comment": "Company task pack (#205): from any node, the documents it references, the policies that govern it, who leads and owns it, the function a role sits in, and the organization identity edges federation depends on. Replaces core's identity-only default; scripts/gen-task-pack.py walks each hop from the task node.",
+  "default": {
+   "hops": [
+    {
+     "rel": "references",
+     "direction": "out",
+     "as": "related_docs"
+    },
+    {
+     "rel": "governs",
+     "direction": "in",
+     "as": "governing_policies"
+    },
+    {
+     "rel": "leads",
+     "direction": "in",
+     "as": "leads"
+    },
+    {
+     "rel": "owns",
+     "direction": "in",
+     "as": "owner"
+    },
+    {
+     "rel": "role_in",
+     "direction": "out",
+     "as": "functions"
+    },
+    {
+     "rel": "affiliated_with",
+     "direction": "out",
+     "as": "affiliations"
+    },
+    {
+     "rel": "same_as",
+     "direction": "out",
+     "as": "equivalents"
+    },
+    {
+     "rel": "facet_of",
+     "direction": "out",
+     "as": "facet_subjects"
+    }
+   ]
+  }
+ }
+}

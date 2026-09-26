@@ -1,0 +1,102 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Chrome for the shared media component (app/media-player.js).
+
+   The component builds its markup in JS and appends the lightbox straight to
+   <body>, so every class it emits needs a rule here or the surface renders
+   unstyled: the poster/play affordance, the non-embeddable fallback, and the
+   image set viewer. Link this sheet on any page that loads media-player.js.
+
+   Both surfaces (the session theater view and the gallery card player) share
+   these rules, which is the point — the two views can no longer drift. A page
+   that needs a different frame overrides .kb-media in its own <style> (the
+   gallery card does exactly that to fill its fixed thumbnail box).
+
+   Colors and fonts read the --kb-* seam first and fall back to a literal only
+   so an unbranded page still renders legibly; nothing here is client-specific.
+   The lightbox scrim is a deliberate literal black — it is a theater backdrop,
+   not page chrome, and stays dark under either theme.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Player frame: responsive 16:9, whatever the provider hands back ──────── */
+.kb-media {
+  position: relative;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+  border-radius: var(--radius, 6px);
+}
+.kb-media > iframe,
+.kb-media > video { width: 100%; height: 100%; border: 0; display: block; }
+.kb-media > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Click-to-play poster (the player markup is injected on activation) ───── */
+.kb-media-poster { cursor: pointer; }
+.kb-media-play {
+  position: absolute; inset: 0; margin: auto;
+  width: 54px; height: 54px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; padding-left: 3px; color: #fff;
+  background: var(--kb-primary, #1E9C8F);
+  border: 1px solid var(--kb-border, rgba(255, 255, 255, .2));
+  transition: transform .15s;
+}
+.kb-media-poster:hover .kb-media-play { transform: scale(1.08); }
+.kb-media-poster:focus-visible { outline: 2px solid var(--kb-primary, #1E9C8F); outline-offset: 2px; }
+
+/* ── Nothing embeddable: thumbnail (or a mark) + open-in-new-tab ──────────── */
+.kb-media-fallback { display: flex; align-items: center; justify-content: center; }
+.kb-media-fallback.placeholder { background: var(--surface2, rgba(255, 255, 255, .06)); }
+.kb-media-ph {
+  font-family: var(--kb-font-heading, sans-serif); font-size: 13px;
+  letter-spacing: .18em; text-transform: uppercase; opacity: .75;
+  color: var(--kb-primary, #1E9C8F);
+  border: 1px solid var(--kb-border, rgba(255, 255, 255, .2));
+  border-radius: 3px; padding: 5px 11px;
+}
+.kb-media-open {
+  position: absolute; right: 8px; bottom: 8px; z-index: 2;
+  font-family: var(--kb-font-mono, monospace); font-size: 10px;
+  letter-spacing: .06em; text-transform: uppercase; text-decoration: none;
+  color: #fff; background: rgba(0, 0, 0, .6);
+  border: 1px solid var(--kb-border, rgba(255, 255, 255, .2));
+  border-radius: 3px; padding: 4px 9px;
+}
+.kb-media-open:hover { color: var(--kb-primary, #1E9C8F); border-color: var(--kb-primary, #1E9C8F); }
+
+/* ── Image set viewer (theater): full-screen, prev/next across the set ────── */
+.kb-lightbox {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0, 0, 0, .92);
+  align-items: center; justify-content: center;
+  padding: 56px 60px;
+}
+.kb-lightbox.open { display: flex; }
+.kb-lb-img { max-width: 92vw; max-height: 80vh; object-fit: contain; border-radius: 4px; }
+.kb-lb-close,
+.kb-lb-nav {
+  position: absolute; cursor: pointer; line-height: 1;
+  color: #fff; background: none; border: none; opacity: .75;
+  transition: opacity .15s, color .15s;
+}
+.kb-lb-close:hover,
+.kb-lb-nav:hover { opacity: 1; color: var(--kb-primary, #1E9C8F); }
+.kb-lb-close:focus-visible,
+.kb-lb-nav:focus-visible { opacity: 1; outline: 2px solid var(--kb-primary, #1E9C8F); outline-offset: 2px; }
+.kb-lb-close { top: 16px; right: 20px; font-size: 26px; }
+.kb-lb-nav { top: 50%; transform: translateY(-50%); font-size: 44px; padding: 0 10px; }
+.kb-lb-prev { left: 10px; }
+.kb-lb-next { right: 10px; }
+.kb-lb-caption,
+.kb-lb-counter {
+  position: absolute; left: 0; right: 0; text-align: center;
+  font-family: var(--kb-font-mono, monospace); color: rgba(255, 255, 255, .7);
+}
+.kb-lb-caption { bottom: 26px; font-size: 11px; }
+.kb-lb-counter { bottom: 8px; font-size: 10px; letter-spacing: .08em; }
+
+@media (max-width: 560px) {
+  .kb-lightbox { padding: 48px 12px; }
+  .kb-lb-nav { font-size: 32px; padding: 0 4px; }
+  .kb-media-play { width: 44px; height: 44px; font-size: 14px; }
+}

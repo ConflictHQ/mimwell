@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/decision-lineage/v1",
+  "title": "Append-only decision revisions",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/revision"
+      },
+      "minItems": 0,
+      "uniqueItems": true,
+      "maxItems": 2000
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "decisions"
+  ],
+  "$defs": {
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"
+        },
+        "decision": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "effectiveFrom": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "actor": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "basis": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "required": [
+            "actor",
+            "role",
+            "basis"
+          ]
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "proposed",
+                "accepted"
+              ]
+            },
+            "by": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          },
+          "required": [
+            "state",
+            "by",
+            "at",
+            "reason"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "values": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^/(?:[^~/]|~[01])+(?:/(?:[^~/]|~[01])+)*$",
+            "maxLength": 512
+          },
+          "additionalProperties": true,
+          "maxProperties": 128
+        },
+        "withdraws": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/(?:[^~/]|~[01])+(?:/(?:[^~/]|~[01])+)*$",
+            "maxLength": 512
+          },
+          "minItems": 0,
+          "uniqueItems": true,
+          "maxItems": 128
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "target": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "relation": {
+                "enum": [
+                  "amends",
+                  "supersedes",
+                  "reverses"
+                ]
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/(?:[^~/]|~[01])+(?:/(?:[^~/]|~[01])+)*$",
+                  "maxLength": 512
+                },
+                "minItems": 1,
+                "uniqueItems": true,
+                "maxItems": 128
+              }
+            },
+            "required": [
+              "target",
+              "sha256",
+              "relation",
+              "fields"
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true,
+          "maxItems": 128
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0,
+          "uniqueItems": true,
+          "maxItems": 128
+        },
+        "legacyDecision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "decision",
+        "title",
+        "subject",
+        "scope",
+        "recordedAt",
+        "effectiveFrom",
+        "author",
+        "authority",
+        "review",
+        "reason",
+        "values",
+        "withdraws",
+        "changes",
+        "evidence",
+        "legacyDecision"
+      ]
+    }
+  }
+}

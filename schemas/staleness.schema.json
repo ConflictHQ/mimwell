@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/staleness/v1",
+  "title": "Staleness / review-cadence report (advisory sweep output)",
+  "description": "The advisory report emitted by scripts/gen-staleness.py (issue #29) — a sweep over the compiled brain (app/brain.json) that flags content needing re-confirmation so decisions and open questions don't silently rot. Each flagged node carries WHY it tripped (`reason`), the rule's window in days (`window_days`), the node's last-touched date (from the git history of its `source` file) and how many days stale it is. Windows/cadence come from client.config.json `staleness` (see config.py defaults); the sweep is gated by features.staleness. ADVISORY, not a hard gate. READ-ONLY: generated, never hand-edited — author the inputs, recompile via `make staleness`. last-touched is git-derived (per-commit-volatile), so this artifact is NOT in the generated-artifact drift gate (the activity.json carve-out).",
+  "x-conflict": { "version": "1", "editable": false, "source": "app/staleness.json", "readonly_reason": "compiled advisory report — re-run `make staleness`; git-history-derived, not drift-gated" },
+  "type": "object",
+  "required": ["flagged"],
+  "additionalProperties": true,
+  "properties": {
+    "generated_by": { "type": "string" },
+    "enabled": { "type": "boolean", "description": "False when features.staleness is off — the sweep no-ops and the report is empty/quiet." },
+    "as_of": { "type": "string", "description": "ISO date the sweep was computed as-of (the reference point for staleness)." },
+    "windows": {
+      "type": "object",
+      "description": "The effective thresholds (days) the sweep ran with, echoed from config.",
+      "additionalProperties": true,
+      "properties": {
+        "point_in_time_window_days": { "type": "integer", "minimum": 0 },
+        "open_question_window_days": { "type": "integer", "minimum": 0 },
+        "decision_cadence_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "description": "Per-reason tallies of flagged nodes.",
+      "additionalProperties": { "type": "integer" }
+    },
+    "flagged": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flag" }
+    }
+  },
+  "$defs": {
+    "flag": {
+      "type": "object",
+      "required": ["id", "kind", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "description": "The flagged brain node's id." },
+        "kind": { "type": "string", "description": "The node's kind (Decision, OpenQuestion, …)." },
+        "title": { "type": "string" },
+        "durability": { "type": "string", "description": "The node's durability (durable-logic / point-in-time)." },
+        "source": { "type": "string", "description": "The node's source file — whose git history gives last-touched." },
+        "reason": {
+          "type": "string",
+          "description": "Which rule the node tripped.",
+          "enum": ["point-in-time-stale", "open-question-lingering", "decision-unconfirmed"]
+        },
+        "window_days": { "type": "integer", "minimum": 0, "description": "The rule's threshold in days." },
+        "last_touched": { "type": ["string", "null"], "description": "ISO date the node's source was last touched (git), or null when undeterminable." },
+        "days_stale": { "type": "integer", "minimum": 0, "description": "Days since last_touched, at as_of." }
+      }
+    }
+  }
+}

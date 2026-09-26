@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names. */
+    --bg:var(--kb-bg); --surface:rgba(255,255,255,.05); --surface2:rgba(255,255,255,.08);
+    --border:var(--kb-border); --border2:var(--kb-border-light);
+    --red:var(--kb-primary); --red-dim:color-mix(in srgb, var(--kb-primary) 10%, transparent);
+    --text:var(--kb-text); --muted:var(--kb-text-muted); --dim:var(--kb-text-faint);
+    --green:var(--kb-accent); --yellow:#F5A623; --blue:var(--kb-link); --purple:#7A5BA8; --radius:6px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--kb-font-body); font-size:14px; line-height:1.7; min-height:100vh; display:flex; flex-direction:column; }
+
+  /* ─── Top bar ─── */
+  .topbar {
+    border-bottom:1px solid var(--border); padding:0 32px; height:54px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; background:var(--bg); z-index:200;
+  }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-logo { display:inline-flex; line-height:0; transition:opacity .15s; }
+  .brand-logo:hover { opacity:.75; }
+  .brand-divider { color:var(--border2); font-size:16px; }
+  .brand-name { font-family:var(--kb-font-heading); font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .back-btn { font-family:var(--kb-font-mono); font-size:11px; color:var(--muted); text-decoration:none; border:1px solid var(--border); border-radius:4px; padding:5px 13px; transition:border-color .12s,color .12s; }
+  .back-btn:hover { border-color:var(--red); color:var(--red); }
+
+  /* ─── Deck nav (sticky control strip) ─── */
+  .deck-nav {
+    position:sticky; top:54px; z-index:90; background:var(--bg);
+    border-bottom:1px solid var(--border); padding:9px 32px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .deck-title { font-family:var(--kb-font-mono); font-size:10px; font-weight:500; color:var(--dim); letter-spacing:.1em; text-transform:uppercase; }
+  .slide-label { font-size:12px; font-weight:500; color:var(--muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .deck-counter { font-family:var(--kb-font-mono); font-size:11px; color:var(--dim); min-width:48px; text-align:center; }
+  .deck-btn {
+    background:var(--surface); border:1px solid var(--border); color:var(--muted);
+    padding:4px 13px; border-radius:5px; cursor:pointer; font-size:14px; line-height:1;
+    transition:background .12s,border-color .12s,color .12s; user-select:none;
+  }
+  .deck-btn:hover:not(:disabled) { background:var(--surface2); border-color:var(--border2); color:var(--text); }
+  .deck-btn:disabled { opacity:.3; cursor:default; }
+  .slide-dots { display:flex; gap:5px; align-items:center; }
+  .dot { width:7px; height:7px; border-radius:50%; background:var(--border); cursor:pointer; transition:background .15s; flex-shrink:0; padding:0; border:none; }
+  .dot.active { background:var(--red); }
+  .dot:hover:not(.active) { background:var(--border2); }
+  @media (max-width:640px) { .slide-dots { display:none; } }
+
+  /* ─── Progress indicator ─── */
+  .deck-progress { height:2px; background:var(--surface); position:sticky; top:107px; z-index:90; }
+  .deck-progress-bar { height:100%; width:0; background:var(--red); transition:width .25s ease; }
+
+  /* ─── Slide stage ─── */
+  .stage { flex:1; }
+  .slide { display:none; max-width:980px; margin:0 auto; padding:48px 32px 64px; }
+  .slide.active { display:block; }
+  .slide-num { font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--red); margin-bottom:14px; }
+  .slide-h { font-family:var(--kb-font-heading); font-size:34px; letter-spacing:.03em; text-transform:uppercase; color:var(--text); line-height:1.05; margin-bottom:6px; }
+
+  /* ─── Title slide ─── */
+  .slide.title-slide { text-align:center; padding-top:96px; }
+  .slide.title-slide .deck-eyebrow { font-family:var(--kb-font-mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--red); margin-bottom:20px; }
+  .slide.title-slide .deck-h1 { font-family:var(--kb-font-heading); font-size:52px; letter-spacing:.03em; text-transform:uppercase; color:var(--text); line-height:1.02; }
+  .slide.title-slide .deck-sub { font-size:15px; color:var(--muted); max-width:620px; margin:18px auto 0; line-height:1.7; }
+  .slide.title-slide .deck-hint { font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-top:40px; }
+
+  /* Rendered markdown typography (callouts, tables, code, mermaid) lives in
+     app/render.css, shared by KBRender. The body container gets class .md. */
+  .slide-body { margin-top:18px; }
+
+  /* ─── Presenter notes ─── */
+  .slide-notes {
+    margin-top:36px; padding:14px 16px; border:1px solid var(--border);
+    border-left:3px solid var(--yellow); border-radius:var(--radius);
+    background:var(--surface); font-size:12.5px; color:var(--muted); line-height:1.6;
+  }
+  .slide-notes .notes-lbl { font-family:var(--kb-font-mono); font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); display:block; margin-bottom:6px; }
+
+  /* ─── States ─── */
+  .statebox { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:48px 32px; text-align:center; color:var(--muted); font-size:14px; max-width:560px; margin:64px auto; }
+  .statebox.error { border-color:color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox .st-title { font-family:var(--kb-font-heading); font-size:20px; letter-spacing:.1em; text-transform:uppercase; color:var(--text); margin-bottom:8px; }
+  .statebox.error .st-title { color:var(--red); }
+  .statebox code { font-family:var(--kb-font-mono); font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:2px 6px; }
+  .spinner { display:inline-block; width:22px; height:22px; border:2px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .7s linear infinite; margin-bottom:16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  @media (max-width:560px) {
+    .topbar, .deck-nav, .slide { padding-left:18px; padding-right:18px; }
+    .slide-h { font-size:28px; }
+    .slide.title-slide .deck-h1 { font-size:38px; }
+  }
+</style>
+<!-- Shared rich-markdown styles (callouts, tables, task lists, code, mermaid). -->
+<link rel="stylesheet" href="/app/render.css">
+<!-- Shared theme: overrides local alias vars per data-theme; loaded after the
+     page's own <style> so it wins the cascade. theme.js owns the toggle. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/theme.js" defer></script>
+<!-- Loaded for the owner co-brand seam (#47): the deck has no top-nav, but
+     nav.js also owns the config-driven owner mark slot in the topbar. -->
+<script src="/app/nav.js" defer></script>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="21"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <a class="back-btn" href="/">← Portal home</a>
+</header>
+
+<!-- Deck control strip -->
+<nav class="deck-nav" id="deck-nav" aria-label="Slide navigation" style="display:none">
+  <span class="deck-title" id="deck-title">Deck</span>
+  <span class="slide-label" id="slide-label"></span>
+  <button class="deck-btn" id="prev-btn" type="button" aria-label="Previous slide">‹</button>
+  <span class="deck-counter" id="counter">1 / 1</span>
+  <button class="deck-btn" id="next-btn" type="button" aria-label="Next slide">›</button>
+  <div class="slide-dots" id="dots" role="tablist" aria-label="Jump to slide"></div>
+</nav>
+<div class="deck-progress" id="deck-progress" style="display:none"><div class="deck-progress-bar" id="deck-progress-bar"></div></div>
+
+<!-- Slide stage -->
+<div class="stage" id="stage">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Fetching deck…</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="/app/render.js"></script>
+<script>
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+// ── Branding: fetch /client.config.json and re-brand the page ────────────────
+var BRAND = { titleSuffix: '' };
+var brandReady = (function () {
+  return fetch('/client.config.json', { cache: 'no-cache' })
+    .then(function (r) { return r.json(); })
+    .then(function (cfg) {
+      var b = (cfg && cfg.branding) || {};
+      // The owner co-brand mark in the topbar is NOT handled here (#47):
+      // app/nav.js owns that slot and fills it from branding.owner on load.
+      var colors = b.colors || {};
+      var fonts = b.fonts || {};
+      var root = document.documentElement.style;
+      function setVar(name, val) { if (val) root.setProperty(name, val); }
+      setVar('--kb-primary',      colors.primary);
+      setVar('--kb-link',         colors.link);
+      setVar('--kb-accent',       colors.accent);
+      setVar('--kb-bg',           colors.bg);
+      setVar('--kb-bg-deep',      colors.bgDeep);
+      setVar('--kb-surface',      colors.surface);
+      setVar('--kb-border',       colors.border);
+      setVar('--kb-border-light', colors.borderLight);
+      setVar('--kb-text',         colors.text);
+      setVar('--kb-text-muted',   colors.textMuted);
+      setVar('--kb-text-faint',   colors.textFaint);
+      setVar('--kb-font-heading', fonts.heading);
+      setVar('--kb-font-body',    fonts.body);
+      setVar('--kb-font-mono',    fonts.mono);
+
+      var label = KBNav.brainShortName(cfg);
+      BRAND.titleSuffix = label || '';
+      var brandEl = document.getElementById('brand-name');
+      if (brandEl) brandEl.textContent = label || '';
+    })
+    .catch(function () {});
+})();
+
+(function () {
+  var stage = document.getElementById('stage');
+  var navEl = document.getElementById('deck-nav');
+  var progressEl = document.getElementById('deck-progress');
+  var progressBar = document.getElementById('deck-progress-bar');
+  var labelEl = document.getElementById('slide-label');
+  var counterEl = document.getElementById('counter');
+  var prevBtn = document.getElementById('prev-btn');
+  var nextBtn = document.getElementById('next-btn');
+  var dotsEl = document.getElementById('dots');
+  var deckTitleEl = document.getElementById('deck-title');
+
+  var slides = [];   // [{ label, render(el) }]
+  var current = 0;
+
+  function setDocTitle(name) {
+    brandReady.then(function () {
+      document.title = name + (BRAND.titleSuffix ? ' — ' + BRAND.titleSuffix : '');
+    });
+  }
+
+  function showError(title, detail) {
+    stage.innerHTML = '<div class="statebox error">' +
+      '<div class="st-title">' + esc(title) + '</div>' +
+      '<div>' + detail + '</div>' +
+    '</div>';
+  }
+
+  function renderSlide(idx) {
+    if (idx < 0 || idx >= slides.length) return;
+    current = idx;
+    var s = slides[idx];
+    var el = document.createElement('div');
+    el.className = 'slide active';
+    s.render(el);
+    stage.innerHTML = '';
+    stage.appendChild(el);
+    // Enhance any markdown bodies on the slide (mermaid/callouts/highlight).
+    el.querySelectorAll('.md').forEach(function (md) {
+      if (window.KBRender) KBRender.enhance(md);
+    });
+
+    labelEl.textContent = s.label || '';
+    counterEl.textContent = (idx + 1) + ' / ' + slides.length;
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === slides.length - 1;
+    progressBar.style.width = (slides.length <= 1 ? 100 : (idx / (slides.length - 1)) * 100) + '%';
+    Array.prototype.forEach.call(dotsEl.children, function (d, i) {
+      d.classList.toggle('active', i === idx);
+      d.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+    });
+    window.scrollTo(0, 0);
+  }
+
+  function go(dir) {
+    var next = current + dir;
+    if (next >= 0 && next < slides.length) renderSlide(next);
+  }
+
+  function buildDots() {
+    dotsEl.innerHTML = '';
+    slides.forEach(function (s, i) {
+      var d = document.createElement('button');
+      d.type = 'button';
+      d.className = 'dot' + (i === 0 ? ' active' : '');
+      d.setAttribute('role', 'tab');
+      d.setAttribute('aria-label', 'Slide ' + (i + 1) + (s.label ? ': ' + s.label : ''));
+      d.title = s.label || ('Slide ' + (i + 1));
+      d.addEventListener('click', function () { renderSlide(i); });
+      dotsEl.appendChild(d);
+    });
+  }
+
+  prevBtn.addEventListener('click', function () { go(-1); });
+  nextBtn.addEventListener('click', function () { go(1); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') { go(1); e.preventDefault(); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') { go(-1); e.preventDefault(); }
+    if (e.key === 'Home') { renderSlide(0); e.preventDefault(); }
+    if (e.key === 'End') { renderSlide(slides.length - 1); e.preventDefault(); }
+  });
+
+  // Build the slide list: a title slide first, then one slide per JSON entry.
+  function buildSlides(deck) {
+    var out = [];
+    var deckTitle = deck.title || 'Deck';
+    var deckSub = deck.subtitle || '';
+    out.push({
+      label: deckTitle,
+      render: function (el) {
+        el.classList.add('title-slide');
+        var bn = document.getElementById('brand-name');
+        var brandLabel = (bn && bn.textContent && bn.textContent !== '—') ? bn.textContent : '';
+        el.innerHTML =
+          (brandLabel ? '<div class="deck-eyebrow">' + esc(brandLabel) + '</div>' : '') +
+          '<div class="deck-h1">' + esc(deckTitle) + '</div>' +
+          (deckSub ? '<div class="deck-sub">' + esc(deckSub) + '</div>' : '') +
+          '<div class="deck-hint">Use ← → or space to navigate</div>';
+      }
+    });
+    (deck.slides || []).forEach(function (sl, i) {
+      out.push({
+        label: sl.title || ('Slide ' + (i + 1)),
+        render: function (el) {
+          var html = '<div class="slide-num">Slide ' + (i + 1) + '</div>';
+          if (sl.title) html += '<h2 class="slide-h">' + esc(sl.title) + '</h2>';
+          html += '<div class="slide-body md">' +
+            (window.KBRender ? KBRender.parse(sl.body || '') : esc(sl.body || '')) + '</div>';
+          if (sl.notes) {
+            html += '<div class="slide-notes"><span class="notes-lbl">Presenter notes</span>' +
+              esc(sl.notes) + '</div>';
+          }
+          el.innerHTML = html;
+        }
+      });
+    });
+    return out;
+  }
+
+  // Once branding resolves, re-render slide 0 so the title slide can pick up the
+  // client eyebrow (no-op if we've already navigated away).
+  brandReady.then(function () { if (current === 0 && slides.length) renderSlide(0); });
+
+  if (typeof window.KBRender === 'undefined' || typeof marked === 'undefined') {
+    showError('Renderer unavailable', 'The markdown renderer failed to load from the CDN.');
+    return;
+  }
+
+  fetch('/app/deck.json', { cache: 'no-cache' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function (deck) {
+      var defs = Array.isArray(deck.slides) ? deck.slides : [];
+      deckTitleEl.textContent = deck.title || 'Deck';
+      setDocTitle(deck.title || 'Deck');
+
+      if (!defs.length) {
+        navEl.style.display = 'none';
+        progressEl.style.display = 'none';
+        stage.innerHTML = '<div class="statebox">' +
+          '<div class="st-title">No slides yet</div>' +
+          'Author this deck at <code>app/deck.json</code> — set a <code>title</code> and add <code>slides</code> ' +
+          '(each with a <code>title</code> and Markdown <code>body</code>). They render here, keyboard-navigable.' +
+        '</div>';
+        return;
+      }
+
+      slides = buildSlides(deck);
+      buildDots();
+      navEl.style.display = 'flex';
+      progressEl.style.display = 'block';
+      renderSlide(0);
+    })
+    .catch(function (err) {
+      navEl.style.display = 'none';
+      progressEl.style.display = 'none';
+      showError('Failed to load', 'Could not fetch <code>app/deck.json</code> (' + esc(err.message) + ').');
+    });
+})();
+</script>
+</body>
+</html>

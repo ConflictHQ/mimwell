@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reader</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names. */
+    --bg:#0B1619; --surface:rgba(255,255,255,.05); --surface2:rgba(255,255,255,.08);
+    --border:var(--kb-border); --border2:var(--kb-border-light);
+    --red:var(--kb-primary); --red-dim:color-mix(in srgb, var(--kb-primary) 10%, transparent);
+    --text:var(--kb-text); --muted:var(--kb-text-muted); --dim:var(--kb-text-faint);
+    --green:var(--kb-accent); --yellow:#F5A623; --blue:var(--kb-link); --purple:#7A5BA8; --radius:6px;
+  }
+  body { background:var(--bg) !important; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:var(--kb-font-body); font-size:14px; line-height:1.7; min-height:100vh; }
+
+  /* ─── Top bar ─── */
+  .topbar {
+    border-bottom:1px solid var(--border); padding:0 32px; height:54px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; background:var(--bg); z-index:100;
+  }
+  .brand { display:flex; align-items:center; gap:14px; }
+  .wordmark { font-family:var(--kb-font-heading); font-size:17px; color:var(--red); letter-spacing:.1em; text-transform:uppercase; line-height:1; }
+  .back-btn { font-size:11px; color:var(--muted); text-decoration:none; border:1px solid var(--border); border-radius:4px; padding:5px 13px; font-family:var(--kb-font-body); transition:border-color .12s,color .12s; }
+  .back-btn:hover { border-color:var(--red); color:var(--red); }
+
+  /* ─── Portal nav ─── */
+  .portal-nav {
+    position:sticky; top:54px; z-index:90; background:var(--bg);
+    border-bottom:1px solid var(--border); height:44px; display:flex; align-items:center;
+    padding:0 32px; font-size:11px; font-family:var(--kb-font-mono);
+  }
+  .portal-nav a { color:var(--dim); text-decoration:none; }
+  .portal-nav a:hover { color:var(--muted); }
+  .portal-nav .sep { color:var(--border2); margin:0 10px; }
+  .portal-nav .active { color:var(--red); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:46vw; }
+
+  /* ─── Doc shell ─── */
+  .shell { max-width:860px; margin:0 auto; padding:40px 32px 96px; }
+  .doc-head { margin-bottom:8px; }
+  .doc-title { font-family:var(--kb-font-heading); font-size:34px; letter-spacing:.02em; text-transform:uppercase; line-height:1.05; color:var(--text); }
+  .doc-path { font-family:var(--kb-font-mono); font-size:11px; color:var(--dim); margin-bottom:20px; word-break:break-all; }
+  .doc-meta { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 20px; }
+  .doc-meta .chip { font-family:var(--kb-font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:3px; padding:3px 9px; }
+  .doc-meta a.orig { font-family:var(--kb-font-mono); font-size:11px; color:var(--red); text-decoration:none; border:1px solid color-mix(in srgb, var(--kb-primary) 40%, transparent); border-radius:3px; padding:3px 10px; }
+  .doc-meta a.orig:hover { background:var(--red-dim); }
+  .doc-note { font-size:12px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--yellow); border-radius:4px; padding:10px 14px; margin:0 0 24px; line-height:1.6; }
+  .doc-note strong { color:var(--text); }
+  .doc-divider { height:1px; background:var(--border); margin-bottom:32px; }
+
+  /* ─── States ─── */
+  .statebox { border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); padding:48px 32px; text-align:center; color:var(--muted); font-size:14px; }
+  .statebox .st-title { font-family:var(--kb-font-heading); font-size:20px; letter-spacing:.1em; text-transform:uppercase; color:var(--text); margin-bottom:8px; }
+  .statebox.error { border-color:color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox.error .st-title { color:var(--red); }
+  .statebox code { font-family:var(--kb-font-mono); font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:2px 6px; }
+  .statebox .back-link { display:inline-block; margin-top:20px; color:var(--red); text-decoration:none; font-size:12px; border:1px solid color-mix(in srgb, var(--kb-primary) 40%, transparent); border-radius:4px; padding:6px 14px; }
+  .statebox .back-link:hover { background:var(--red-dim); }
+  .spinner { display:inline-block; width:22px; height:22px; border:2px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .7s linear infinite; margin-bottom:16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Rendered markdown typography + rich elements (callouts, tables, task lists,
+     code highlighting, mermaid) live in app/render.css, shared by KBRender. */
+
+  /* ─── Pagination (long docs only) ─── */
+  /* A small "page N of M" indicator above the content, and a Prev/Next pager
+     below it. Both match the house pager idiom used elsewhere in the portal. */
+  .doc-page-flag {
+    display:inline-block; font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--muted); background:var(--surface); border:1px solid var(--border);
+    border-radius:3px; padding:3px 9px; margin-bottom:18px;
+  }
+  .doc-page-flag span { color:var(--text); }
+  .pager {
+    margin-top:40px; padding-top:24px; border-top:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; gap:16px;
+  }
+  .pager-btn {
+    font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:3px;
+    padding:6px 14px; cursor:pointer; transition:color .15s,border-color .15s,background .15s;
+  }
+  .pager-btn:hover:not(:disabled) { color:var(--red); border-color:color-mix(in srgb, var(--kb-primary) 50%, transparent); background:var(--surface2); }
+  .pager-btn:disabled { color:var(--dim); cursor:default; opacity:.5; }
+  .pager-status { font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.08em; color:var(--muted); }
+  .pager-status span { color:var(--text); }
+
+  /* footer back */
+  .doc-foot { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); }
+  .doc-foot a { color:var(--muted); text-decoration:none; font-size:12px; border:1px solid var(--border); border-radius:4px; padding:7px 15px; transition:border-color .12s,color .12s; }
+  .doc-foot a:hover { border-color:var(--red); color:var(--red); }
+
+  /* ─── Wikilinks + backlinks (#49) ─── */
+  .ghost-link { color:var(--dim); border-bottom:1px dashed var(--dim); cursor:help; }
+  .doc-backlinks { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); }
+  .doc-backlinks .bl-head { font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+  .doc-backlinks ul { list-style:none; }
+  .doc-backlinks li { margin-bottom:6px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .doc-backlinks a { color:var(--blue); text-decoration:none; font-size:13px; }
+  .doc-backlinks a:hover { color:var(--red); }
+  .doc-backlinks .bl-path { font-family:var(--kb-font-mono); font-size:10px; color:var(--dim); word-break:break-all; }
+
+  /* ─── Local graph panel (#50) ─── */
+  /* Collapsed "Related" affordance + the neighborhood list it reveals. Colors
+     come off the local alias vars (which theme.css flips per theme) and the
+     --kb-* seam, so the panel reads correctly in light and dark and carries no
+     baked brand values. */
+  .doc-graph { margin-top:40px; padding-top:24px; border-top:1px solid var(--border); }
+  .doc-graph-toggle {
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left; cursor:pointer;
+    font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); background:transparent; border:0; padding:0; transition:color .12s;
+  }
+  .doc-graph-toggle:hover { color:var(--red); }
+  .doc-graph-toggle .dg-caret { display:inline-block; color:var(--dim); transition:transform .12s; }
+  .doc-graph.open .doc-graph-toggle .dg-caret { transform:rotate(90deg); }
+  .doc-graph-toggle .dg-count { color:var(--dim); }
+  .doc-graph-body { display:none; margin-top:14px; }
+  .doc-graph.open .doc-graph-body { display:block; }
+  .dg-note { font-size:12px; color:var(--dim); }
+  .dg-group { margin-bottom:14px; }
+  .dg-rel { font-family:var(--kb-font-mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
+  .dg-list { list-style:none; }
+  .dg-item { margin-bottom:6px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .dg-item a { color:var(--blue); text-decoration:none; font-size:13px; }
+  .dg-item a:hover { color:var(--red); }
+  .dg-kind {
+    font-family:var(--kb-font-mono); font-size:9px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); background:var(--surface); border:1px solid var(--border);
+    border-radius:3px; padding:2px 7px;
+  }
+  .dg-dir { font-family:var(--kb-font-mono); font-size:10px; color:var(--dim); }
+  .dg-hop {
+    font-family:var(--kb-font-mono); font-size:9px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--red); border:1px solid color-mix(in srgb, var(--kb-primary) 35%, transparent);
+    border-radius:3px; padding:1px 6px;
+  }
+  .dg-more { font-family:var(--kb-font-mono); font-size:10px; color:var(--dim); }
+
+  @media (max-width:560px) {
+    .topbar, .portal-nav, .shell { padding-left:18px; padding-right:18px; }
+  }
+</style>
+<!-- Shared rich-markdown styles (callouts, tables, task lists, code, mermaid). -->
+<link rel="stylesheet" href="/app/render.css">
+<!-- Document viewer (#44): PDF / DOCX / CSV / XLSX preview chrome. -->
+<link rel="stylesheet" href="/app/doc-viewer.css">
+<!-- Shared theme: overrides local alias vars per data-theme; loaded after the
+     page's own <style> so it wins the cascade. theme.js owns the toggle. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. Not baked here: app/nav.js fills this
+         slot from client.config.json branding.owner (KBNav.applyOwnerBrand),
+         falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" style="display:inline-flex;line-height:0" data-kb-owner-mark="21"></a>
+    <span style="color:var(--dim);margin:0 8px">×</span>
+    <span style="font-family:var(--kb-font-heading);font-size:13px;color:var(--muted);letter-spacing:.06em" id="brandName">—</span>
+  </div>
+  <a class="back-btn" href="/">← Portal home</a>
+</header>
+
+<!-- Portal nav -->
+<nav class="portal-nav">
+  <a href="/">Home</a>
+  <span class="sep">/</span>
+  <span class="active" id="navCrumb">…</span>
+</nav>
+
+<div class="shell">
+  <div class="doc-head">
+    <h1 class="doc-title" id="docTitle">&nbsp;</h1>
+  </div>
+  <div class="doc-path" id="docPath"></div>
+  <div class="doc-divider" id="docDivider" style="display:none"></div>
+
+  <div class="doc-page-flag" id="docPageFlag" style="display:none">Page <span id="docPageFlagNum">1</span> of <span id="docPageFlagTotal">1</span></div>
+
+  <div id="content">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching document…</div>
+    </div>
+  </div>
+
+  <nav class="pager" id="docPager" aria-label="Document pages" style="display:none"></nav>
+
+  <!-- Local graph (#50): the 1-2 hop neighborhood around this document in
+       app/brain.json. Deliberately a SIBLING of #content — pagination rebuilds
+       the .md container inside #content on every page turn, so a panel living
+       in there would be wiped or duplicated. Ships collapsed; the brain is
+       fetched only on first expand. -->
+  <section class="doc-graph" id="docGraph" style="display:none">
+    <button class="doc-graph-toggle" id="docGraphToggle" type="button"
+            aria-expanded="false" aria-controls="docGraphBody">
+      <span class="dg-caret" aria-hidden="true">▸</span>
+      <span>Related</span>
+      <span class="dg-count" id="docGraphCount"></span>
+    </button>
+    <div class="doc-graph-body" id="docGraphBody"></div>
+  </section>
+
+  <div class="doc-foot" id="docFoot" style="display:none">
+    <a href="/">← Portal home</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="/app/render.js"></script>
+<!-- Document viewer (#44): PDF / DOCX / CSV / XLSX, each lib lazy-loaded. -->
+<script src="/app/doc-viewer.js"></script>
+<script>
+// ── Branding: fetch /client.config.json and re-brand the page ────────────────
+// Resolves a promise so the loader can use the configured title suffix once ready.
+var BRAND = { titleSuffix: '' };
+var brandReady = (function () {
+  return fetch('/client.config.json', { cache: 'no-cache' })
+    .then(function (r) { return r.json(); })
+    .then(function (cfg) {
+      var b = (cfg && cfg.branding) || {};
+      // Config-driven brand mark: swap the inline default for the client's
+      // theme-aware pair when branding.heroMark is set (mirrors nav.js).
+      (function () {
+        var slot = document.querySelector('.brand-logo');
+        if (!slot || !b.heroMark) return;
+        var mk = function (src, cls) {
+          return '<img class="' + cls + '" src="' + src + '" alt="" height="21">';
+        };
+        slot.innerHTML = b.heroMarkDark
+          ? mk(b.heroMarkDark, 'logo-on-dark') + mk(b.heroMark, 'logo-on-light')
+          : mk(b.heroMark, '');
+      })();
+      var colors = b.colors || {};
+      var fonts = b.fonts || {};
+      var root = document.documentElement.style;
+      function setVar(name, val) { if (val) root.setProperty(name, val); }
+      setVar('--kb-primary',      colors.primary);
+      setVar('--kb-link',         colors.link);
+      setVar('--kb-accent',       colors.accent);
+      setVar('--kb-bg',           colors.bg);
+      setVar('--kb-bg-deep',      colors.bgDeep);
+      setVar('--kb-surface',      colors.surface);
+      setVar('--kb-border',       colors.border);
+      setVar('--kb-border-light', colors.borderLight);
+      setVar('--kb-text',         colors.text);
+      setVar('--kb-text-muted',   colors.textMuted);
+      setVar('--kb-text-faint',   colors.textFaint);
+      setVar('--kb-font-heading', fonts.heading);
+      setVar('--kb-font-body',    fonts.body);
+      setVar('--kb-font-mono',    fonts.mono);
+
+      var label = KBNav.brainShortName(cfg);
+      BRAND.titleSuffix = label || '';
+      var brandEl = document.getElementById('brandName');
+      if (brandEl) brandEl.textContent = label || '';
+    })
+    .catch(function () {});
+})();
+
+(function () {
+  var contentEl = document.getElementById('content');
+  var titleEl = document.getElementById('docTitle');
+  var pathEl = document.getElementById('docPath');
+  var crumbEl = document.getElementById('navCrumb');
+  var dividerEl = document.getElementById('docDivider');
+  var footEl = document.getElementById('docFoot');
+  var pagerEl = document.getElementById('docPager');
+  var pageFlagEl = document.getElementById('docPageFlag');
+  var pageFlagNumEl = document.getElementById('docPageFlagNum');
+  var pageFlagTotalEl = document.getElementById('docPageFlagTotal');
+
+  // Apply the configured title suffix once branding resolves.
+  function setDocTitle(name) {
+    brandReady.then(function () {
+      document.title = name + (BRAND.titleSuffix ? ' — ' + BRAND.titleSuffix : '');
+    });
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+    });
+  }
+
+  function titleFromPath(path) {
+    var file = path.split('/').pop().replace(/\.md$/i, '');
+    var words = file.replace(/[-_]+/g, ' ').trim().split(/\s+/);
+    return words.map(function (w) {
+      return w ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+    }).join(' ');
+  }
+
+  // Split YAML frontmatter from the markdown body so the `---` block renders as
+  // a clean metadata header instead of raw text.
+  function parseFrontmatter(md) {
+    md = md.replace(/^﻿/, '');
+    var m = /^---\s*\n([\s\S]*?)\n---\s*\n?/.exec(md);
+    if (!m) return { meta: null, body: md };
+    var meta = {};
+    m[1].split('\n').forEach(function (line) {
+      var i = line.indexOf(':');
+      if (i > 0) meta[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, '');
+    });
+    return { meta: meta, body: md.slice(m[0].length) };
+  }
+
+  function renderMeta(meta) {
+    if (!meta) return '';
+    var chips = [];
+    if (meta.source)   chips.push('<span class="chip">' + esc(meta.source) + '</span>');
+    if (meta.version)  chips.push('<span class="chip">' + esc(meta.version) + '</span>');
+    if (meta.page_id)  chips.push('<span class="chip">page ' + esc(meta.page_id) + '</span>');
+    var orig = meta.url ? '<a class="orig" href="' + esc(meta.url) + '" target="_blank" rel="noopener">View original ↗</a>' : '';
+    var bar = (chips.length || orig) ? '<div class="doc-meta">' + chips.join('') + orig + '</div>' : '';
+    var note = (meta.type === 'confluence-doc' && !meta.repulled)
+      ? '<div class="doc-note">Flattened <strong>export</strong> — structure not preserved. Use <strong>View original ↗</strong> for the original page.</div>'
+      : '';
+    return bar + note;
+  }
+
+  function showError(title, detail) {
+    titleEl.textContent = 'Not Found';
+    crumbEl.textContent = 'Error';
+    contentEl.innerHTML = '<div class="statebox error">' +
+      '<div class="st-title">' + esc(title) + '</div>' +
+      '<div>' + detail + '</div>' +
+      '<a class="back-link" href="/">← Back to portal home</a>' +
+    '</div>';
+  }
+
+  // Parse ?f= param
+  var params = new URLSearchParams(window.location.search);
+  var rawPath = params.get('f');
+
+  if (!rawPath) {
+    pathEl.textContent = '';
+    showError('No document specified', 'This page expects a <code>?f=</code> query parameter pointing at a markdown file.');
+    return;
+  }
+
+  // Decode and guard against path escaping the site root.
+  var path = decodeURIComponent(rawPath).replace(/^\/+/, '');
+  if (path.indexOf('..') !== -1 || /^https?:/i.test(path)) {
+    showError('Invalid path', 'The requested path <code>' + esc(path) + '</code> is not allowed.');
+    return;
+  }
+
+  // Reader lives at /app/reader.html; source paths are relative to site root.
+  var fetchUrl = '../' + path;
+  var derivedTitle = titleFromPath(path);
+
+  // Optimistically set the title/crumb from the path; the file's frontmatter
+  // title (if any) replaces it once fetched.
+  titleEl.textContent = derivedTitle;
+  crumbEl.textContent = derivedTitle;
+  setDocTitle(derivedTitle);
+  pathEl.textContent = path;
+
+  // ── Document viewer routing (#44) ─────────────────────────────────────────
+  // A ?f= pointing at an office/binary doc (.pdf/.docx/.csv/.xlsx) renders via
+  // the in-portal document viewer instead of the markdown pipeline; markdown is
+  // unchanged. Each viewer library lazy-loads inside doc-viewer.js.
+  if (window.KBDocViewer && KBDocViewer.canView(path)) {
+    dividerEl.style.display = 'block';
+    footEl.style.display = 'block';
+    contentEl.innerHTML = '';
+    KBDocViewer.render(fetchUrl, contentEl, { title: derivedTitle });
+    return;
+  }
+
+  // ── Pagination for very long documents ────────────────────────────────────
+  // Short docs render as one page (no pager). Long docs are split into pages by
+  // walking the top-level rendered nodes and accumulating them until a page
+  // crosses a size budget, preferring to break right before an <h2> so sections
+  // stay together. Falls back to pure size-based chunking when there aren't
+  // enough headings to split on.
+  var PAGINATE_MIN_CHARS = 24000;   // below this the whole doc is one page
+  var PAGE_TARGET_CHARS  = 14000;   // aim for roughly this much text per page
+  var docPages = [];                // array of DocumentFragment, one per page
+  var docPage = 0;                  // current page index (0-based)
+
+  function textLen(node) { return (node.textContent || '').length; }
+
+  // Split an array of top-level nodes into pages. Each page is a run of nodes;
+  // a new page starts when the running size passes PAGE_TARGET_CHARS, and an
+  // <h2> that begins after content has accumulated also starts a fresh page so
+  // top-level sections aren't split mid-way.
+  function paginateNodes(nodes) {
+    var pages = [];
+    var current = [];
+    var size = 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var isH2 = node.nodeType === 1 && node.tagName === 'H2';
+      // Break before this node if we'd exceed the budget, or at an <h2> once the
+      // current page already holds a meaningful amount of content.
+      var wantBreak = current.length && (
+        size >= PAGE_TARGET_CHARS ||
+        (isH2 && size >= PAGE_TARGET_CHARS * 0.5)
+      );
+      if (wantBreak) { pages.push(current); current = []; size = 0; }
+      current.push(node);
+      size += textLen(node) + 1;
+    }
+    if (current.length) pages.push(current);
+    return pages;
+  }
+
+  // Turn the rendered markdown into one-or-more page fragments. Returns a single
+  // page when the doc is short, so short docs keep their current behavior.
+  function buildPages(mdEl) {
+    var nodes = Array.prototype.slice.call(mdEl.childNodes);
+    var total = textLen(mdEl);
+    if (total < PAGINATE_MIN_CHARS) {
+      var only = document.createDocumentFragment();
+      nodes.forEach(function (n) { only.appendChild(n); });
+      return [only];
+    }
+    var grouped = paginateNodes(nodes.filter(function (n) {
+      // Keep element + non-empty text nodes; drop whitespace-only text nodes so
+      // they don't land alone on a page.
+      return n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim());
+    }));
+    return grouped.map(function (group) {
+      var frag = document.createDocumentFragment();
+      group.forEach(function (n) { frag.appendChild(n); });
+      return frag;
+    });
+  }
+
+  function renderPager() {
+    var total = docPages.length;
+    if (total <= 1) { pagerEl.style.display = 'none'; pageFlagEl.style.display = 'none'; pagerEl.innerHTML = ''; return; }
+    var page = docPage + 1;
+    pageFlagNumEl.textContent = page;
+    pageFlagTotalEl.textContent = total;
+    pageFlagEl.style.display = 'inline-block';
+    pagerEl.style.display = 'flex';
+    pagerEl.innerHTML =
+      '<button class="pager-btn" type="button" data-nav="prev"' + (page <= 1 ? ' disabled' : '') + '>Prev</button>' +
+      '<span class="pager-status">Page <span>' + page + '</span> of <span>' + total + '</span></span>' +
+      '<button class="pager-btn" type="button" data-nav="next"' + (page >= total ? ' disabled' : '') + '>Next</button>';
+  }
+
+  // Swap the visible page into the .md container and refresh the pager. Scrolls
+  // back to the top of the document on page change (but not on first render).
+  function showPage(idx, scroll) {
+    if (idx < 0 || idx >= docPages.length) return;
+    docPage = idx;
+    var md = contentEl.querySelector('.md');
+    if (!md) return;
+    md.innerHTML = '';
+    md.appendChild(docPages[idx].cloneNode(true));
+    // Re-enhance the freshly cloned page: mermaid + highlight + callouts.
+    KBRender.enhance(md);
+    renderPager();
+    if (scroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  pagerEl.addEventListener('click', function (e) {
+    var btn = e.target.closest('.pager-btn');
+    if (!btn || btn.disabled) return;
+    var nav = btn.getAttribute('data-nav');
+    if (nav === 'prev') showPage(docPage - 1, true);
+    else if (nav === 'next') showPage(docPage + 1, true);
+  });
+
+  if (typeof window.KBRender === 'undefined' || typeof marked === 'undefined') {
+    showError('Renderer unavailable', 'The markdown renderer failed to load from the CDN.');
+    return;
+  }
+
+  // ── Wikilinks + backlinks (#49) ────────────────────────────────────────────
+  // Both features ride app/knowledge-pack.json (fetched in parallel with the
+  // document); a missing or failed pack degrades to plain text — they are
+  // progressive enhancements, never a render dependency.
+  var packPromise = fetch('/app/knowledge-pack.json', { cache: 'no-cache' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .catch(function () { return null; });
+
+  // Turn [[name]] / [[name|alias]] / [[name#heading]] text into reader links
+  // via the pack's resolution map; unresolved names render as ghost text (the
+  // to-write affordance). Skips text inside code blocks and existing links.
+  function applyWikilinks(pack) {
+    var map = pack.wikilinks || {};
+    var md = contentEl.querySelector('.md');
+    if (!md) return;
+    var walker = document.createTreeWalker(md, NodeFilter.SHOW_TEXT, null);
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) {
+      if (n.nodeValue.indexOf('[[') === -1) continue;
+      var p = n.parentNode, skip = false;
+      while (p && p !== md) {
+        var tag = p.nodeType === 1 ? p.tagName : '';
+        if (tag === 'CODE' || tag === 'PRE' || tag === 'A') { skip = true; break; }
+        p = p.parentNode;
+      }
+      if (!skip) nodes.push(n);
+    }
+    var RE = /\[\[([^\[\]]+?)\]\]/g;
+    nodes.forEach(function (node) {
+      var text = node.nodeValue;
+      var frag = document.createDocumentFragment();
+      var last = 0, m;
+      RE.lastIndex = 0;
+      while ((m = RE.exec(text))) {
+        frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        var parts = m[1].split('|');
+        var target = parts[0].split('#')[0].trim();
+        var label = (parts[1] || parts[0]).trim();
+        var resolved = map[target.toLowerCase()];
+        if (resolved) {
+          var a = document.createElement('a');
+          a.href = 'reader.html?f=' + encodeURIComponent(resolved);
+          a.textContent = label;
+          frag.appendChild(a);
+        } else {
+          var s = document.createElement('span');
+          s.className = 'ghost-link';
+          s.title = 'No document yet: ' + target;
+          s.textContent = label;
+          frag.appendChild(s);
+        }
+        last = m.index + m[0].length;
+      }
+      if (!last) return;
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    });
+  }
+
+  // "Referenced by" — this doc's incoming links, titled from the pack index.
+  function insertBacklinks(pack) {
+    var refs = (pack.backlinks || {})[path];
+    if (!refs || !refs.length) return;
+    var titles = {};
+    (pack.items || []).forEach(function (it) { titles[it.path] = it.title; });
+    var box = document.createElement('div');
+    box.className = 'doc-backlinks';
+    box.innerHTML = '<div class="bl-head">Referenced by</div>' +
+      '<ul>' + refs.map(function (p) {
+        return '<li><a href="reader.html?f=' + encodeURIComponent(p) + '">' +
+          esc(titles[p] || titleFromPath(p)) + '</a>' +
+          '<span class="bl-path">' + esc(p) + '</span></li>';
+      }).join('') + '</ul>';
+    footEl.parentNode.insertBefore(box, footEl);
+  }
+
+  // ── Local graph panel (#50) ────────────────────────────────────────────────
+  // The KG viewer is the global graph; this is the LOCAL one: the 1-2 hop
+  // neighborhood around the document being read, grouped by edge kind, each
+  // neighbor linking to whichever surface renders it.
+  //
+  // Lazy by construction: app/brain.json is fetched inside the toggle handler
+  // and nowhere else, so a reader who never expands the panel pays nothing for
+  // it. Every failure mode degrades to *no panel* and never to an error box —
+  // no brain compiled, brain unreachable, no node whose source is this doc, or
+  // a node with no edges all end with the section removed from the DOM.
+  var graphEl = document.getElementById('docGraph');
+  var graphBodyEl = document.getElementById('docGraphBody');
+  var graphToggleEl = document.getElementById('docGraphToggle');
+  var graphCountEl = document.getElementById('docGraphCount');
+  var GRAPH_HOPS = 2;            // how far out the neighborhood reaches
+  var GRAPH_MAX_PER_REL = 8;     // keep each edge-kind group compact
+  var graphLoaded = false;
+
+  // The markdown file a node is rendered from, when it has one. Spec/Story
+  // nodes carry the file in data.path (their `source` is the manifest); memory
+  // and doc nodes carry it as `source` directly.
+  function nodeDocPath(n) {
+    var p = (n.data && n.data.path) || n.source || '';
+    return /\.md$/i.test(p) ? p : '';
+  }
+
+  function nodeLabel(n) {
+    var label = n.title || n.text || n.id || '';
+    return label.length > 90 ? label.slice(0, 89) + '…' : label;
+  }
+
+  // Where a neighbor lives: the reader for anything backed by a markdown file,
+  // the session page for sessions, the KG viewer for everything else.
+  function nodeHref(n) {
+    var p = nodeDocPath(n);
+    if (p) return 'reader.html?f=' + encodeURIComponent(p);
+    var id = String(n.id || '');
+    if (id.indexOf('session:') === 0) {
+      return 'session.html?id=' + encodeURIComponent(id.slice('session:'.length));
+    }
+    return 'brain.html#' + encodeURIComponent(id);
+  }
+
+  // Breadth-first walk out from the node(s) this document is the source of.
+  // Returns null when the doc has no node at all, otherwise one entry per
+  // reached neighbor carrying the edge kind and direction it was found through
+  // and its hop distance (nearest wins — a node reached at hop 1 is not
+  // re-listed at hop 2).
+  function buildNeighborhood(brain) {
+    var nodes = (brain && brain.nodes) || [];
+    var edges = (brain && brain.edges) || [];
+    var byId = {};
+    nodes.forEach(function (n) { if (n && n.id) byId[n.id] = n; });
+
+    var seen = {};
+    var frontier = [];
+    nodes.forEach(function (n) {
+      if (!n || !n.id) return;
+      if (n.source === path || (n.data && n.data.path === path)) {
+        seen[n.id] = 0;
+        frontier.push(n.id);
+      }
+    });
+    if (!frontier.length) return null;
+
+    var adj = {};
+    function link(from, to, rel, dir) {
+      (adj[from] = adj[from] || []).push({ id: to, rel: rel, dir: dir });
+    }
+    edges.forEach(function (e) {
+      if (!e || !e.source || !e.target) return;
+      var rel = e.rel || 'related';
+      link(e.source, e.target, rel, 'out');
+      link(e.target, e.source, rel, 'in');
+    });
+
+    var found = [];
+    for (var hop = 1; hop <= GRAPH_HOPS; hop++) {
+      var next = [];
+      for (var i = 0; i < frontier.length; i++) {
+        var links = adj[frontier[i]] || [];
+        for (var j = 0; j < links.length; j++) {
+          var l = links[j];
+          if (Object.prototype.hasOwnProperty.call(seen, l.id)) continue;
+          seen[l.id] = hop;
+          next.push(l.id);
+          if (byId[l.id]) found.push({ node: byId[l.id], rel: l.rel, dir: l.dir, hop: hop });
+        }
+      }
+      frontier = next;
+      if (!frontier.length) break;
+    }
+    return found;
+  }
+
+  // Group by edge kind, nearest hop first inside each group.
+  function renderNeighborhood(found) {
+    var groups = {};
+    found.forEach(function (it) {
+      (groups[it.rel] = groups[it.rel] || []).push(it);
+    });
+    var rels = Object.keys(groups).sort();
+    graphBodyEl.innerHTML = rels.map(function (rel) {
+      var items = groups[rel].slice().sort(function (a, b) {
+        return (a.hop - b.hop) || nodeLabel(a.node).localeCompare(nodeLabel(b.node));
+      });
+      var shown = items.slice(0, GRAPH_MAX_PER_REL);
+      var more = items.length - shown.length;
+      return '<div class="dg-group">' +
+        '<div class="dg-rel">' + esc(rel.replace(/_/g, ' ')) + '</div>' +
+        '<ul class="dg-list">' +
+        shown.map(function (it) {
+          return '<li class="dg-item">' +
+            '<span class="dg-kind">' + esc(it.node.kind || 'node') + '</span>' +
+            '<span class="dg-dir" aria-hidden="true">' + (it.dir === 'in' ? '←' : '→') + '</span>' +
+            '<a href="' + esc(nodeHref(it.node)) + '">' + esc(nodeLabel(it.node)) + '</a>' +
+            (it.hop > 1 ? '<span class="dg-hop">' + it.hop + ' hops</span>' : '') +
+            '</li>';
+        }).join('') +
+        (more > 0 ? '<li class="dg-more">+' + more + ' more</li>' : '') +
+        '</ul></div>';
+    }).join('');
+    if (graphCountEl) graphCountEl.textContent = '(' + found.length + ')';
+  }
+
+  function removeGraphPanel() {
+    if (graphEl && graphEl.parentNode) graphEl.parentNode.removeChild(graphEl);
+  }
+
+  if (graphEl && graphToggleEl && graphBodyEl) {
+    graphToggleEl.addEventListener('click', function () {
+      var open = !graphEl.classList.contains('open');
+      graphEl.classList.toggle('open', open);
+      graphToggleEl.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (!open || graphLoaded) return;
+      graphLoaded = true;
+      graphBodyEl.innerHTML = '<div class="dg-note">Loading…</div>';
+      // The ONLY fetch of the compiled brain on this page — on demand, never
+      // up front.
+      fetch('/app/brain.json', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (brain) {
+          var found = brain ? buildNeighborhood(brain) : null;
+          if (!found || !found.length) { removeGraphPanel(); return; }
+          renderNeighborhood(found);
+        })
+        .catch(function () { removeGraphPanel(); });
+    });
+  }
+
+  fetch(fetchUrl, { cache: 'no-cache' })
+    .then(function (r) {
+      if (r.status === 404) throw new Error('404');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function (md) {
+      var fm = parseFrontmatter(md);
+      var body = fm.body;
+      if (fm.meta && fm.meta.title) {
+        titleEl.textContent = fm.meta.title;
+        crumbEl.textContent = fm.meta.title;
+        setDocTitle(fm.meta.title);
+        // Drop a leading H1 that just repeats the title (shown in the header already).
+        body = body.replace(/^\s*#\s+.+\r?\n+/, '');
+      }
+      // Parse to HTML only here; per-page enhancement (mermaid/highlight/
+      // callouts) runs in showPage() so it survives pagination's re-cloning.
+      var html = KBRender.parse(body);
+      contentEl.innerHTML = renderMeta(fm.meta) + '<div class="md">' + html + '</div>';
+      // Rewrite RELATIVE links inside the doc so doc-to-doc navigation works:
+      // a link like "services.md" or "../gtm/x.md" resolves against THIS doc's
+      // directory and becomes reader.html?f=<resolved>. Viewer-openable binaries
+      // (.pdf/.docx/.csv/.xlsx) get the same treatment; absolute URLs,
+      // site-root paths, anchors, and mailto are untouched.
+      (function rewriteRelativeLinks() {
+        var docDir = path.indexOf('/') !== -1 ? path.slice(0, path.lastIndexOf('/')) : '';
+        var FILE_RE = /\.(md|pdf|docx|csv|xlsx)([#?].*)?$/i;
+        contentEl.querySelectorAll('.md a[href]').forEach(function (a) {
+          var href = a.getAttribute('href') || '';
+          if (!href || /^([a-z]+:|\/|#)/i.test(href)) return;   // absolute, root, anchor, mailto
+          if (!FILE_RE.test(href)) return;
+          var hash = '';
+          var qi = href.indexOf('#');
+          if (qi !== -1) { hash = href.slice(qi); href = href.slice(0, qi); }
+          var parts = (docDir ? docDir + '/' : '').concat(href).split('/');
+          var out = [];
+          parts.forEach(function (seg) {
+            if (seg === '' || seg === '.') return;
+            if (seg === '..') { out.pop(); return; }
+            out.push(seg);
+          });
+          a.setAttribute('href', 'reader.html?f=' + encodeURIComponent(out.join('/')) + hash);
+          a.removeAttribute('target');
+        });
+      })();
+
+      dividerEl.style.display = 'block';
+      footEl.style.display = 'block';
+      // The collapsed "Related" affordance appears only for a document that
+      // actually rendered; whether it has a node is settled on expand.
+      if (graphEl) graphEl.style.display = 'block';
+
+      // Wikilinks resolve BEFORE pagination so the page snapshots carry the
+      // rewritten links (buildPages clones the DOM). Pack failures never block
+      // the render — the doc just shows without link enhancement.
+      return packPromise.then(function (pack) {
+        if (pack) {
+          try { applyWikilinks(pack); insertBacklinks(pack); } catch (e) {}
+        }
+      }).then(function () {
+        // Split long docs into pages; short docs stay as a single page (no pager).
+        var md = contentEl.querySelector('.md');
+        docPages = buildPages(md);
+        showPage(0, false);
+      });
+    })
+    .catch(function (err) {
+      if (err.message === '404') {
+        showError('Document not found', 'No file exists at <code>' + esc(path) + '</code>.');
+      } else {
+        showError('Failed to load', 'Could not fetch <code>' + esc(path) + '</code> (' + esc(err.message) + ').');
+      }
+    });
+})();
+</script>
+
+</body>
+</html>

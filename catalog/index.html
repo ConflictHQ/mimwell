@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalog</title>
+<!-- Bespoke surface (frontend pass 3, W1.7): chrome from app/shell.js, content
+     from app/surface-catalog.js over a served primitive (app/sources.json). The
+     shell declares the surface id and nothing else. -->
+<link rel="stylesheet" href="/app/page-shell.css">
+<link rel="stylesheet" href="/app/surfaces.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+<script src="/app/shell.js" defer></script>
+<script src="/app/surface-catalog.js" defer></script>
+</head>
+<body>
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home; app/nav.js fills the slot from
+         client.config.json branding.owner (KBNav.applyOwnerBrand). -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Page head -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">Sources</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">Catalog</h1>
+  <p class="page-subtitle">The systems of record this brain knows — sources, their entities and fields, with status, owner and provenance. Catalogued, not copied.</p>
+</section>
+
+<!-- Body: rendered by app/surface-catalog.js -->
+<main class="ks-wrap" data-kb-surface="catalog"></main>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+</body>
+</html>

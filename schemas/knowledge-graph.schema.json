@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-graph/v1",
+  "title": "Knowledge graph envelope (app/knowledge_graph.json)",
+  "description": "conflict-kg/v1 interchange envelope built by scripts/build-kg.py. Composes kg-node and kg-edge. Generated, not hand-authored.",
+  "x-conflict": { "version": "1", "editable": false, "source": "app/knowledge_graph.json" },
+  "type": "object",
+  "required": ["format", "nodes", "edges"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "enum": ["conflict-kg/v1", "calliope-kg/v1"] },
+    "nodes": { "type": "array", "items": { "$ref": "kg-node.schema.json" } },
+    "edges": { "type": "array", "items": { "$ref": "kg-edge.schema.json" } }
+  }
+}

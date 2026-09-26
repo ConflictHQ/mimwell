@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/navigation-worker-package/v1",
+  "description": "Instance-owned Worker manifest with the dependency range paired with the pinned package-lock.json; name and local scripts remain configurable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["dependencies"],
+  "properties": {
+    "name": {"type": "string"},
+    "version": {"type": "string"},
+    "private": {"type": "boolean"},
+    "description": {"type": "string"},
+    "license": {"type": "string"},
+    "type": {"enum": ["module", "commonjs"]},
+    "scripts": {"type": "object", "additionalProperties": {"type": "string"}},
+    "devDependencies": {"type": "object", "maxProperties": 0},
+    "optionalDependencies": {"type": "object", "maxProperties": 0},
+    "peerDependencies": {"type": "object", "maxProperties": 0},
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["@anthropic-ai/sdk"],
+      "properties": {
+        "@anthropic-ai/sdk": {"const": "^0.93.0"}
+      }
+    }
+  }
+}

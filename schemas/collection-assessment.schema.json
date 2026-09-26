@@ -1,0 +1,166 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "lineage": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "modality": {
+            "enum": [
+              "text",
+              "image",
+              "audio",
+              "video",
+              "structured",
+              "code"
+            ]
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "currentRevision": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "observedAt": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "locator": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "id",
+          "lineage",
+          "modality",
+          "revision",
+          "currentRevision",
+          "observedAt",
+          "locator"
+        ]
+      },
+      "minItems": 0
+    },
+    "assessments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "profile": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "id",
+              "version",
+              "sha256"
+            ]
+          },
+          "useCase": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "decision": {
+            "enum": [
+              "partial",
+              "sufficient",
+              "not-applicable"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "reviewedBy": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "reviewedAt": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "criterion": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "minItems": 0
+          }
+        },
+        "required": [
+          "question",
+          "profile",
+          "useCase",
+          "decision",
+          "reason",
+          "reviewedBy",
+          "reviewedAt",
+          "criterion",
+          "evidence"
+        ]
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "evidence",
+    "assessments"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/collection-assessment/v1"
+}

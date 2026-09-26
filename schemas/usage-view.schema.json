@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/usage-view/v1",
+  "title": "Per-brain usage view (#348)",
+  "description": "scripts/gen-usage-view.py's summary over the opt-in context-service usage log (schemas/context-usage-log.schema.json): most/least used kinds and records, records never returned, recurring gaps. Derived only from already-logged ids/kinds/gaps; carries no record content or caller identity beyond what the log itself carries.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format", "generated_by", "enabled", "logSources", "policyScope", "counts",
+    "kinds", "mostUsedRecords", "leastUsedRecords", "neverReturned", "recurringGaps"
+  ],
+  "properties": {
+    "format": { "const": "usage-view/v1" },
+    "generated_by": { "const": "scripts/gen-usage-view.py" },
+    "enabled": {
+      "type": "boolean",
+      "description": "False when no usage-log input was found at all (clean no-op); an empty log that exists still reports enabled: true with zero counts."
+    },
+    "logSources": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "policyScope": {
+      "type": ["string", "null"],
+      "description": "The usage log's declared policy scope (host config `usageLog.scope`), when a --root/--host-config pair was given; null otherwise."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "byOperation", "recordsReturned"],
+      "properties": {
+        "requests": { "type": "integer", "minimum": 0 },
+        "byOperation": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "recordsReturned": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "kinds": {
+      "type": "array",
+      "description": "Every returned kind, most-used first.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "count"],
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "mostUsedRecords": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/recordCount" }
+    },
+    "leastUsedRecords": {
+      "type": "array",
+      "description": "Bottom of the returned-at-least-once ranking (disjoint from neverReturned, which is count zero).",
+      "items": { "$ref": "#/$defs/recordCount" }
+    },
+    "neverReturned": {
+      "type": ["object", "null"],
+      "description": "Null unless a brain graph (app/brain.json) was supplied, since computing this needs the full node inventory.",
+      "additionalProperties": false,
+      "required": ["count", "sample"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "sample": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "kind": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "recurringGaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["state", "reason", "count"],
+        "properties": {
+          "state": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "recordCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "count"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

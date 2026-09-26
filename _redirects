@@ -1,0 +1,10 @@
+# Cloudflare Pages / Workers Assets redirect rules.
+# Format: <from>  <to>  <status>
+
+# Trailing-slash convention: the portal generates all internal links WITH a
+# trailing slash (client.config.json pages[], nav.js topnav, index.html hrefs, and
+# worker.js normUrl). Cloudflare Workers Assets html_handling (auto-trailing-slash)
+# already serves '/roadmap/' -> '/roadmap/index.html' (200) and canonicalizes the
+# slash-less '/roadmap' -> '/roadmap/' for free, matching that convention. So no
+# trailing-slash rule is needed here — a strip-the-slash 308 would 308 AWAY from the
+# exact URLs the app emits on every navigation, which is backwards.

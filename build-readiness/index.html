@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's Next</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the stylesheet rules below reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --red-dark: #B02A3A;
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     #2F478E; --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  /* ── Breadcrumb back-to-home ── */
+  .crumb { max-width: 1500px; margin: 0 auto; padding: 22px 32px 0; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── Page head ── */
+  .page-head { max-width: 1500px; margin: 0 auto; padding: 44px 32px 0; }
+  .page-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .page-title { font-family: var(--kb-font-heading); font-size: 40px; letter-spacing: .03em; text-transform: uppercase; line-height: 1; color: var(--text); margin-bottom: 10px; }
+  .page-subtitle { font-size: 13px; color: var(--muted); max-width: 680px; line-height: 1.7; }
+  .page-subtitle code { font-family: var(--kb-font-mono); font-size: 11px; color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+
+  /* ── Stat strip ── */
+  .stats { max-width: 1500px; margin: 0 auto; padding: 26px 32px 0; display: flex; flex-wrap: wrap; gap: 12px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 13px 18px; min-width: 116px; border-top: 2px solid var(--dim);
+  }
+  .stat.ready { border-top-color: var(--accent, var(--green)); }
+  .stat.in-progress { border-top-color: var(--yellow); }
+  .stat.blocked { border-top-color: var(--red); }
+  .stat.done { border-top-color: var(--green); }
+  .stat-num { font-family: var(--kb-font-heading); font-size: 28px; line-height: 1; color: var(--text); }
+  .stat-label { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-top: 6px; }
+
+  /* ── Status legend ── */
+  .legend {
+    max-width: 1500px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend-dot.done { background: var(--green); }
+  .legend-dot.in-progress { background: var(--yellow); }
+  .legend-dot.ready { background: var(--blue); }
+  .legend-dot.blocked { background: var(--red); }
+  .legend-dot.planned { background: var(--dim); }
+  .legend-dot.unknown { background: var(--purple); }
+
+  /* ── Wrap ── */
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 28px 32px 80px; display: flex; flex-direction: column; gap: 28px; }
+
+  /* ── Card ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .card-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .card-title { font-family: var(--kb-font-heading); font-size: 18px; letter-spacing: .06em; text-transform: uppercase; color: var(--text); }
+  .card-hint { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  .card-body { padding: 20px; }
+
+  /* ── Item rows (readiness / unblocked / next-actions) ── */
+  .item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--dim); padding: 13px 16px; margin-bottom: 8px;
+  }
+  .item:last-child { margin-bottom: 0; }
+  .item.done { border-left-color: var(--green); }
+  .item.in-progress { border-left-color: var(--yellow); }
+  .item.ready { border-left-color: var(--blue); }
+  .item.blocked { border-left-color: var(--red); }
+  .item-line { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .item-marker { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .item-marker.done { background: var(--green); }
+  .item-marker.in-progress { background: var(--yellow); }
+  .item-marker.ready { background: var(--blue); }
+  .item-marker.blocked { background: var(--red); }
+  .item-marker.planned { background: var(--dim); }
+  .item-marker.unknown { background: var(--purple); }
+  .item-name { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.3; }
+  .item-rank { font-family: var(--kb-font-heading); font-size: 16px; color: var(--red); width: 22px; flex: none; }
+  .item-id { font-family: var(--kb-font-mono); font-size: 9px; color: var(--dim); margin-top: 4px; word-break: break-all; }
+  .item-reasons { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .item-reasons b { color: var(--text); font-weight: 500; }
+  .blocked-by { margin-top: 7px; padding-left: 2px; display: flex; flex-direction: column; gap: 4px; }
+  .blocked-row { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+
+  /* ── Critical path chain ── */
+  .chain { display: flex; flex-direction: column; gap: 0; }
+  .chain-node { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+  .chain-node .item-marker { margin-left: 2px; }
+  .chain-conn { font-family: var(--kb-font-mono); font-size: 11px; color: var(--red); padding-left: 7px; }
+  .chain-meta { font-family: var(--kb-font-mono); font-size: 9px; color: var(--dim); margin-left: auto; }
+
+  /* ── Badges ── */
+  .badge {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase;
+    border: 1px solid; border-radius: 3px; padding: 1px 7px; white-space: nowrap; flex: none;
+  }
+  .badge.type { color: var(--muted); border-color: var(--border2); background: var(--surface2); }
+  .badge.size { color: var(--blue); border-color: rgba(47,71,142,.4); background: var(--blue-dim); }
+  .badge.cp { color: var(--red); border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); background: var(--red-dim); }
+  .badge.status.done { color: var(--green); background: var(--green-dim); border-color: rgba(27,161,94,.4); }
+  .badge.status.in-progress { color: var(--yellow); background: var(--yellow-dim); border-color: rgba(245,166,35,.4); }
+  .badge.status.ready { color: var(--blue); background: var(--blue-dim); border-color: rgba(47,71,142,.4); }
+  .badge.status.blocked { color: var(--red); background: var(--red-dim); border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .badge.status.planned { color: var(--dim); background: var(--surface); border-color: var(--border2); }
+  .badge.status.unknown { color: var(--purple); background: var(--purple-dim); border-color: rgba(107,70,193,.4); }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: color-mix(in srgb, var(--kb-primary) 40%, transparent); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-note { font-size: 12px; color: var(--dim); padding: 14px 4px 2px; }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .page-head, .stats, .legend, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .page-title { font-size: 32px; }
+  }
+</style>
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Breadcrumb -->
+<nav class="crumb" aria-label="Breadcrumb"><a href="/">← Portal home</a></nav>
+
+<!-- Page head -->
+<section class="page-head">
+  <div class="page-eyebrow">
+    <span id="page-eyebrow-text">What's Next</span>
+    <span class="page-eyebrow-line"></span>
+  </div>
+  <h1 class="page-title">What's Next</h1>
+  <p class="page-subtitle">Build-readiness navigator — what's buildable now, what's blocked and why, the critical path through the plan, and a ranked recommendation of what to pick up. Fully derived from the plan, its <code>depends_on</code> graph, and estimates; read from <code>app/build-readiness.json</code>.</p>
+</section>
+
+<!-- Stat strip -->
+<div class="stats" id="stats" aria-label="Readiness summary"></div>
+
+<!-- Status legend -->
+<div class="legend" id="legend" aria-label="Status legend">
+  <div class="legend-item"><span class="legend-dot ready"></span><span>Ready</span></div>
+  <div class="legend-item"><span class="legend-dot in-progress"></span><span>In progress</span></div>
+  <div class="legend-item"><span class="legend-dot blocked"></span><span>Blocked</span></div>
+  <div class="legend-item"><span class="legend-dot done"></span><span>Done</span></div>
+</div>
+
+<!-- Content -->
+<div class="wrap" id="wrap">
+  <div class="statebox">
+    <div class="spinner"></div>
+    <div class="st-title">Loading</div>
+    <div>Computing build readiness…</div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+const STATUS_LABEL = { 'done': 'Done', 'in-progress': 'In progress', 'ready': 'Ready', 'blocked': 'Blocked', 'planned': 'Planned', 'unknown': 'Unknown' };
+function stClass(s) { return STATUS_LABEL[s] ? s : 'planned'; }
+function stLabel(s) { return STATUS_LABEL[s] || 'Planned'; }
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  const name = KBNav.brainName(cfg);
+  document.title = (name ? name + ' — ' : '') + "What's Next";
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', KBNav.brainShortName(cfg));
+  set('page-eyebrow-text', name ? name + " — What's Next" : "What's Next");
+  // Owner co-brand (#47): the owner name comes from branding.owner through
+  // the shared seam in app/nav.js, never a literal in the page shell.
+  set('footer-text', [KBNav.brainShortName(cfg), KBNav.ownerName(cfg.branding)].filter(Boolean).join(' · '));
+
+  KBNav.topnav(document.getElementById('topnav'), cfg.pages || []);
+}
+
+// ── Render helpers ───────────────────────────────────────────────────────────
+function sizeBadge(size) { return size ? `<span class="badge size">${esc(size)}</span>` : ''; }
+
+function statRow(counts) {
+  const cells = [
+    ['ready', counts.ready, 'Ready'],
+    ['in-progress', counts.in_progress, 'In progress'],
+    ['blocked', counts.blocked, 'Blocked'],
+    ['done', counts.done, 'Done'],
+  ];
+  return cells.map(([cls, n, label]) =>
+    `<div class="stat ${cls}"><div class="stat-num">${n ?? 0}</div><div class="stat-label">${label}</div></div>`
+  ).join('');
+}
+
+function readinessItem(r) {
+  const sc = stClass(r.readiness);
+  const blocked = (r.blocked_by || []).map(d => `
+    <div class="blocked-row">
+      <span class="item-marker ${stClass(d.status)}"></span>
+      <span>${esc(d.title || d.id)}</span>
+      <span class="badge status ${stClass(d.status)}">${esc(stLabel(d.status))}</span>
+    </div>`).join('');
+  return `<div class="item ${sc}">
+    <div class="item-line">
+      <span class="item-marker ${sc}"></span>
+      <span class="item-name">${esc(r.title || r.id)}</span>
+      ${sizeBadge(r.estimate)}
+      <span class="badge status ${sc}" style="margin-left:auto">${esc(stLabel(r.readiness))}</span>
+    </div>
+    <div class="item-id">${esc(r.id)}</div>
+    ${blocked ? `<div class="blocked-by">${blocked}</div>` : ''}
+  </div>`;
+}
+
+function nextActionItem(a, rank) {
+  return `<div class="item ready">
+    <div class="item-line">
+      <span class="item-rank">${rank}</span>
+      <span class="item-name">${esc(a.title || a.id)}</span>
+      ${sizeBadge(a.estimate)}
+      ${a.on_critical_path ? '<span class="badge cp">critical path</span>' : ''}
+    </div>
+    <div class="item-id">${esc(a.id)}</div>
+    <div class="item-reasons">${(a.reasons || []).map(esc).join(' · ')}</div>
+  </div>`;
+}
+
+function chainNode(n, isLast) {
+  const sc = stClass(n.status);
+  return `<div class="chain-node">
+      <span class="item-marker ${sc}"></span>
+      <span class="item-name">${esc(n.title || n.id)}</span>
+      ${n.type ? `<span class="badge type">${esc(n.type)}</span>` : ''}
+      ${sizeBadge(n.estimate)}
+      <span class="chain-meta">${n.points || 0} pts</span>
+    </div>` + (isLast ? '' : '<div class="chain-conn">↓ depends on</div>');
+}
+
+function card(title, hint, bodyHtml) {
+  return `<div class="card">
+    <div class="card-head"><span class="card-title">${esc(title)}</span>${hint ? `<span class="card-hint">${esc(hint)}</span>` : ''}</div>
+    <div class="card-body">${bodyHtml}</div>
+  </div>`;
+}
+
+// ── Build readiness (reads /app/build-readiness.json) ────────────────────────
+async function loadReadiness() {
+  const wrap = document.getElementById('wrap');
+  let data;
+  try {
+    const r = await fetch('/app/build-readiness.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    wrap.innerHTML =
+      '<div class="statebox error">' +
+        '<div class="st-title">Failed to load</div>' +
+        '<div>Could not fetch <code>app/build-readiness.json</code> (' + esc(err.message) + ').</div>' +
+        '<div style="margin-top:10px">Run <code>make build-readiness</code> to generate it.</div>' +
+      '</div>';
+    return;
+  }
+
+  const counts = data.counts || {};
+  const readiness = Array.isArray(data.readiness) ? data.readiness : [];
+  const nextActions = Array.isArray(data.next_actions) ? data.next_actions : [];
+  const cp = data.critical_path || { chain: [] };
+  const chain = Array.isArray(cp.chain) ? cp.chain : [];
+
+  document.getElementById('stats').innerHTML = statRow(counts);
+
+  if (!readiness.length) {
+    wrap.innerHTML =
+      '<div class="statebox">' +
+        '<div class="st-title">No stories yet</div>' +
+        '<div>Add stories under <code>specs/</code> with a <code>depends_on</code> list and a T-shirt <code>estimate</code>, then run <code>make build</code>.</div>' +
+        '<div style="margin-top:10px">This page derives unblocked work, the critical path, and what to pick up next from the plan.</div>' +
+      '</div>';
+    return;
+  }
+
+  const parts = [];
+
+  // Next actions — the recommendation.
+  if (nextActions.length) {
+    parts.push(card('Next actions', 'ranked: critical path × priority × effort',
+      nextActions.map((a, i) => nextActionItem(a, i + 1)).join('')));
+  } else {
+    parts.push(card('Next actions', 'nothing buildable right now',
+      '<div class="empty-note">No stories are unblocked — every open story is waiting on a dependency, in progress, or done. Clear a blocker below to open up work.</div>'));
+  }
+
+  // Critical path.
+  if (chain.length) {
+    parts.push(card('Critical path', `${cp.length} node(s) · ${cp.points} points`,
+      `<div class="chain">${chain.map((n, i) => chainNode(n, i === chain.length - 1)).join('')}</div>`));
+  }
+
+  // Per-story readiness — grouped by readiness score, blocked/ready first.
+  const order = ['ready', 'in-progress', 'blocked', 'done'];
+  const groups = {};
+  readiness.forEach(r => { (groups[r.readiness] = groups[r.readiness] || []).push(r); });
+  const readinessBody = order
+    .filter(k => (groups[k] || []).length)
+    .map(k => groups[k].map(readinessItem).join(''))
+    .join('');
+  parts.push(card('Story readiness', 'every story, scored', readinessBody));
+
+  wrap.innerHTML = parts.join('');
+}
+
+loadConfig();
+loadReadiness();
+</script>
+</body>
+</html>

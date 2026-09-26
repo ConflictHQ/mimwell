@@ -1,0 +1,95 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   KBDocViewer styles — in-portal PDF / DOCX / CSV / XLSX viewers
+   (app/doc-viewer.js).
+
+   All chrome references the LOCAL ALIAS vars (--bg, --surface, --surface2,
+   --border, --border2, --text, --muted, --dim, --red, --radius) which theme.css
+   re-themes light/dark off the --kb-* seam; no palette is hardcoded. The DOCX
+   path reuses .md typography from app/render.css.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.kb-doc { width: 100%; }
+
+/* ── Loading / empty / fallback ── */
+.kb-doc-loading {
+  display: flex; align-items: center; gap: 10px; padding: 40px 0;
+  font-family: var(--kb-font-mono, monospace); font-size: 12px; color: var(--muted, #999);
+}
+.kb-doc-spin {
+  width: 18px; height: 18px; border: 2px solid var(--border, #2a2a2a);
+  border-top-color: var(--red, #1E9C8F); border-radius: 50%;
+  animation: kb-doc-spin .7s linear infinite;
+}
+@keyframes kb-doc-spin { to { transform: rotate(360deg); } }
+.kb-doc-empty {
+  padding: 28px; text-align: center; color: var(--dim, #777);
+  font-style: italic; font-size: 13px;
+}
+.kb-doc-fallback {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 48px 24px; text-align: center;
+  background: var(--surface, rgba(255,255,255,.05));
+  border: 1px solid var(--border, #2a2a2a); border-radius: var(--radius, 6px);
+}
+.kb-doc-fallback .kb-doc-ico { font-size: 38px; color: var(--dim, #777); line-height: 1; }
+.kb-doc-fallback .kb-doc-fallmsg { font-size: 13px; color: var(--muted, #999); }
+.kb-doc-fallback .kb-doc-dl {
+  font-family: var(--kb-font-mono, monospace); font-size: 11px; letter-spacing: .04em;
+  text-transform: uppercase; text-decoration: none; color: var(--red, #1E9C8F);
+  border: 1px solid color-mix(in srgb, var(--red, #1E9C8F) 40%, transparent);
+  border-radius: var(--radius, 6px); padding: 8px 16px; transition: background .12s;
+}
+.kb-doc-fallback .kb-doc-dl:hover { background: color-mix(in srgb, var(--red, #1E9C8F) 10%, transparent); }
+
+/* ── PDF (paged canvases) ── */
+.kb-doc-pdf { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.kb-doc-page {
+  max-width: 100%; height: auto; display: block;
+  border: 1px solid var(--border, #2a2a2a); border-radius: var(--radius, 6px);
+  box-shadow: 0 1px 6px rgba(0,0,0,.18);
+}
+.kb-doc-embed { width: 100%; height: 80vh; border: 1px solid var(--border, #2a2a2a); border-radius: var(--radius, 6px); }
+.kb-doc-office { width: 100%; height: 80vh; border: 1px solid var(--border, #2a2a2a); border-radius: var(--radius, 6px); background: var(--surface, #fff); }
+
+/* ── DOCX wrapper (typography inherited from .md / render.css) ── */
+.kb-doc-docx { padding: 4px 0; }
+
+/* ── Tables (CSV + XLSX), sortable ── */
+.kb-doc-table-wrap {
+  overflow-x: auto; border: 1px solid var(--border, #2a2a2a); border-radius: var(--radius, 6px);
+}
+.kb-doc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.kb-doc-table th, .kb-doc-table td {
+  border: 1px solid var(--border, #2a2a2a); padding: 7px 12px; text-align: left; vertical-align: top;
+}
+.kb-doc-table th {
+  position: sticky; top: 0; cursor: pointer; user-select: none;
+  font-family: var(--kb-font-mono, monospace); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted, #999);
+  background: var(--surface2, rgba(255,255,255,.08)); font-weight: 500;
+}
+.kb-doc-table th:hover { color: var(--text, #fff); }
+.kb-doc-table th::after { content: ''; margin-left: 6px; opacity: .6; }
+.kb-doc-table th.sort-asc::after { content: '▲'; font-size: 8px; }
+.kb-doc-table th.sort-desc::after { content: '▼'; font-size: 8px; }
+.kb-doc-table th:focus-visible { outline: 2px solid var(--red, #1E9C8F); outline-offset: -2px; }
+.kb-doc-table tr:nth-child(even) td { background: var(--surface, rgba(255,255,255,.04)); }
+.kb-doc-table td { color: var(--text, #fff); }
+
+/* ── XLSX sheet tabs ── */
+.kb-doc-tabs {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border, #2a2a2a); padding-bottom: 8px;
+}
+.kb-doc-tab {
+  font-family: var(--kb-font-mono, monospace); font-size: 11px; letter-spacing: .04em;
+  color: var(--dim, #777); background: var(--surface, rgba(255,255,255,.05));
+  border: 1px solid var(--border, #2a2a2a); border-radius: var(--radius, 6px);
+  padding: 5px 12px; cursor: pointer; transition: color .12s, border-color .12s, background .12s;
+}
+.kb-doc-tab:hover { color: var(--text, #fff); }
+.kb-doc-tab.active {
+  color: var(--red, #1E9C8F); border-color: var(--red, #1E9C8F);
+  background: color-mix(in srgb, var(--red, #1E9C8F) 8%, transparent);
+}
+.kb-doc-tab:focus-visible { outline: 2px solid var(--red, #1E9C8F); outline-offset: 1px; }

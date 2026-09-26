@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Session</title>
+<style>
+  :root {
+    /* ── Branding seam: defaults below are overwritten at runtime from
+       /client.config.json (branding.colors + branding.fonts). The page renders
+       immediately with these values, then re-brands when the config loads. ── */
+    --kb-primary:      #1E9C8F;
+    --kb-link:         #2F97BF;
+    --kb-accent:       #B98536;
+    --kb-bg:           #0B1619;
+    --kb-bg-deep:      #060D0F;
+    --kb-surface:      #0F1E22;
+    --kb-border:       #1D3238;
+    --kb-border-light: #27414A;
+    --kb-text:         #E6EFEE;
+    --kb-text-muted:   #93A9AB;
+    --kb-text-faint:   #667D80;
+    --kb-font-heading: 'Fraunces', Georgia, serif;
+    --kb-font-body:    'Inter', system-ui, sans-serif;
+    --kb-font-mono:    'JetBrains Mono', monospace;
+
+    /* Local aliases — the source stylesheet rules reference these short names.
+       They resolve to the --kb-* seam so a single config fetch re-brands all. */
+    /* ── Content zone: light reading surface with primary-color accents.
+       The dark portal chrome (header/footer) re-scopes these below. ── */
+    --bg:       #F4F5F8;
+    --surface:  #FFFFFF;
+    --surface2: #EDEFF5;
+    --border:   #E2E8F0;
+    --border2:  #D7DEEC;
+    --red:      var(--kb-primary);
+    --red-dim:  color-mix(in srgb, var(--kb-primary) 8%, transparent);
+    --red-soft: color-mix(in srgb, var(--kb-primary) 14%, transparent);
+    --red-edge: color-mix(in srgb, var(--kb-primary) 40%, transparent);
+    --red-edge2:color-mix(in srgb, var(--kb-primary) 50%, transparent);
+    --red-edge-soft: color-mix(in srgb, var(--kb-primary) 35%, transparent);
+    --text:     #231F20;
+    --muted:    #56575D;
+    --dim:      #86868B;
+    --green:    #1BA15E; --green-dim: rgba(27,161,94,0.1);
+    --yellow:   #B5870E; --yellow-dim: rgba(245,166,35,0.1);
+    --blue:     var(--kb-link); --blue-dim: rgba(47,71,142,0.08);
+    --purple:   #6B46C1; --purple-dim: rgba(107,70,193,0.1);
+    --radius:   6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--kb-font-body); font-size: 13px; line-height: 1.6; min-height: 100vh; }
+
+  /* ── Dark portal chrome: header + footer stay dark, config-driven (--kb-*). ── */
+  .topbar, .footer {
+    --bg:       var(--kb-bg);
+    --surface:  rgba(255,255,255,0.06);
+    --surface2: rgba(255,255,255,0.10);
+    --border:   var(--kb-border);
+    --border2:  var(--kb-border-light);
+    --text:     var(--kb-text);
+    --muted:    var(--kb-text-muted);
+    --dim:      var(--kb-text-faint);
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    height: 54px; background: var(--bg); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 32px; position: sticky; top: 0; z-index: 200;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-logo { display: inline-flex; line-height: 0; transition: opacity .15s; }
+  .brand-logo:hover { opacity: .75; }
+  .brand-divider { color: var(--border2); font-size: 16px; }
+  .brand-name { font-family: var(--kb-font-heading); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .topnav { display: flex; align-items: center; gap: 4px; }
+  .topnav a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--dim); text-decoration: none;
+    padding: 5px 10px; border-radius: 3px; transition: color .15s, background .15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--surface); }
+  .topnav a.active { color: var(--red); }
+  /* Grouped top-nav: each config `group` becomes a labeled segment. */
+  .topnav-group { display: flex; align-items: center; gap: 2px; }
+  .topnav-group + .topnav-group { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--border); }
+  .topnav-group-label {
+    font-family: var(--kb-font-mono); font-size: 8px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--dim); padding: 0 6px 0 2px; opacity: .8;
+  }
+  @media (max-width: 920px) {
+    .topnav-group-label { display: none; }
+    .topnav-group + .topnav-group { margin-left: 2px; padding-left: 4px; }
+  }
+
+  /* ── Body ── */
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 32px 80px; }
+
+  /* ── Breadcrumb back ── */
+  .crumb { margin-bottom: 22px; }
+  .crumb a {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px 13px;
+    transition: color .12s, border-color .12s;
+  }
+  .crumb a:hover { color: var(--red); border-color: var(--red-edge2); }
+
+  /* ── Session head ── */
+  .ses-head { margin-bottom: 24px; }
+  .ses-eyebrow {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--red); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .ses-eyebrow-line { width: 40px; height: 1px; background: var(--red); opacity: .5; }
+  .ses-title { font-family: var(--kb-font-heading); font-size: 38px; letter-spacing: .03em; text-transform: uppercase; line-height: 1.05; color: var(--text); margin-bottom: 14px; }
+  .ses-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .ses-chip {
+    font-family: var(--kb-font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 3px; padding: 3px 9px;
+  }
+  .label-pill {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+    color: var(--red); background: var(--red-dim);
+    border: 1px solid var(--red-edge); border-radius: 3px; padding: 3px 8px;
+  }
+
+  /* ── Thumbnail ── */
+  .ses-thumb {
+    position: relative; aspect-ratio: 16 / 9; background: #000; overflow: hidden;
+    border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px;
+  }
+  .ses-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ses-thumb.placeholder {
+    display: flex; align-items: center; justify-content: center;
+    background:
+      linear-gradient(135deg, var(--red-dim) 0%, rgba(0,0,0,0) 55%),
+      repeating-linear-gradient(135deg, rgba(0,0,0,.02) 0 12px, transparent 12px 24px),
+      var(--surface2);
+  }
+  .ses-thumb.placeholder .ph-mark {
+    font-family: var(--kb-font-heading); font-size: 14px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--red); opacity: .7;
+    border: 1px solid var(--red-edge-soft); border-radius: 3px; padding: 6px 13px;
+  }
+
+  /* ── Embedded recording ──
+     The frame only; the player itself is the shared media component
+     (app/media-player.js + app/media-player.css), so the theater view and the
+     gallery card view resolve providers and render chrome identically. */
+  .ses-media { margin-bottom: 24px; }
+  .ses-media .kb-media { border: 1px solid var(--border); }
+
+  /* ── Frames gallery (filmstrip; lazy-loaded thumbnails, click → lightbox) ── */
+  .ses-frames { margin-bottom: 32px; }
+  .frame-strip {
+    display: flex; gap: 4px; overflow-x: auto; padding: 4px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+    scrollbar-width: thin; scrollbar-color: var(--border2) transparent;
+  }
+  .frame-strip::-webkit-scrollbar { height: 6px; }
+  .frame-strip::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  .frame-thumb {
+    flex: none; height: 84px; width: auto; object-fit: cover; display: block;
+    border-radius: 3px; cursor: pointer; opacity: .82;
+    transition: opacity .12s, box-shadow .12s; background: #000;
+  }
+  .frame-thumb:hover { opacity: 1; box-shadow: 0 0 0 1px var(--red-edge2); }
+
+  /* The frame viewer is the shared component's lightbox (prev/next across the
+     set); its chrome lives in app/media-player.css, nothing to style here. */
+
+  /* ── Action links row ── */
+  .ses-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 32px; }
+  .ses-action {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--kb-font-mono); font-size: 11px; letter-spacing: .04em;
+    text-transform: uppercase; text-decoration: none;
+    color: var(--muted); background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 9px 15px; transition: color .12s, border-color .12s, background .12s;
+  }
+  .ses-action:hover { color: var(--red); border-color: var(--red-edge2); background: var(--surface2); }
+  .ses-action.primary { color: var(--red); border-color: var(--red-edge); background: var(--red-dim); }
+  .ses-action.primary:hover { background: var(--red-soft); }
+  .ses-action .ico { font-size: 12px; line-height: 1; }
+
+  /* ── Content sections ── */
+  .section { margin-bottom: 34px; }
+  .section-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px;
+    padding-bottom: 9px; border-bottom: 1px solid var(--border);
+  }
+  .section-title { font-family: var(--kb-font-heading); font-size: 16px; letter-spacing: .12em; text-transform: uppercase; color: var(--text); }
+  .section-count { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  .point-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .point-item { font-size: 13.5px; color: var(--text); line-height: 1.55; padding-left: 18px; position: relative; }
+  .point-item::before { content: '›'; position: absolute; left: 0; color: var(--red); font-weight: 700; }
+
+  .ai-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .ai-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--red-edge2); padding: 12px 15px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .ai-text { font-size: 13.5px; color: var(--text); line-height: 1.5; }
+  .ai-owner {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .04em;
+    color: var(--muted);
+  }
+  .ai-owner b { color: var(--text); font-weight: 500; }
+
+  .section-empty { font-size: 13px; color: var(--dim); font-style: italic; }
+
+  /* ── Related (reverse lookups: decisions / questions / action items that
+        reference this session) ── */
+  .rel-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .rel-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    border-left: 3px solid var(--red-edge2); padding: 11px 14px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .rel-kind {
+    font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--red);
+    border: 1px solid var(--red-edge); border-radius: 3px; padding: 2px 7px;
+    white-space: nowrap; flex: none; margin-top: 1px;
+  }
+  .rel-text { font-size: 13px; color: var(--text); line-height: 1.5; }
+
+  /* ── States ── */
+  .statebox {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+    padding: 48px 32px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+  .statebox .st-title { font-family: var(--kb-font-heading); font-size: 20px; letter-spacing: .1em; text-transform: uppercase; color: var(--text); margin-bottom: 8px; }
+  .statebox.error { border-color: var(--red-edge); }
+  .statebox.error .st-title { color: var(--red); }
+  .statebox code { font-family: var(--kb-font-mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; }
+  .statebox .back-link { display: inline-block; margin-top: 20px; color: var(--red); text-decoration: none; font-size: 12px; border: 1px solid var(--red-edge); border-radius: 4px; padding: 6px 14px; }
+  .statebox .back-link:hover { background: var(--red-dim); }
+  .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border); padding: 20px 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .footer-left { display: flex; align-items: center; gap: 16px; }
+  .footer-text { font-family: var(--kb-font-mono); font-size: 10px; color: var(--dim); }
+
+  @media (max-width: 560px) {
+    .topbar, .wrap, .footer { padding-left: 18px; padding-right: 18px; }
+    .ses-title { font-size: 30px; }
+  }
+</style>
+<!-- Shared rich-markdown styles (callouts, tables, task lists, code, mermaid). -->
+<link rel="stylesheet" href="/app/render.css">
+<!-- Shared media component (#41): theater player + image set viewer. -->
+<link rel="stylesheet" href="/app/media-player.css">
+<!-- Shared light/dark theme: AFTER the page <style> so its alias overrides cascade. -->
+<link rel="stylesheet" href="/app/theme.css">
+<script src="/app/nav.js" defer></script>
+<script src="/app/theme.js" defer></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand">
+    <!-- Owner co-brand mark, linked home. The mark itself is NOT baked here:
+         app/nav.js fills this slot from client.config.json branding.owner
+         (KBNav.applyOwnerBrand), falling back to a text wordmark. -->
+    <a href="/" class="brand-logo" aria-label="Home" data-kb-owner-mark="24"></a>
+    <span class="brand-divider">×</span>
+    <span class="brand-name" id="brand-name">—</span>
+  </div>
+  <nav class="topnav" id="topnav"></nav>
+</header>
+
+<!-- Body -->
+<div class="wrap">
+  <div class="crumb">
+    <a href="/app/" id="crumb-back">← All recordings</a>
+  </div>
+
+  <div id="session-root">
+    <div class="statebox">
+      <div class="spinner"></div>
+      <div class="st-title">Loading</div>
+      <div>Fetching session…</div>
+    </div>
+  </div>
+</div>
+
+<!-- The frames viewer is built on demand by the shared media component
+     (KBMedia.openLightbox) and appended to <body>; no markup needed here. -->
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-left">
+    <!-- Owner co-brand mark, from client.config.json branding.owner (app/nav.js). -->
+    <span class="footer-mark" data-kb-owner-mark="17"></span>
+    <span class="footer-text" id="footer-text">—</span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="/app/render.js"></script>
+<!-- Shared media component (#41): provider-detecting player + set viewer. Loaded
+     (not deferred) so KBMedia is defined before the session renders below. -->
+<script src="/app/media-player.js"></script>
+<script>
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// Render a rich-text field as markdown into a fresh .md fragment, returned as an
+// HTML string. Falls back to escaped plain text if KBRender is unavailable.
+// `inline` strips the wrapping <p> so it can sit inside list items.
+function mdHtml(text, inline) {
+  const src = String(text ?? '');
+  if (!src.trim()) return '';
+  if (!window.KBRender) return esc(src);
+  const tmp = document.createElement('div');
+  KBRender.render(src, tmp);
+  if (inline) {
+    const onlyP = tmp.children.length === 1 && tmp.firstElementChild.tagName === 'P';
+    if (onlyP) return tmp.firstElementChild.innerHTML;
+  }
+  return tmp.innerHTML;
+}
+
+// ── Frames gallery → the shared set viewer (KBMedia.openLightbox) ────────────
+// The frame set of the session currently rendered, so a click anywhere in the
+// filmstrip opens the viewer at that index with prev/next across the whole set.
+let FRAMES = [];
+document.addEventListener('click', e => {
+  const img = e.target.closest && e.target.closest('.frame-thumb');
+  if (!img || !window.KBMedia) return;
+  KBMedia.openLightbox(FRAMES, Number(img.dataset.frameIndex) || 0);
+});
+
+// A repo-relative asset path → served URL (leading slash, empty → null). Absolute
+// URLs (http/https/data) pass through untouched so frames may be hosted anywhere.
+function assetUrl(path) {
+  const p = path && String(path).trim();
+  if (!p) return null;
+  if (/^(https?:|data:|\/)/i.test(p)) return p.replace(/^(?!https?:|data:)\/+/, '/');
+  return '/' + p.replace(/^\/+/, '');
+}
+
+// ── Branding + nav: fetch /client.config.json and re-brand the page ──────────
+// Resolves with the client name so the loader can build the document title once
+// the session is known.
+const BRAND = { name: '', resolved: null };
+async function loadConfig() {
+  let cfg;
+  try {
+    cfg = await fetch('/client.config.json', { cache: 'no-cache' }).then(r => r.json());
+  } catch (e) { return; }
+
+  const b = cfg.branding || {};
+  // Owner co-brand mark (#47): app/nav.js owns the [data-kb-owner-mark] slots in
+  // the topbar and footer and fills them from branding.owner. Applied here too
+  // so the mark lands with the rest of this page's config pass.
+  if (window.KBNav) KBNav.applyOwnerBrand(b);
+  const colors = b.colors || {};
+  const fonts = b.fonts || {};
+
+  // CSS custom properties → re-brand colors + fonts.
+  const root = document.documentElement.style;
+  const setVar = (name, val) => { if (val) root.setProperty(name, val); };
+  setVar('--kb-primary',      colors.primary);
+  setVar('--kb-link',         colors.link);
+  setVar('--kb-accent',       colors.accent);
+  setVar('--kb-bg',           colors.bg);
+  setVar('--kb-bg-deep',      colors.bgDeep);
+  setVar('--kb-surface',      colors.surface);
+  setVar('--kb-border',       colors.border);
+  setVar('--kb-border-light', colors.borderLight);
+  setVar('--kb-text',         colors.text);
+  setVar('--kb-text-muted',   colors.textMuted);
+  setVar('--kb-text-faint',   colors.textFaint);
+  setVar('--kb-font-heading', fonts.heading);
+  setVar('--kb-font-body',    fonts.body);
+  setVar('--kb-font-mono',    fonts.mono);
+
+  const name = KBNav.brainName(cfg);
+  BRAND.name = name;
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.textContent = val; };
+  set('brand-name', KBNav.brainShortName(cfg));
+  set('footer-text', KBNav.brainShortName(cfg));
+
+  buildNav(cfg.pages || []);
+}
+
+function buildNav(pages) {
+  // Grouped top-nav + active-state come from the shared module so nav logic
+  // can't drift between pages. See app/nav.js.
+  KBNav.topnav(document.getElementById('topnav'), pages);
+}
+
+// ── Session detail (reads /app/sessions.json, keyed by ?id=) ──────────────────
+function durationStr(min) {
+  if (!min || min < 1) return '—';
+  return min + ' min';
+}
+
+// A repo-relative md path → reader URL; empty/blank paths return null so the
+// caller can omit the link entirely.
+function readerHref(path) {
+  const p = path && String(path).trim();
+  return p ? '/app/reader.html?f=' + encodeURIComponent(p) : null;
+}
+
+function renderSession(s) {
+  const root = document.getElementById('session-root');
+
+  // Document title: "<brain name> — <session title>".
+  const title = s.title || 'Untitled recording';
+  document.title = (BRAND.name ? BRAND.name + ' — ' : '') + title;
+
+  // Thumbnail (repo-relative, may be ""). Missing/broken → brand placeholder.
+  const thumb = s.thumb && String(s.thumb).trim() ? '/' + String(s.thumb).replace(/^\/+/, '') : '';
+  const thumbHtml = thumb
+    ? `<div class="ses-thumb">
+        <img src="${esc(thumb)}" alt="" loading="lazy"
+             onerror="this.parentNode.classList.add('placeholder');this.remove();this.parentNode.insertAdjacentHTML('afterbegin','<span class=&quot;ph-mark&quot;>Recording</span>')">
+      </div>`
+    : `<div class="ses-thumb placeholder"><span class="ph-mark">Recording</span></div>`;
+
+  // Embedded recording — resolved by the shared media component, which handles
+  // direct media URLs, the known player/drive hosts, and share→embed URL
+  // normalization. When it resolves nothing the player is omitted and the
+  // "Watch recording" action link (built below from drive_url) is the fallback.
+  const video = window.KBMedia ? KBMedia.resolve(s.video_url, s.drive_url) : null;
+  const videoHtml = video
+    ? `<div class="ses-media">${KBMedia.playerHtml({
+        video_url: s.video_url, drive_url: s.drive_url, thumb, title
+      })}</div>`
+    : '';
+
+  // Frames gallery — a list of served image paths (s.frames), lazy-loaded; click
+  // → the shared set viewer. No thumb fallback is needed: when a recording is
+  // playable the still survives as the player's poster.
+  const frameList = (Array.isArray(s.frames) ? s.frames : [])
+    .map(assetUrl).filter(Boolean);
+  // Hand the whole set to the shared viewer; the delegated click handler opens
+  // it at the clicked index so prev/next walks the filmstrip.
+  FRAMES = frameList.map((src, i) => ({ src, caption: title + ' · frame ' + (i + 1) }));
+  const framesHtml = frameList.length
+    ? `<section class="section ses-frames">
+        <div class="section-head">
+          <span class="section-title">Frames</span>
+          <span class="section-count">${frameList.length}</span>
+        </div>
+        <div class="frame-strip">${frameList.map((src, i) => {
+          const cap = esc(title + ' · frame ' + (i + 1));
+          return `<img class="frame-thumb" src="${esc(src)}" alt="${cap}" loading="lazy"
+            data-frame-index="${i}" onerror="this.remove()">`;
+        }).join('')}</div>
+      </section>`
+    : '';
+
+  // Meta row: date, duration, then a pill per label (labels are data-driven).
+  const labels = Array.isArray(s.labels) ? s.labels : [];
+  const metaBits = [];
+  if (s.date) metaBits.push(`<span class="ses-chip">${esc(s.date)}</span>`);
+  metaBits.push(`<span class="ses-chip">${esc(durationStr(s.duration_min))}</span>`);
+  labels.forEach(l => metaBits.push(`<span class="label-pill">${esc(l)}</span>`));
+
+  // Action links — each appears only when its field is non-empty.
+  const actions = [];
+  const watch = s.drive_url && String(s.drive_url).trim();
+  if (watch) actions.push(`<a class="ses-action primary" href="${esc(watch)}" target="_blank" rel="noopener"><span class="ico">▶</span> Watch recording</a>`);
+  const transcript = readerHref(s.transcript);
+  if (transcript) actions.push(`<a class="ses-action" href="${esc(transcript)}">Read transcript</a>`);
+  const doc = readerHref(s.doc);
+  if (doc) actions.push(`<a class="ses-action" href="${esc(doc)}">Full analysis</a>`);
+  const agenda = readerHref(s.agenda);
+  if (agenda) actions.push(`<a class="ses-action" href="${esc(agenda)}">Agenda &amp; notes</a>`);
+  const actionsHtml = actions.length ? `<div class="ses-actions">${actions.join('')}</div>` : '';
+
+  // Optional summary — full markdown (may contain emphasis, lists, even
+  // mermaid/diagrams). Rendered via the shared KBRender pipeline.
+  const summary = (s.summary && String(s.summary).trim()) ? mdHtml(s.summary, false) : '';
+  const summaryHtml = summary
+    ? `<section class="section">
+        <div class="section-head"><span class="section-title">Summary</span></div>
+        <div class="md">${summary}</div>
+      </section>`
+    : '';
+
+  // Key points — each entry is rich text (inline markdown).
+  const points = Array.isArray(s.key_points) ? s.key_points : [];
+  const pointsHtml = points.length
+    ? `<ul class="point-list">${points.map(p => `<li class="point-item md">${mdHtml(p, true)}</li>`).join('')}</ul>`
+    : `<div class="section-empty">No key points captured for this session.</div>`;
+
+  // Action items — string entries; pair with owner from action-items.json by
+  // matching session id when available (loaded separately, see loadSession).
+  const items = Array.isArray(s.action_items) ? s.action_items : [];
+  const ownerByText = s._ownerByText || {};
+  const itemsHtml = items.length
+    ? `<ul class="ai-list">${items.map(t => {
+        const owner = ownerByText[t];
+        return `<li class="ai-item">
+          <span class="ai-text md">${mdHtml(t, true)}</span>
+          ${owner ? `<span class="ai-owner">Owner: <b>${esc(owner)}</b></span>` : ''}
+        </li>`;
+      }).join('')}</ul>`
+    : `<div class="section-empty">No action items recorded for this session.</div>`;
+
+  // Related — reverse lookups: decisions / open questions / action items in the
+  // other trackers that reference this session id. Each entry is { kind, text }.
+  const related = Array.isArray(s._related) ? s._related : [];
+  const relatedHtml = related.length
+    ? `<section class="section">
+        <div class="section-head">
+          <span class="section-title">Related</span>
+          <span class="section-count">${related.length}</span>
+        </div>
+        <ul class="rel-list">${related.map(r => `<li class="rel-item">
+          <span class="rel-kind">${esc(r.kind)}</span>
+          <span class="rel-text md">${mdHtml(r.text, true)}</span>
+        </li>`).join('')}</ul>
+      </section>`
+    : '';
+
+  root.innerHTML = `
+    <div class="ses-head">
+      <div class="ses-eyebrow">
+        <span>Session</span>
+        <span class="ses-eyebrow-line"></span>
+      </div>
+      <h1 class="ses-title">${esc(title)}</h1>
+      <div class="ses-meta">${metaBits.join('')}</div>
+    </div>
+    ${videoHtml || thumbHtml}
+    ${actionsHtml}
+    ${framesHtml}
+    ${summaryHtml}
+    <section class="section">
+      <div class="section-head">
+        <span class="section-title">Key points</span>
+        <span class="section-count">${points.length || ''}</span>
+      </div>
+      ${pointsHtml}
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <span class="section-title">Action items</span>
+        <span class="section-count">${items.length || ''}</span>
+      </div>
+      ${itemsHtml}
+    </section>
+    ${relatedHtml}`;
+}
+
+function showError(title, detail) {
+  document.getElementById('session-root').innerHTML =
+    '<div class="statebox error">' +
+      '<div class="st-title">' + esc(title) + '</div>' +
+      '<div>' + detail + '</div>' +
+      '<a class="back-link" href="/app/">← Back to all recordings</a>' +
+    '</div>';
+}
+
+async function loadSession() {
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+
+  if (!id) {
+    showError('No session specified', 'This page expects an <code>?id=</code> query parameter naming a session.');
+    return;
+  }
+
+  let data;
+  try {
+    const r = await fetch('/app/sessions.json', { cache: 'no-cache' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+  } catch (err) {
+    showError('Failed to load', 'Could not fetch <code>app/sessions.json</code> (' + esc(err.message) + ').');
+    return;
+  }
+
+  const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  const session = sessions.find(s => String(s.id) === String(id));
+
+  if (!session) {
+    showError('Session not found', 'No session matches <code>' + esc(id) + '</code>.');
+    return;
+  }
+
+  // Best-effort: enrich action-item strings with owners from action-items.json
+  // (keyed by matching session id + text). Non-fatal if it fails.
+  const related = [];
+  try {
+    const ai = await fetch('/app/action-items.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null);
+    const items = ai && Array.isArray(ai.items) ? ai.items : [];
+    const ownerByText = {};
+    items.forEach(it => {
+      if (String(it.session) === String(id)) {
+        if (it.owner && String(it.owner).trim()) ownerByText[it.text] = it.owner;
+        // Surface action items that reference this session but aren't already in
+        // the session's own action_items list (avoids duplicating the section).
+        const own = Array.isArray(session.action_items) ? session.action_items : [];
+        if (it.text && own.indexOf(it.text) === -1) related.push({ kind: 'Action item', text: it.text });
+      }
+    });
+    session._ownerByText = ownerByText;
+  } catch (e) { /* owners are optional */ }
+
+  // Reverse lookups: decisions / open questions that name this session id.
+  try {
+    const dec = await fetch('/app/decisions.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null);
+    (dec && Array.isArray(dec.decisions) ? dec.decisions : []).forEach(d => {
+      if (String(d.session) === String(id)) related.push({ kind: 'Decision', text: d.title || d.decision || 'Decision' });
+    });
+  } catch (e) { /* optional */ }
+  try {
+    const q = await fetch('/app/open-questions.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null);
+    (q && Array.isArray(q.questions) ? q.questions : []).forEach(it => {
+      if (String(it.session) === String(id)) related.push({ kind: 'Open question', text: it.question || 'Open question' });
+    });
+  } catch (e) { /* optional */ }
+
+  session._related = related;
+
+  renderSession(session);
+}
+
+loadConfig();
+loadSession();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/specs-frontmatter/v1",
+  "title": "Spec frontmatter (specs/**/*.md)",
+  "description": "YAML frontmatter block of a plan node (phase | epic | feature | story). Validated by parsing the leading --- block of each spec markdown file.",
+  "x-conflict": { "version": "1", "editable": true, "source": "specs/**/*.md (frontmatter)" },
+  "type": "object",
+  "required": ["title", "type", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "enum": ["phase", "epic", "feature", "story"] },
+    "status": { "type": "string", "enum": ["done", "in-progress", "planned", "blocked"] },
+    "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+    "labels": { "type": "array", "items": { "type": "string" } },
+    "date": { "type": "string" },
+    "depends_on": { "type": "array", "items": { "type": "string" } },
+    "references": { "type": "array", "items": { "type": "string" } },
+    "implemented_in": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Join edge (#60 slice 2) to the code realm: realm-qualified addresses (repo-relative path, optionally #symbol) of what implements this node. Never a brain node id — the code realm is never compiled into the brain."
+    },
+    "estimate": { "type": "string" },
+    "owner": {
+      "type": "string",
+      "description": "Stakeholder name (matches an app/stakeholders.json entry by name, #55). gen-brain.py's ownership_links linker resolves it to an `owns` edge; no match emits nothing."
+    }
+  }
+}
