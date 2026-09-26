@@ -29,11 +29,12 @@ This runs `wrangler deploy`. The first deploy prints the Worker's
 Secrets never go in the repository. Set them on the Worker:
 
 ```sh
-wrangler secret put ANTHROPIC_API_KEY
+wrangler secret put ANTHROPIC_API_KEY   # provider "anthropic" (default)
+wrangler secret put OPENAI_API_KEY      # provider "openai"
 ```
 
-`ANTHROPIC_API_KEY` powers the chat agent. Without it, the rest of the portal
-still works.
+Set the key for the provider named in `assistant.provider`. It powers the chat
+agent; without it, the rest of the portal still works.
 
 ## Your own domain
 

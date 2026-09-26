@@ -77,8 +77,9 @@ remembers their choice. Set the default with `portal.view.default`.
 ## The agent
 
 The chat agent answers from the brain's own content and cites what it used.
-It runs inside the Worker and needs an `ANTHROPIC_API_KEY` secret. Its model,
-turn limit and voice are set under `assistant` in `client.config.json`.
+It runs inside the Worker on Anthropic (Claude Sonnet 5 by default) or OpenAI,
+with the matching API key as a Worker secret. Its provider, model, turn limit
+and voice are set under `assistant` in `client.config.json`.
 
 For agents outside the portal, such as coding agents and AI apps, the
 [Context API](data/context-api.md) serves the same brain over authenticated,

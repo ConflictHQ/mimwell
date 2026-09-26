@@ -128,7 +128,8 @@ overlays are the files in `profiles/`. Add `sensemaking` to turn on the
 ```json
 {
   "assistant": {
-    "model": "claude-sonnet-4-6",
+    "provider": "anthropic",
+    "model": "claude-sonnet-5",
     "maxAgentTurns": 8,
     "identity": "Answer questions using the current portal knowledge and cite the available sources.",
     "audience": "The people authorized to use this brain."
@@ -136,8 +137,28 @@ overlays are the files in `profiles/`. Add `sensemaking` to turn on the
 }
 ```
 
-The agent needs an `ANTHROPIC_API_KEY` secret on the Worker. See
-[Deploying](deploying.md#secrets).
+`provider` is `anthropic` (the default) or `openai`. The chat agent, the edit
+agent and the authoring agent all use the same provider.
+
+- **Anthropic** needs an `ANTHROPIC_API_KEY` secret on the Worker. With no
+  `model` set, it uses `claude-sonnet-5`.
+- **OpenAI** needs an `OPENAI_API_KEY` secret, and `model` must be set to an
+  OpenAI model id; there is no guessed default. `baseUrl` is optional and must
+  be `https`, so you can point it at any OpenAI-compatible endpoint:
+
+```json
+{
+  "assistant": {
+    "provider": "openai",
+    "model": "<your OpenAI model id>",
+    "baseUrl": "https://api.openai.com/v1"
+  }
+}
+```
+
+A missing model, a Claude model id with `openai`, or an unknown provider fails
+config validation, and chat answers with a clear 503 instead of guessing. See
+[Deploying](deploying.md#secrets) for setting the secret.
 
 ## Access
 

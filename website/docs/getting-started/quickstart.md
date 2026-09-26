@@ -60,7 +60,8 @@ npm run dev
 This runs `wrangler dev` and serves the portal locally, by default at
 `http://localhost:8787`. Your document shows up in search and in the library.
 
-The chat agent needs an `ANTHROPIC_API_KEY`. For local use, put it in a
+The chat agent needs an `ANTHROPIC_API_KEY` (or an `OPENAI_API_KEY` if you set
+`assistant.provider` to `openai`). For local use, put it in a
 `.dev.vars` file next to `wrangler.toml` (and keep that file out of Git):
 
 ```sh
