@@ -29,6 +29,45 @@ The name comes from Mímir's well, the spring under the world tree whose water
 held wisdom and memory. Mimwell does the same job for a team: it keeps what the
 team learned somewhere anyone can draw from.
 
+## What is a mind palace?
+
+It is the oldest memory trick there is. Greek and Roman orators placed each
+thing they wanted to remember in a room of an imagined building, then walked
+through it to recall. Mimwell builds that palace for a team and its AI agents:
+every document, decision and plan gets a place, and anyone can walk in and find
+it.
+
+## Build one for
+
+- **Companies and organizations:** strategy, decisions and how things work.
+- **Departments and teams:** plans, owners, open questions and handoffs.
+- **Projects:** scope, commitments, risks and what changed.
+- **Courses and topics:** a curated body of knowledge people can explore.
+- **AI development:** grounded context for coding agents and AI apps.
+
+## Why you want one
+
+- **Nothing important gets lost.** Decisions keep their reasons and their
+  sources, so the next person finds the why, not only the what.
+- **One place to ask.** Search and chat answer from your own material, with
+  citations back to the source.
+- **Faster onboarding.** New people read the palace instead of interviewing
+  everyone.
+
+## Built for AI development
+
+- **A context store your agents can read.** The same graph and search index the
+  portal serves are there for coding agents and AI apps, so they work from your
+  real decisions and docs instead of guessing.
+- **Grounded answers.** The retrieval agent answers from the palace's own
+  content and cites it, which keeps answers tied to what you wrote.
+- **Scoped access.** Per-path read rules apply to pages, search and agent
+  answers alike, and fail closed.
+- **Reproducible context.** The build is deterministic, so the same sources
+  always give agents the same context.
+- **Curated, not dumped.** Suggested connections land in a review queue, and
+  nothing becomes part of the palace until someone accepts it.
+
 ## What you get
 
 - **A compiled brain.** Markdown documents and structured records build into a
