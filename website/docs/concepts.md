@@ -6,7 +6,9 @@ A brain is a Git repository with three layers:
 
 1. **Sources.** What you write: Markdown documents under `knowledge/docs/`,
    structured records under `app/` (decisions, action items, glossary terms,
-   stakeholders and more), and `client.config.json`.
+   stakeholders and more), and `client.config.json`. Adapters can add wiki
+   pages, issue and activity snapshots and database schemas; see
+   [Data sources](data/sources.md).
 2. **Generated artifacts.** What `make build` writes from the sources: the
    brain graph (`app/brain.json`), the search pack (`app/knowledge-pack.json`),
    the document manifest and the brain manifest.
@@ -14,7 +16,7 @@ A brain is a Git repository with three layers:
    serve the generated artifacts, run search and host the chat agent.
 
 Everything lives in files. There's no database to run: the build output is
-what the portal serves.
+what the portal serves. Optional stores are covered in [Storage](data/storage.md).
 
 ## Knowledge versus generated artifacts
 
@@ -55,7 +57,9 @@ it. The generated `app/kinds.json` lists each record kind the brain supports.
 ## Search
 
 The search pack (`app/knowledge-pack.json`) indexes your documents and records.
-The portal's search box and the chat agent both use it.
+The portal's search box and the chat agent both use it. An optional semantic
+index adds meaning-based matches for Python tooling; see
+[Storage](data/storage.md#vectors-and-semantic-search).
 
 ## The portal
 
@@ -75,6 +79,15 @@ remembers their choice. Set the default with `portal.view.default`.
 The chat agent answers from the brain's own content and cites what it used.
 It runs inside the Worker and needs an `ANTHROPIC_API_KEY` secret. Its model,
 turn limit and voice are set under `assistant` in `client.config.json`.
+
+For agents outside the portal, such as coding agents and AI apps, the
+[Context API](data/context-api.md) serves the same brain over authenticated,
+policy-filtered HTTP.
+
+## Curation
+
+Anyone, person or agent, can suggest a change; only a reviewer accepts it, and
+accepted decisions keep their history. See [Curation](data/curation.md).
 
 ## Access
 

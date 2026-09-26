@@ -79,6 +79,14 @@ nav:
   - Concepts: concepts.md
   - Configuration: configuration.md
   - Deploying: deploying.md
+  - Data:
+      - Data sources: data/sources.md
+      - Intake: data/intake.md
+      - Storage: data/storage.md
+      - Curation: data/curation.md
+      - Federation: data/federation.md
+      - Interchange and export: data/interchange.md
+  - Context API: data/context-api.md
   - Guides:
       - Brain Apps: guide/brain-apps.md
       - Sensemaking: guide/sensemaking.md

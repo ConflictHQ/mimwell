@@ -84,6 +84,15 @@ it.
 - **Brain apps.** Small, sandboxed apps that run beside the portal.
 - **Sensemaking.** An opt-in workbench for concepts, evidence, assessments and
   strategic maps.
+- **Many sources.** Documents, wiki pages, structured registers, issue and
+  activity snapshots, and database schemas. See [Data sources](data/sources.md).
+- **Your choice of storage.** JSON out of the box, an optional local semantic
+  index, and blob stores on disk, in a database, on S3-compatible storage or
+  Azure. See [Storage](data/storage.md).
+- **A context API for agents.** Authenticated, policy-filtered and pinned
+  context for coding agents and AI apps. See [Context API](data/context-api.md).
+- **Reviewed curation.** Suggestions wait for a reviewer, and decisions keep
+  their full lineage. See [Curation](data/curation.md).
 
 ## Where to go next
 
@@ -92,6 +101,8 @@ it.
 - [Concepts](concepts.md): how a brain is put together.
 - [Configuration](configuration.md): make it yours.
 - [Deploying](deploying.md): put it on your own domain.
+- [Data sources](data/sources.md): everything a brain can read.
+- [Context API](data/context-api.md): give your agents grounded context.
 
 Mimwell is open source under the [Apache License 2.0](license.md), built by
 [CONFLICT](about.md).
