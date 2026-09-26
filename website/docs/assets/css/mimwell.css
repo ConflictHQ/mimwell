@@ -1,0 +1,29 @@
+/* Mimwell page content only. The site theme is the shared CONFLICT template (custom.css). */
+.mw-hero { text-align: center; padding: 1.5rem 0 1rem; }
+.mw-hero img[class^="mw-hero-mark"] { display: inline-block; }
+.mw-hero > p > img[class^="mw-hero-mark"], .mw-hero > img[class^="mw-hero-mark"] { width: 132px; height: auto; }
+.mw-wordmark { margin: .8rem 0 .4rem !important; line-height: 0; }
+.mw-wordmark img { height: 64px; width: auto; }
+.mw-tagline { font-size: 1.35rem; margin: .6rem 0 1.4rem; }
+.mw-hero .md-button { border-radius: 6px; margin: .2rem; padding: .6em 1.4em; border: 1px solid var(--md-accent-fg-color); color: var(--md-accent-fg-color); }
+.mw-hero .md-button--primary { background: var(--md-accent-fg-color); color: #fff; }
+.mw-hero .md-button:hover { filter: brightness(1.08); color: #fff; background: var(--md-accent-fg-color); }
+.mw-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mw-runes { font-family: 'Noto Sans Runic', sans-serif; letter-spacing: .45em; opacity: .55; margin-top: 1.4rem; }
+.mw-about-logo { display: inline-block; margin: .5rem 0 1rem; }
+
+/* Dark/light artwork swap, following Material's color scheme. */
+[data-md-color-scheme="slate"] .mw-hero-mark--light,
+[data-md-color-scheme="slate"] .mw-powered__logo--light,
+[data-md-color-scheme="default"] .mw-hero-mark--dark,
+[data-md-color-scheme="default"] .mw-powered__logo--dark { display: none !important; }
+
+/* Rotating term in the tagline. */
+.mw-rotator { display: inline-grid; justify-items: center; vertical-align: bottom; color: var(--md-accent-fg-color); }
+.mw-rotator > span { grid-area: 1 / 1; opacity: 0; transform: translateY(.3em); transition: opacity .45s ease, transform .45s ease; white-space: nowrap; }
+.mw-rotator > span.on { opacity: 1; transform: none; }
+.mw-rotator > span.out { opacity: 0; transform: translateY(-.3em); }
+@media (prefers-reduced-motion: reduce) { .mw-rotator > span { transition: none; } }
+
+/* The shared template's header logo has white letters; on the light scheme use the dark-letter logo. */
+[data-md-color-scheme="default"] .md-header .md-logo img { content: url("../images/conflict-logo-black.svg"); }

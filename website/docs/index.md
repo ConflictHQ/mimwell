@@ -12,7 +12,7 @@ hide:
 
 <h1 class="mw-wordmark"><img class="mw-hero-mark--dark" src="assets/images/mimwell-wordmark-dark.svg" alt="Mimwell"><img class="mw-hero-mark--light" src="assets/images/mimwell-wordmark-light.svg" alt="Mimwell"></h1>
 
-<p class="mw-tagline">A knowledge brain for people, teams and agents.</p>
+<p class="mw-tagline">A <span class="mw-rotator" aria-hidden="true"><span class="on">mind palace</span><span>knowledge base</span><span>context store</span><span>second brain</span><span>brain</span></span><span class="mw-sr-only">mind palace, knowledge base and context store</span> for people, teams and agents.</p>
 
 [Get started](getting-started/installation.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/ConflictHQ/mimwell){ .md-button }
@@ -21,7 +21,7 @@ hide:
 
 </div>
 
-Mimwell is a knowledge brain you run yourself. It compiles your documents,
+Mimwell is a mind palace you run yourself: an open-source knowledge base and context store. It compiles your documents,
 decisions, plans and records into one graph and search index. A portal serves
 that graph to people, and a retrieval agent answers questions from it.
 
