@@ -2,7 +2,7 @@
 [data-kb-sensemaking] section { margin-block: 1.5rem; }
 .sm-actions, .sm-fields { display: flex; flex-wrap: wrap; gap: .8rem; }
 .sm-fields label { display: flex; flex-direction: column; gap: .3rem; flex: 1 1 260px; }
-[data-kb-sensemaking] input, [data-kb-sensemaking] select, [data-kb-sensemaking] textarea, [data-kb-sensemaking] button { font: inherit; padding: .65rem; border: 1px solid currentColor; border-radius: .3rem; background: var(--kb-bg, #fff); color: var(--kb-text, #222); max-width: 100%; box-sizing: border-box; }
+[data-kb-sensemaking] input, [data-kb-sensemaking] select, [data-kb-sensemaking] textarea, [data-kb-sensemaking] button { font: inherit; padding: .65rem; border: 1px solid currentColor; border-radius: .3rem; background: var(--bg, var(--kb-bg, #fff)); color: var(--text, var(--kb-text, #222)); max-width: 100%; box-sizing: border-box; }
 [data-kb-sensemaking] textarea { min-height: 5rem; width: 100%; }
 [data-kb-sensemaking] button { cursor: pointer; margin: .3rem; }
 [data-kb-sensemaking] button:disabled { opacity: .5; cursor: not-allowed; }

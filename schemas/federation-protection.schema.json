@@ -3,7 +3,7 @@
   "$id": "conflict:schema/federation-protection/v1",
   "title": "Protection-aware composition and derived views",
   "description": "Explicit version 2 composition and index results. Source and mount restrictions are not permissions or proof of destination encryption. Runtime pins, graph fingerprints and native ontology validation remain required.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "type": "object",

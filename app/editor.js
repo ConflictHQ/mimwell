@@ -9,7 +9,7 @@
 //
 //   1. SCHEMA-DRIVEN FORMS — generated from the JSON Schema registry under
 //      /schemas/*.schema.json. The editable types derive from the compiled
-//      ontology (app/kinds.json: x-conflict.editable, a records collection and a
+//      ontology (app/kinds.json: x-mimwell.editable; legacy x-conflict remains readable, a records collection and a
 //      mutability tier other than anchor — the same rule worker.js applies); the
 //      form fields are driven off the schema's properties, so adding an artifact
 //      type needs no new UI. (#21 registry)

@@ -135,9 +135,9 @@ def committed(store, proposal):
     import json
 
     budget = getattr(store, "_inspection_budget", None)
-    rows = (budget.receipts(store.db, intent(proposal)) if budget is not None else
-            store.db.execute("SELECT body FROM receipts WHERE intent=?", (intent(proposal),)))
-    receipts = [json.loads(row[0]) for row in rows]
+    bodies = ([row[0] for row in budget.receipts(store.db, intent(proposal))] if budget is not None else
+              store.dialect.receipts_for(intent(proposal)))
+    receipts = [json.loads(body) for body in bodies]
     return commitment(proposal, receipts)
 
 
@@ -246,7 +246,7 @@ def dispose(store, identity, actor, action, reason, *, expected_proposal_sha256,
         receipt = append(proposal, action, actor, reason, at, expected_proposal_sha256)
         from knowledge_store import encoded
 
-        store.db.execute("UPDATE proposals SET body=? WHERE id=?", (encoded(proposal), identity))
+        store.dialect.update_proposal(identity, encoded(proposal))
         return receipt
 
 

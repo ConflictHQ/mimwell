@@ -51,7 +51,7 @@ DEFAULT_WIKI_DIR = "knowledge/wiki"
 # migrate-kg.py FROM the old value (which imports KG_FORMAT from here, the same
 # way migrate-brain.py imports BRAIN_VERSION from gen-brain.py — one owner, so
 # generator and migrator can never disagree on "current").
-KG_FORMAT = "conflict-kg/v1"
+KG_FORMAT = "mimwell-kg/v1"
 
 
 def load_wiki_dir(root=ROOT):

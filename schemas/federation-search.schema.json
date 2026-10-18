@@ -3,7 +3,7 @@
   "$id": "conflict:schema/federation-search/v1",
   "title": "Bounded source-authorized federation search",
   "description": "Search request by default; #/$defs/result describes its response. Authorization belongs to the host and source; requests cannot grant access. Query token limits and source revision consistency are additionally enforced by runtime validation.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "type": "object",

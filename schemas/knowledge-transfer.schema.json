@@ -33,6 +33,7 @@
         "targetFormat": {
           "enum": [
             "brain-exchange/v1",
+            "mimwell-kg/v1",
             "conflict-kg/v1",
             "calliope-kg/v1"
           ]

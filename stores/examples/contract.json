@@ -1,0 +1,93 @@
+{
+  "protocolVersion": "1.0",
+  "id": "authority.example",
+  "version": "1.0.0",
+  "authority": "canon",
+  "stores": [
+    {
+      "id": "canon",
+      "driver": "sqlite",
+      "roles": [
+        "records",
+        "journal"
+      ]
+    },
+    {
+      "id": "evidence",
+      "driver": "external",
+      "roles": [
+        "evidence",
+        "external-authority"
+      ]
+    },
+    {
+      "id": "view",
+      "driver": "files",
+      "roles": [
+        "projection"
+      ]
+    },
+    {
+      "id": "archive",
+      "driver": "files",
+      "roles": [
+        "backup"
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "id": "memory",
+      "kind": "memory-note",
+      "resource": "agent-memory",
+      "schemaVersion": "1.0.0",
+      "fields": [
+        {
+          "paths": [
+            "/content",
+            "/relations",
+            "/evidence"
+          ],
+          "store": "canon"
+        }
+      ]
+    },
+    {
+      "id": "decisions",
+      "kind": "decision",
+      "resource": "app/decisions.json",
+      "schemaVersion": "1.0.0",
+      "fields": [
+        {
+          "paths": [
+            "/content",
+            "/relations",
+            "/evidence"
+          ],
+          "store": "canon"
+        }
+      ]
+    },
+    {
+      "id": "sessions",
+      "kind": "session",
+      "resource": "session-captures",
+      "schemaVersion": "1.0.0",
+      "fields": [
+        {
+          "paths": [
+            "/content",
+            "/relations",
+            "/evidence"
+          ],
+          "store": "canon"
+        }
+      ]
+    }
+  ],
+  "history": {
+    "mode": "complete-since-import",
+    "priorHistory": "unknown",
+    "note": "Imported fixture does not invent prior change history."
+  }
+}

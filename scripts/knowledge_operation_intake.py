@@ -22,7 +22,7 @@ def text(value, limit=2000):
 def validate_registration(value):
     if not isinstance(value, dict):
         raise StoreError("Intake host registration must be an object")
-    fields(value, ("planner", "collection", "destinations") + tuple(k for k in ("processing", "completion") if k in value))
+    fields(value, ("planner", "collection", "destinations") + tuple(k for k in ("processing", "completion", "connectors") if k in value))
     if "completion" in value:
         fields(value['completion'], ('index',))
         if local_path(value['completion']['index']).parts[0] != '_internal':
@@ -31,6 +31,33 @@ def validate_registration(value):
         from knowledge_operation_processing import validate_registration as validate_processing
 
         validate_processing(value['processing'])
+    if 'connectors' in value:
+        connectors = value['connectors']
+        if not isinstance(connectors, dict) or not 1 <= len(connectors) <= 16:
+            raise StoreError('Bounded connector source registrations required')
+        snapshot_total = 0
+        byte_total = 0
+        for namespace, registration in connectors.items():
+            text(namespace)
+            fields(registration, ('resource', 'snapshots'))
+            text(registration['resource'])
+            snapshots = registration['snapshots']
+            if not isinstance(snapshots, list) or not 1 <= len(snapshots) <= 16:
+                raise StoreError('Bounded connector export snapshots required')
+            paths = set()
+            for snapshot in snapshots:
+                fields(snapshot, ('path', 'sha256', 'maxBytes'))
+                path = local_path(snapshot['path'])
+                if (path.parts[0] == '_internal' or not isinstance(snapshot['sha256'], str)
+                        or not re.fullmatch(r'[a-f0-9]{64}', snapshot['sha256'])
+                        or type(snapshot['maxBytes']) is not int or not 1 <= snapshot['maxBytes'] <= 16777216
+                        or str(path) in paths):
+                    raise StoreError('Invalid pinned connector export snapshot')
+                paths.add(str(path))
+                byte_total += snapshot['maxBytes']
+            snapshot_total += len(snapshots)
+        if snapshot_total > 64 or byte_total > 67108864:
+            raise StoreError('Connector source registrations exceed their bounded revalidation budget')
     fields(value["planner"], ("path", "sha256"))
     if local_path(value["planner"]["path"]).parts[0] != "_internal":
         raise StoreError("Intake planner must be privately registered")
@@ -135,10 +162,13 @@ class IntakeOperations:
         if history is not None:
             validate_history(history)
             planner = self.planner(actor, at, self.no_inference)
+            item = history['item']
+            if self._is_connector_item(item):
+                planner = self._bind_connector_item(planner, item)
             if (record['collection'] != self.registration['collection'] or planner.basis != history['basis']
-                    or not planner.authorized(history['item'])):
+                    or not planner.authorized(item)):
                 raise StoreError('Intake history registration or source changed')
-            self.pending.append((actor, deepcopy(history['item']), deepcopy(planner.basis)))
+            self.pending.append((actor, deepcopy(item), deepcopy(planner.basis)))
         origin = data.get('intakeDelivery')
         if origin is not None:
             target = self.registration['destinations'].get(origin['destination']['id'])
@@ -155,6 +185,8 @@ class IntakeOperations:
             with audit(self.root) as journal:
                 log = partial(log_operation, journal)
                 planner = self.planner(actor, at, log)
+                if args['item'] is not None and self._is_connector_item(args['item']):
+                    planner = self._bind_connector_item(planner, args['item'], log=log)
                 adapter = IntakeAuthority(store, lambda selected, now: planner,
                                           collection=self.registration["collection"])
                 result = adapter.propose(args["record"], args["expectedRevision"], args["item"],
@@ -196,7 +228,58 @@ class IntakeOperations:
     def revalidate(self, at):
         for actor, item, basis in self.pending:
             planner = self.planner(actor, at, self.no_inference)
+            if self._is_connector_item(item):
+                planner = self._bind_connector_item(planner, item)
             if planner.basis != basis or not planner.authorized(item):
                 raise StoreError("Intake source or policy changed before history release")
         if self.processing is not None:
             self.processing.revalidate(at)
+
+    @staticmethod
+    def _is_connector_item(item):
+        reference = item.get('source', {}).get('reference', {}) if isinstance(item, dict) else {}
+        return isinstance(reference, dict) and reference.get('backend') == 'connector-export'
+
+    def _bind_connector_item(self, planner, item, *, log=None):
+        """Rebuild a connector reference only from a current protected export pin."""
+        from connector_events import MAX_EVENTS, capture_event, decode_line, map_event
+        from intake_capture import CaptureError, read_stable
+        import hashlib
+
+        source = item.get('source', {})
+        namespace = source.get('id')
+        registration = self.registration.get('connectors', {}).get(namespace)
+        if not registration or source.get('reference', {}).get('backend') != 'connector-export':
+            raise StoreError('Connector source registration changed or was revoked')
+        resource = registration['resource']
+        match = None
+        inspected = 0
+        for snapshot in registration['snapshots']:
+            try:
+                raw, _ = read_stable(self.root, snapshot['path'], snapshot['maxBytes'])
+            except (CaptureError, OSError, ValueError) as exc:
+                raise StoreError('Registered connector export is unavailable') from exc
+            if hashlib.sha256(raw).hexdigest() != snapshot['sha256']:
+                raise StoreError('Registered connector export pin changed')
+            for line in raw.splitlines(keepends=True):
+                inspected += 1
+                if inspected > MAX_EVENTS * 16:
+                    raise StoreError('Connector export revalidation exceeds its line budget')
+                try:
+                    event = decode_line(line)
+                except ValueError as exc:
+                    raise StoreError('Registered connector export is invalid') from exc
+                if event['namespace'] == namespace and map_event(event)['item'] == item:
+                    if match is not None:
+                        raise StoreError('Connector item has ambiguous registered source evidence')
+                    match = event
+        if match is None:
+            raise StoreError('Connector event revision is absent from current registered snapshots')
+        selected, receipt = capture_event(planner.boundary, resource, match,
+            log=log or (lambda *_: None))
+        if receipt['item'] != item:
+            raise StoreError('Connector event revision or mapped item changed')
+        # Planner basis intentionally covers policy/config, while the binding is
+        # supplied afresh from the exact protected event at each writer gate.
+        planner.boundary = selected
+        return planner

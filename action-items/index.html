@@ -116,6 +116,25 @@
   .tab-count { color: var(--dim); }
   .tab.active .tab-count { color: var(--red); }
 
+  /* ── Status filter + sort (only shown when items carry a status / due) ── */
+  .controls {
+    max-width: 1080px; margin: 14px auto 0; padding: 0 32px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  }
+  .controls[hidden] { display: none; }
+  .ctl-label { font-family: var(--kb-font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); margin-right: 4px; }
+  .ctl-spacer { flex: 1; }
+  .chip-btn {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+    padding: 4px 10px; cursor: pointer;
+  }
+  .chip-btn.active { color: var(--red); border-color: var(--red); }
+  .sort-select {
+    font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 4px 8px;
+  }
+
   /* ── Body ── */
   .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 32px 80px; }
 
@@ -146,6 +165,17 @@
   .ai-owner { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .04em; color: var(--muted); }
   .ai-owner b { color: var(--text); font-weight: 500; }
   .ai-spacer { flex: 1; }
+  .ai-status {
+    font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: .06em; border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; color: var(--muted);
+  }
+  .ai-status.st-open { color: var(--red); border-color: var(--red); }
+  .ai-meta { font-family: var(--kb-font-mono); font-size: 10px; letter-spacing: .04em; color: var(--muted); }
+  .ai-meta b { color: var(--text); font-weight: 500; }
+  .ai-detail { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .ai-links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+  .ai-links a { color: var(--kb-link, var(--red)); text-decoration: none; }
+  .ai-links a:hover { text-decoration: underline; }
   .label-pill {
     font-family: var(--kb-font-mono); font-size: 9px; font-weight: 500;
     text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
@@ -226,12 +256,15 @@
     <span class="page-eyebrow-line"></span>
   </div>
   <h1 class="page-title">Action Items</h1>
-  <p class="page-subtitle">Every action item captured across discovery sessions, grouped by meeting. Filter by label and jump to the source session.</p>
+  <p class="page-subtitle">Every action item captured across discovery sessions, grouped by meeting. Filter by label or status, sort by due date, and jump to the source session.</p>
   <div class="page-meta" id="page-meta"><span id="item-count">—</span> action items</div>
 </section>
 
 <!-- Tabs (label filter) -->
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="Filter action items by label"></nav>
+
+<!-- Status filter + sort: rendered only when the items carry status / due -->
+<div class="controls" id="controls" hidden></div>
 
 <!-- Body -->
 <div class="wrap">
@@ -310,7 +343,8 @@ function buildNav(pages) {
 // ── Action items tracker (reads /app/action-items.json) ──────────────────────
 const PER_PAGE = 30;
 const ALL_TAB = '__all__';
-const state = { items: [], tab: ALL_TAB, page: 1, tabs: [] };
+const state = { items: [], tab: ALL_TAB, page: 1, tabs: [], status: ALL_TAB, statuses: [], sort: 'meeting', hasDue: false };
+const UNTRIAGED = '__untriaged__';
 
 // Owners are noisy ("", "N/A", "Unspecified", "Unnamed Speaker", …). Only show
 // a meaningful name; drop placeholders so the row stays clean.
@@ -334,8 +368,42 @@ function buildTabList(items) {
 // An item counts toward a label tab if that label is in its `labels` array;
 // "All" counts every item.
 function itemsForTab(tab) {
-  if (tab === ALL_TAB) return state.items;
-  return state.items.filter(it => (Array.isArray(it.labels) ? it.labels : []).indexOf(tab) !== -1);
+  const byStatus = state.items.filter(it => state.status === ALL_TAB ||
+    (state.status === UNTRIAGED ? !it.status : it.status === state.status));
+  if (tab === ALL_TAB) return byStatus;
+  return byStatus.filter(it => (Array.isArray(it.labels) ? it.labels : []).indexOf(tab) !== -1);
+}
+
+// Optional item status / due date. An item without a status is "untriaged"
+// (extracted but not yet reviewed), never counted as open.
+function buildStatusList(items) {
+  const seen = new Set();
+  items.forEach(it => { if (it.status) seen.add(String(it.status)); });
+  if (!seen.size) return [];
+  const list = Array.from(seen).sort((a, b) => a === 'open' ? -1 : b === 'open' ? 1 : a.localeCompare(b));
+  if (items.some(it => !it.status)) list.push(UNTRIAGED);
+  return list;
+}
+
+function renderControls() {
+  const el = document.getElementById('controls');
+  if (!state.statuses.length && !state.hasDue) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  const count = s => state.items.filter(it => s === ALL_TAB || (s === UNTRIAGED ? !it.status : it.status === s)).length;
+  const chips = state.statuses.length ? '<span class="ctl-label">Status</span>' +
+    [ALL_TAB].concat(state.statuses).map(s =>
+      '<button class="chip-btn' + (s === state.status ? ' active' : '') + '" type="button" data-status="' + esc(s) + '">' +
+      esc(s === ALL_TAB ? 'All' : s === UNTRIAGED ? 'Untriaged' : s) + ' (' + count(s) + ')</button>').join('') : '';
+  const sort = state.hasDue ? '<span class="ctl-spacer"></span><span class="ctl-label">Sort</span>' +
+    '<select class="sort-select" id="sort-select" aria-label="Sort action items">' +
+      '<option value="meeting"' + (state.sort === 'meeting' ? ' selected' : '') + '>By meeting</option>' +
+      '<option value="due"' + (state.sort === 'due' ? ' selected' : '') + '>Due date (soonest)</option>' +
+    '</select>' : '';
+  el.innerHTML = chips + sort;
+}
+
+function safeUrl(u) {
+  try { const p = new URL(u, location.href).protocol; return p === 'https:' || p === 'http:' ? u : ''; } catch (_) { return ''; }
 }
 
 function renderTabs() {
@@ -368,10 +436,23 @@ function itemHTML(item) {
   const labels = Array.isArray(item.labels) ? item.labels : [];
   const pills = labels.map(l => '<span class="label-pill">' + esc(l) + '</span>').join('');
   const owner = ownerLabel(item.owner);
+  const links = (Array.isArray(item.links) ? item.links : []).map(l => {
+    const href = l && l.url ? safeUrl(String(l.url)) : '';
+    const text = (l && (l.note || l.kind)) ? (l.kind ? l.kind + ': ' : '') + (l.note || l.url) : (l && l.url) || '';
+    return href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(text) + '</a>' : esc(text);
+  }).filter(Boolean).join('');
+  const inSort = state.sort === 'due';
   return '<li class="ai-item">' +
     '<span class="ai-text">' + esc(item.text || '') + '</span>' +
+    (item.evidence ? '<span class="ai-detail">Evidence: ' + esc(item.evidence) + '</span>' : '') +
+    (item.superseded_by ? '<span class="ai-detail">Superseded by: ' + esc(item.superseded_by) + '</span>' : '') +
+    (links ? '<span class="ai-links">' + links + '</span>' : '') +
     '<span class="ai-foot">' +
+      (item.status ? '<span class="ai-status' + (item.status === 'open' ? ' st-open' : '') + '">' + esc(item.status) + '</span>' : '') +
+      (item.due ? '<span class="ai-meta">Due <b>' + esc(item.due) + '</b></span>' : '') +
+      (item.confidence ? '<span class="ai-meta">Confidence <b>' + esc(item.confidence) + '</b></span>' : '') +
       (owner ? '<span class="ai-owner">Owner: <b>' + esc(owner) + '</b></span>' : '') +
+      (inSort && item.session_title ? '<span class="ai-meta">' + esc(item.session_title) + '</span>' : '') +
       '<span class="ai-spacer"></span>' +
       pills +
     '</span>' +
@@ -383,6 +464,14 @@ function itemHTML(item) {
 // accurate when a meeting is split across pages.
 function filteredFlat() {
   const list = itemsForTab(state.tab);
+
+  // Due-date order: one flat list, soonest first, undated last.
+  if (state.sort === 'due') {
+    const sorted = list.slice().sort((a, b) =>
+      (a.due ? 0 : 1) - (b.due ? 0 : 1) || String(a.due || '').localeCompare(String(b.due || '')) ||
+      String(b.date || '').localeCompare(String(a.date || '')));
+    return { flat: sorted.map(it => ({ key: '__due__', item: it })), counts: { __due__: sorted.length }, flatOnly: true };
+  }
 
   // Preserve source order of meetings as they first appear (the tracker JSON is
   // already newest-first), but sort meetings by date desc to be safe.
@@ -421,7 +510,7 @@ function renderPager(totalPages) {
 
 function render() {
   const resultsEl = document.getElementById('results');
-  const { flat, counts } = filteredFlat();
+  const { flat, counts, flatOnly } = filteredFlat();
 
   if (!flat.length) {
     resultsEl.innerHTML = '<div class="statebox">' +
@@ -430,6 +519,7 @@ function render() {
     '</div>';
     renderPager(1);
     renderTabs();
+    renderControls();
     return;
   }
 
@@ -443,6 +533,12 @@ function render() {
   // changes. Group counts reflect the full filtered set (counts[...]).
   let html = '';
   let openKey = null;
+  if (flatOnly) {
+    html = '<section class="group"><div class="group-head"><span class="group-title">By due date</span>' +
+      '<span class="group-count">' + flat.length + (flat.length === 1 ? ' item' : ' items') + '</span></div><ul class="ai-list">' +
+      pageItems.map(row => itemHTML(row.item)).join('') + '</ul></section>';
+    pageItems.length = 0;
+  }
   pageItems.forEach(row => {
     if (row.key !== openKey) {
       if (openKey !== null) html += '</ul></section>';
@@ -456,7 +552,23 @@ function render() {
   resultsEl.innerHTML = html;
   renderPager(totalPages);
   renderTabs();
+  renderControls();
 }
+
+// Status chip / sort changes → re-filter from page 1.
+document.getElementById('controls').addEventListener('click', e => {
+  const btn = e.target.closest('.chip-btn');
+  if (!btn) return;
+  state.status = btn.getAttribute('data-status');
+  state.page = 1;
+  render();
+});
+document.getElementById('controls').addEventListener('change', e => {
+  if (e.target.id !== 'sort-select') return;
+  state.sort = e.target.value;
+  state.page = 1;
+  render();
+});
 
 // Tab clicks → switch tab, reset to page 1.
 document.getElementById('tabbar').addEventListener('click', e => {
@@ -510,6 +622,8 @@ async function loadItems() {
 
   state.items = items;
   state.tabs = buildTabList(items);
+  state.statuses = buildStatusList(items);
+  state.hasDue = items.some(it => it.due);
   state.tab = ALL_TAB;
   state.page = 1;
   render();

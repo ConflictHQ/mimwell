@@ -36,6 +36,7 @@ def main(argv=None):
             "init",
             "get",
             "context",
+            "lifecycle-preview",
             "search",
             "path",
             "propose",
@@ -91,6 +92,7 @@ def main(argv=None):
             "init": 1,
             "get": 1,
             "context": 0,
+            "lifecycle-preview": 1,
             "search": 1,
             "path": 2,
             "propose": 1,
@@ -166,6 +168,8 @@ def main(argv=None):
                     result = store.get(values[0], actor)
                 elif command == "context":
                     result = store.context(actor)
+                elif command == "lifecycle-preview":
+                    result = store.preview_lifecycle(values[0], actor)
                 elif command == "search":
                     result = store.search(values[0], actor)
                 elif command == "path":
@@ -176,6 +180,11 @@ def main(argv=None):
                         raise StoreError(
                             "proposal requires only request and record; host identity is not a payload field"
                         )
+                    derived = source["request"].get("mutation") in (
+                        "retract", "retain", "strategy", "confirm", "archive", "unarchive", "supersede"
+                    )
+                    if derived != (source["record"] is None):
+                        raise StoreError("native lifecycle proposals require record: null; ordinary writes require a record")
                     result = store.propose(source["request"], source["record"], actor)
                 elif command == "review":
                     result = store.review(values[0], actor, values[1])

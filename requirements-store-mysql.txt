@@ -1,0 +1,2 @@
+# Optional mysql authority driver (docs/design/substrate-matrix.md), imported only when a mysql store opens.
+PyMySQL==1.2.3

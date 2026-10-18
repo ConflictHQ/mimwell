@@ -404,7 +404,7 @@
                 "string",
                 "null"
               ],
-              "enum": ["files", "sqlite", "postgres", "mysql", null],
+              "enum": ["files", "sqlite", "postgres", "mysql", "mongo", null],
               "description": "The driver of the adopted brain.authority (files when unset — still un-adopted), or null when this process cannot resolve it (a secret-only dsn, or its env var unset here)."
             },
             "to": {

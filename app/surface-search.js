@@ -3,10 +3,8 @@
  *   exact       — a brain node whose id or title matches (app/brain.json)
  *   lexical     — a knowledge-pack entry whose title/summary carries the terms
  *   relational  — nodes one hop from an exact hit (edges in app/brain.json)
- * Semantic is listed but answered only when the vector index is present
- * (features.semantic_search + app/brain.vec.json); otherwise the page says so
- * rather than pretending. Client-side over the served projections — no worker
- * change, no bespoke data path.
+ * This surface currently provides exact, relational and lexical search. A
+ * generated vector artifact alone does not make semantic search available.
  */
 (function (global) {
   'use strict';
@@ -58,7 +56,6 @@
       (rel.slice(0, MAX).map(function (r) { return hit('relational', r[1].title || r[1].id, r[1].text, nodeHref(r[1]), '<span class="ks-chip">' + esc(r[0]) + ' ← ' + esc(r[2].title || r[2].id) + '</span>'); }).join('') || '<li class="ks-note">nothing one hop from an exact hit</li>') + '</ul>';
     out += '<div class="ks-section">lexical (' + lex.length + ')</div><ul class="ks-list">' +
       (lex.map(function (p) { return hit('lexical', p[1].title || p[1].path, p[1].summary, p[1].path ? '/app/reader.html?path=' + encodeURIComponent(p[1].path) : null, '<span class="ks-chip">' + p[0] + '/' + ts.length + ' terms</span>'); }).join('') || '<li class="ks-note">no document carries these terms</li>') + '</ul>';
-    out += '<div class="ks-section">semantic</div><p class="ks-note">' + (data.semantic ? 'vector index present — semantic ranking is answered by the chat agent (features.semantic_search).' : 'not answered: no vector index (enable features.semantic_search and run <span class="ks-mono">make brain-embed</span>).') + '</p>';
     if (global.KBEasyView && global.KBEasyView.current() === 'easy') {
       out = '<div class="ks-section">Matching information</div><ul class="ks-list">' +
         exact.map(function (p) { return hit('', p[1].title || 'Record', p[1].text, nodeHref(p[1]), '').replace('</li>', global.KBEasyView.summaryHtml(p[1]) + '</li>'); }).join('') +
@@ -79,14 +76,13 @@
       global.dispatchEvent(new CustomEvent('kb-ask', {detail:{question:input.value}}));
     };
     input.after(ask);
-    global.KBShell.mount({ title: 'Search' }).then(function (cfg) {
+    global.KBShell.mount({ title: 'Search' }).then(function () {
       return Promise.all([
         fetchJson('/app/brain.json', { nodes: [], edges: [] }),
-        fetchJson('/app/knowledge-pack.json', []),
-        (cfg.features && cfg.features.semantic_search) ? fetch('/app/brain.vec.json', { method: 'HEAD', cache: 'no-cache' }).then(function (r) { return r.ok; }).catch(function () { return false; }) : Promise.resolve(false)
+        fetchJson('/app/knowledge-pack.json', [])
       ]);
     }).then(function (res) {
-      var data = { brain: res[0], pack: res[1], semantic: res[2] };
+      var data = { brain: res[0], pack: res[1] };
       var q = new URLSearchParams(global.location.search).get('q') || '';
       if (q) input.value = q;
       function renderResults() {

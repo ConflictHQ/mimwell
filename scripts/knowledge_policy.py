@@ -72,6 +72,7 @@ class Policy:
         self.scopes = indexed(document["scopes"])
         self.resources = indexed(document["resources"])
         self.exceptions = indexed(document["exceptions"], "scope")
+        self.lifecycle_strategies = indexed(document.get("lifecycleStrategies", []))
         self.kinds = {k["id"]: k["mutability"] for k in ontology["kinds"]}
         if any(tier not in ("fast", "slow", "anchor") for tier in self.kinds.values()):
             raise PolicyError("unsupported ontology mutability")
@@ -95,6 +96,14 @@ class Policy:
                 raise PolicyError("resource names an unknown scope or ontology kind")
             if resource["retentionSince"] is not None:
                 timestamp(resource["retentionSince"])
+        selectors = set()
+        for strategy in self.lifecycle_strategies.values():
+            selector = (strategy["scope"], strategy["kind"], strategy["source"])
+            if strategy["scope"] not in self.scopes or strategy["kind"] not in self.kinds:
+                raise PolicyError("lifecycle strategy names an unknown scope or ontology kind")
+            if selector in selectors:
+                raise PolicyError("duplicate lifecycle strategy selector")
+            selectors.add(selector)
         for exception in self.exceptions.values():
             if exception["scope"] not in self.scopes or exception["approvedBy"] not in self.principals:
                 raise PolicyError("exception names an unknown scope or approver")
@@ -118,6 +127,24 @@ class Policy:
             exceptions.append(deepcopy(exception))
         inherited.update(deepcopy(changes))
         return inherited, [*chain, scope["practice"]], exceptions
+
+    def lifecycle_strategy(self, resource_id, record):
+        """Select the exact pinned kind/scope/source profile; ambiguity fails closed."""
+        resource = self.resources.get(resource_id)
+        if resource is None or record.get("kind") != resource["kind"]:
+            raise PolicyError("record does not match a governed lifecycle resource")
+        source = record.get("content", {}).get("source")
+        if isinstance(source, dict):
+            source = source.get("path")
+        if not isinstance(source, str):
+            source = None
+        matches = [item for item in self.lifecycle_strategies.values()
+                   if item["scope"] == resource["scope"] and item["kind"] == resource["kind"]
+                   and item["source"] in (None, source)]
+        matches.sort(key=lambda item: item["source"] is not None, reverse=True)
+        if len(matches) > 1 and (matches[0]["source"] is not None) == (matches[1]["source"] is not None):
+            raise PolicyError("ambiguous lifecycle strategy")
+        return deepcopy(matches[0]) if matches else None
 
     def evaluate(self, request, trusted):
         validate(request, "mutation-request")
@@ -178,8 +205,9 @@ class Policy:
         elif request["sourceResource"] is not None:
             return deny("sourceResource is only valid for promotion")
         owner = self.scopes[resource["scope"]]["owner"]
+        governed_lifecycle = ("strategy", "confirm", "archive", "unarchive", "supersede")
         needs_review = (tier != "fast" or not rules["fastAuto"] or trusted.get("proposedBy", actor) != owner or
-                        request["mutation"] in ("supersede", "retract", "delete", "promote"))
+                        request["mutation"] in ("supersede", "retract", "delete", "promote", *governed_lifecycle))
         # Only a trusted app host supplies this after validating an owned grant.
         # A service-owned fast scope may retract its own app data; no review or
         # approval identity is fabricated and shared/slow knowledge stays governed.
@@ -192,7 +220,7 @@ class Policy:
         result.update({"requiresReview": needs_review, "reviewers": sorted(rules["reviewers"])})
         if operation == "review" and rules["separateReview"] and actor == trusted.get("proposedBy"):
             return deny("an independent reviewer is required")
-        slow_review = tier == "slow" or request["mutation"] in ("supersede", "retract", "delete", "promote")
+        slow_review = tier == "slow" or request["mutation"] in ("supersede", "retract", "delete", "promote", *governed_lifecycle)
         if operation == "review" and slow_review and self.principals[actor]["kind"] != "human":
             return deny("slow-tier review requires a human authority")
         if operation == "commit" and needs_review:

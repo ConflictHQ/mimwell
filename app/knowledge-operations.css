@@ -6,5 +6,6 @@
 .ko-tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}.ko-tabs button[aria-expanded=true]{font-weight:700;border-bottom:3px solid currentColor}
 [data-kb-knowledge-operations] button{padding:.6rem .9rem;margin:.2rem;border:1px solid var(--border,#aaa);border-radius:5px;background:var(--surface,#fff);color:var(--text,#222);cursor:pointer;font:inherit}
 [data-kb-knowledge-operations] button:disabled{opacity:.45;cursor:not-allowed}[data-kb-knowledge-operations] :focus-visible{outline:2px solid var(--kb-accent,#476ed3);outline-offset:3px}
-.ko-coordinate{font-size:.85rem;overflow-wrap:anywhere}.ko-panel[hidden]{display:none}
+.ko-coordinate{font-size:.85rem;overflow-wrap:anywhere}.ko-panel[hidden],.ko-panel [hidden]{display:none!important}
+.ko-capabilities ul{padding-left:1.25rem}.ko-capabilities li{margin:.2rem 0}
 @media(max-width:600px){[data-kb-knowledge-operations]{padding:16px}.ko-connect{display:block}.ko-panel{padding:.8rem}}

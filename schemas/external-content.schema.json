@@ -3,7 +3,7 @@
   "$id": "conflict:schema/external-content/v1",
   "title": "Source-dependent external content references and exact delivery",
   "description": "Explicit registered references to a bounded private blob or exact canonical SQLite revision. Runtime checks enforce hashes, sizes, complete source dependencies, current permission and protection. This contract does not enroll independent serving paths or erase retained originals.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "oneOf": [

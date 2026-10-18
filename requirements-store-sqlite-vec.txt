@@ -1,0 +1,3 @@
+# Optional: in-db vectors on a sqlite authority (docs/design/substrate-matrix.md). scripts/vector_role.py
+# imports it only when an in-db vectors store opens on sqlite.
+sqlite-vec==0.1.9

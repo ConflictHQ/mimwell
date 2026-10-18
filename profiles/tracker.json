@@ -1,7 +1,84 @@
 {
  "overlay": "tracker",
- "revision": "1.0.0",
- "$comment": "Optional compiled source mappings. Select matching brain.sourceAdapters explicitly; instance access policy is separate.",
+ "revision": "1.1.0",
+ "$comment": "Optional compiled source mappings. Select matching brain.sourceAdapters explicitly; instance access policy is separate. `issues` projects issues.json (scripts/gen-issues.py); `github` projects the issue and pull-request mirror app/github.json (scripts/github_sync.py) into the kinds and edges below. Requires the engagement overlay, which declares the issue kind.",
+ "idConventions": {
+  "external": [
+   "pull-request",
+   "repository",
+   "milestone"
+  ]
+ },
+ "kinds": [
+  {
+   "id": "pull-request",
+   "title": "Pull Request",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "mirrored",
+   "node": "PullRequest",
+   "artifact": "app/github.json",
+   "description": "A mirrored pull request (make github-sync): state, draft, review decision, checks rollup, base/head and the issues it closes or references. Carries its repository's visibility."
+  },
+  {
+   "id": "repository",
+   "title": "Repository",
+   "class": "record",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "mirrored",
+   "node": "Repository",
+   "artifact": "app/github.json",
+   "description": "A mirrored GitHub repository with its visibility (public, private or internal), so access rules can filter its records."
+  },
+  {
+   "id": "milestone",
+   "title": "Milestone",
+   "class": "record",
+   "mutability": "fast",
+   "durability": "point-in-time",
+   "source": "mirrored",
+   "node": "Milestone",
+   "artifact": "app/github.json",
+   "description": "A mirrored repository milestone (number, title, state, due date)."
+  }
+ ],
+ "edges": [
+  {
+   "id": "closes",
+   "description": "A pull request closes an issue: GitHub's closingIssuesReferences or a closing keyword (Fixes #12) in its title or body.",
+   "domain": [
+    "pull-request"
+   ],
+   "range": [
+    "issue"
+   ]
+  },
+  {
+   "id": "in_repository",
+   "description": "A mirrored issue, pull request or milestone belongs to its repository.",
+   "domain": [
+    "issue",
+    "pull-request",
+    "milestone"
+   ],
+   "range": [
+    "repository"
+   ]
+  },
+  {
+   "id": "in_milestone",
+   "description": "A mirrored issue or pull request is scheduled in a milestone of its repository.",
+   "domain": [
+    "issue",
+    "pull-request"
+   ],
+   "range": [
+    "milestone"
+   ]
+  }
+ ],
  "patches": {
   "issue": {
    "node": "Issue"

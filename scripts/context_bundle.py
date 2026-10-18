@@ -248,6 +248,44 @@ class ContextSnapshot:
         from context_corpus import document_records
         return search(document_records(self._corpus, self._boundary), request, self._authorization, self._freshness)
 
+    def semantic_material(self):
+        """Host-only authorized source material for a selected semantic pilot.
+
+        Corpus entries retain their corpus: identities and observed document
+        revision. No file is opened through a request-supplied source locator.
+        """
+        from context_corpus import document_records
+        nodes = deepcopy(self._graph['nodes'])
+        if self._corpus is not None:
+            nodes.extend(document_records(self._corpus, self._boundary))
+        return nodes
+
+    def semantic_basis(self):
+        """Private host cache basis; contains only material this principal may read."""
+        from semantic_chunks import material_basis
+        return material_basis(self.semantic_material(), self.basis(), self._authorization['principal'])
+
+    def refresh_semantic_index(self, projection, previous=None):
+        """Explicitly refresh a derived audience projection; never edit the authority."""
+        return projection.refresh(self.semantic_material(), self.basis(), self._authorization['principal'], previous)
+
+    def semantic_search(self, request, projection, manifest, *, graph_hops=0, fallback=False):
+        """Selected pilot only; the existing search() contract remains lexical."""
+        from semantic_search import search
+        lexical = self.search(request)  # Reuse the exact closed request/basis validation.
+        if self._freshness is not None and self._freshness['state'] != 'current':
+            raise ContextError('Semantic search requires a current source projection')
+        try:
+            return search(self.semantic_material(), self._graph['edges'], request, self._authorization,
+                          projection, manifest, basis=self.basis(), graph_hops=graph_hops)
+        except (ValueError, OSError, KeyError, TypeError, RuntimeError):
+            if not fallback:
+                raise
+            lexical['gaps'].append({'state': 'unavailable', 'reason': 'semantic-projection-unavailable'})
+            if len(encode(lexical)) > request['budget']['maxBytes']:
+                raise ContextError('maxBytes cannot hold the fallback response') from None
+            return lexical
+
     def compile(self, request):
         validate_request(request)
         if (request["revisions"] != self._revisions or request["recipe"] != self._recipe_binding

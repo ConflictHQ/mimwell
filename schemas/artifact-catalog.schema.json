@@ -3,7 +3,7 @@
   "$id": "conflict:schema/artifact-catalog/v1",
   "title": "Artifact catalog (the artifacts manifest)",
   "description": "The manifest of standalone analysis artifacts (issue #14). Each artifact is a self-contained deliverable rendered under analysis/artifacts/<id>/ with a catalog STUB describing it. This file (analysis/artifacts/catalog.json) lists every stub so the portal and the brain can enumerate artifacts without crawling the directory. An artifact is the generic escape hatch for any bespoke deliverable — a golden record, an identity strategy, a timeline, an integration catalog — that does not fit one of the first-class authoring tools: a stub (catalog metadata) + canonical data JSON + an index.html render. AUTHORED, not derived: hand-write the stub + its data + render, then list the stub here. Feeds the gen-brain.py `artifacts` adapter (Catalog/Artifact nodes + in_catalog edges + relates_to edges to referenced sessions).",
-  "x-conflict": { "version": "1", "editable": true, "source": "analysis/artifacts/catalog.json" },
+  "x-mimwell": { "version": "1", "editable": true, "source": "analysis/artifacts/catalog.json" },
   "type": "object",
   "required": ["artifacts"],
   "additionalProperties": true,

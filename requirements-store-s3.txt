@@ -1,0 +1,3 @@
+# Optional: the s3 blob driver (S3, R2, GCS interop, MinIO, Garage). scripts/blob_store.py
+# imports it only when an s3 blobs store opens.
+boto3==1.43.100

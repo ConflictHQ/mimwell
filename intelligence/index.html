@@ -490,6 +490,10 @@ function sessionCard(s) {
   const aiBadge = aiCount > 0
     ? `<span class="ai-badge">${aiCount} action item${aiCount !== 1 ? 's' : ''}</span>`
     : `<span class="ai-badge none">No action items</span>`;
+  // Captured-frame count, when the session records one (frames themselves may
+  // not be published).
+  const frameBadge = s.frame_count > 0
+    ? `<span class="ai-badge none">${s.frame_count} frame${s.frame_count !== 1 ? 's' : ''}</span>` : '';
 
   // First 2–3 key points as a short preview.
   const points = (s.key_points || []).slice(0, 3);
@@ -513,7 +517,7 @@ function sessionCard(s) {
     <div class="card-body">
       <div class="card-meta-row">
         <span class="card-date">${esc(s.date || '')}</span>
-        ${aiBadge}
+        <span>${aiBadge} ${frameBadge}</span>
       </div>
       ${labelsHtml}
       <div class="card-title">${esc(s.title || 'Untitled recording')}</div>

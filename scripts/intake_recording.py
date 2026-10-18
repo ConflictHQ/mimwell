@@ -96,6 +96,44 @@ def kill_decoder_group(process):
         raise
 
 
+def close_decoder(process):
+    """Bound parent cleanup without treating an inaccessible group as gone."""
+    failure = None
+    try:
+        try:
+            kill_decoder_group(process)
+        except OSError as exc:
+            failure = exc
+            # The owned leader can still be reaped even when group access is
+            # refused. This does not establish that descendants disappeared.
+            try:
+                if process.poll() is None:
+                    process.kill()
+            except OSError:
+                pass
+    finally:
+        try:
+            process.wait(timeout=2)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            if failure is None:
+                failure = exc
+        finally:
+            try:
+                try:
+                    process.stdout.close()
+                except Exception as exc:
+                    if failure is None:
+                        failure = exc
+            finally:
+                try:
+                    process.stderr.close()
+                except Exception as exc:
+                    if failure is None:
+                        failure = exc
+    if failure is not None:
+        raise RecordingError('Recording decoder cleanup could not be confirmed') from failure
+
+
 def decode_to_disk(executable, directory, output, *, media_type, profile, cap):
     """Fixed FFmpeg selection; stream PCM, bound stderr, kill/reap on every exit."""
     demuxer = DEMUXERS[media_type]
@@ -143,10 +181,7 @@ def decode_to_disk(executable, directory, output, *, media_type, profile, cap):
         except subprocess.TimeoutExpired as exc:
             raise RecordingError('Recording decoder deadline exceeded') from exc
         finally:
-            kill_decoder_group(process)
-            process.wait()
-            process.stdout.close()
-            process.stderr.close()
+            close_decoder(process)
 
 
 class PreparedRecording:

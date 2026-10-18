@@ -68,7 +68,8 @@
                   "proposal.review",
                   "proposal.dispose",
                   "proposal.commit",
-                  "record.patch-propose"
+                  "record.patch-propose",
+                  "record.history"
                 ]
               }
             }

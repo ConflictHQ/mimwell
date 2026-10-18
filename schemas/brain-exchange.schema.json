@@ -8,7 +8,7 @@
   "additionalProperties": false,
   "properties": {
     "format": {"enum": ["brain-exchange/v1", "brain-exchange/v2"]},
-    "sourceFormat": {"enum": ["compiled-brain/v1", "conflict-kg/v1", "calliope-kg/v1", "calliope.brain/v1"]},
+    "sourceFormat": {"enum": ["compiled-brain/v1", "mimwell-kg/v1", "conflict-kg/v1", "calliope-kg/v1", "calliope.brain/v1"]},
     "origin": {
       "type": "object", "required": ["id", "revision"], "additionalProperties": false,
       "properties": {"id": {"type": "string", "minLength": 1}, "revision": {"type": "string", "minLength": 1}}

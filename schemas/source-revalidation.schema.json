@@ -3,7 +3,7 @@
   "$id": "conflict:schema/source-revalidation/v1",
   "title": "Authenticated reauthorization of source row fingerprints",
   "description": "Fingerprints carry no record bodies or grants. Sources recheck native record/evidence/publication permissions at their current clock. Sorted unique witnesses and byte bounds are also enforced by the runtime. This is not a cross-authority transaction or withdrawal acknowledgment.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "oneOf": [

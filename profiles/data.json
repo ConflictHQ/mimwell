@@ -6,6 +6,7 @@
    "source",
    "source-entity",
    "source-field",
+   "metric",
    "catalog",
    "artifact-node",
    "collection"
@@ -44,6 +45,17 @@
    "artifact": "app/sources.json",
    "node": "Field",
    "description": "A column/attribute within a source Entity. The leaf of the data-source inventory."
+  },
+  {
+   "id": "metric",
+   "title": "Governed Metric",
+   "class": "knowledge",
+   "mutability": "slow",
+   "durability": "durable-logic",
+   "source": "generated",
+   "artifact": "app/projections/semantic-layer.json",
+   "node": "Metric",
+   "description": "A reviewed, source-bound measure projected from the structured authority."
   },
   {
    "id": "catalog",
@@ -104,6 +116,14 @@
     "source-field"
    ]
   },
+  {"id":"backed_by","description":"A governed metric reads from its declared system of record.","domain":["metric"],"range":["source"]},
+  {"id":"measures","description":"A governed metric measures a declared source entity.","domain":["metric"],"range":["source-entity"]},
+  {"id":"uses_measure","description":"The metric aggregates this declared source field.","domain":["metric"],"range":["source-field"]},
+  {"id":"has_dimension","description":"A declared field by which a metric may be grouped.","domain":["metric"],"range":["source-field"]},
+  {"id":"groups_by_time","description":"The metric's declared temporal grain field.","domain":["metric"],"range":["source-field"]},
+  {"id":"filterable_by","description":"A declared field by which a metric may be filtered.","domain":["metric"],"range":["source-field"]},
+  {"id":"defines_metric","description":"A business term defines a governed metric.","domain":["glossary-term"],"range":["metric"]},
+  {"id":"governs_field","description":"A business term governs a source entity or field.","domain":["glossary-term"],"range":["source-entity","source-field"]},
   {
    "id": "in_catalog",
    "description": "An analysis artifact is registered in this catalog.",

@@ -1,3 +1,5 @@
+@import url("./theme.css");
+
 /* Shared page shell (frontend pass 1, W1.5): the :root branding defaults, reset,
  * topbar/brand/topnav, crumb, page-head and footer rules every page shell used to
  * carry inline. Extracted verbatim from the decisions shell so migrated pages keep

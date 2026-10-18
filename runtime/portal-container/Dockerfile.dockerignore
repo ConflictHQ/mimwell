@@ -1,0 +1,11 @@
+.git
+_site
+.wrangler
+knowledge-base
+**/node_modules
+**/__pycache__
+**/.dev.vars
+**/.env
+**/.env.*
+**/*.env
+**/*.pem

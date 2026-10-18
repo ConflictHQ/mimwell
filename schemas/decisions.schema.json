@@ -3,7 +3,7 @@
   "$id": "conflict:schema/decisions/v1",
   "title": "Decisions log (app/decisions.json)",
   "description": "Decisions made across the engagement, rendered by /decisions/.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/decisions.json"

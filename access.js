@@ -782,9 +782,64 @@ export function makeAccess(accessCfg, register) {
     return { ...header, kinds };
   }
 
+  // activity.json (scripts/gen-activity.py) is the recent-commit feed: each
+  // entry's title, body and changed files. Withholding the whole feed whenever
+  // one commit touched a restricted path blanked the home page's recent activity
+  // for every non-owner. Per entry instead: restricted file rows are dropped,
+  // restricted path tokens in the title and body become "[restricted]", the body
+  // goes if anything there still names a restricted path (encoded forms), and
+  // an entry that still does is dropped. Owners get the feed untouched.
+  const ACTIVITY_PATH_TOKEN = /[A-Za-z0-9_@%.~\-]+(?:[/\\][A-Za-z0-9_@%.~\-]+)+/g;
+  const ACTIVITY_FILE_TOKEN = /(^|[\s("'=:\[>])([A-Za-z0-9_.\-]+\.(?:md|markdown|txt|json|jsonl|ndjson|csv|sql|ya?ml|pdf|docx?|pptx?|xlsx?))(?=$|[\s)"',;:\]<>?#])/gi;
+
+  function maskRestricted(text, allow) {
+    if (typeof text !== "string") return text;
+    return text
+      .replace(ACTIVITY_PATH_TOKEN, (t) => (allow(t) && allow(t.replace(/\.+$/, "")) ? t : "[restricted]"))
+      .replace(ACTIVITY_FILE_TOKEN, (m, lead, name) => (allow(name) ? m : lead + "[restricted]"));
+  }
+
+  function filterActivity(data, email) {
+    if (isOwner(email)) return data;
+    if (!Array.isArray(data)) return [];
+    const allow = allowFor(email);
+    const out = [];
+    for (const entry of data) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const next = { ...entry };
+      const restrictedSource = Array.isArray(next.files) && next.files.some((f) => {
+        const p = typeof f === "string" ? f : f && f.path;
+        return isPathString(p) && !allow(p);
+      });
+      if (Array.isArray(next.files)) {
+        // gen-activity.py writes {status, path} rows; a bare path string is read too.
+        next.files = next.files.filter((f) => {
+          const p = typeof f === "string" ? f : f && f.path;
+          return !isPathString(p) || allow(p);
+        });
+      }
+      if (restrictedSource) {
+        // Commit prose is authored independently of its path list. It can carry
+        // private details without naming the restricted file. Keep only
+        // accessible file rows with a neutral title; omit private-only commits.
+        if (!next.files.length) continue;
+        next.title = "[restricted activity]";
+        delete next.body;
+      }
+      for (const key of ["title", "body"]) {
+        if (key in next) next[key] = maskRestricted(next[key], allow);
+      }
+      if (mentionsRestricted(next, allow)) delete next.body;
+      if (mentionsRestricted(next, allow)) continue;
+      out.push(next);
+    }
+    return out;
+  }
+
   // The served artifact table. Keys are normalized corpus-relative paths; add a
   // key here and every choke point picks it up.
   const ARTIFACT_FILTERS = new Map([
+    ["activity.json", filterActivity],
     ["app/knowledge-pack.json", filterPack],
     ["app/brain.json", filterGraph],
     ["app/knowledge_graph.json", filterGraph],

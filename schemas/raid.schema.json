@@ -3,7 +3,7 @@
   "$id": "conflict:schema/raid/v1",
   "title": "RAID log (app/raid.json)",
   "description": "Risks, assumptions, issues, and dependencies rendered by /raid/.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/raid.json"

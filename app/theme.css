@@ -72,6 +72,21 @@
   --purple-dim: rgba(122,91,168,0.10);
 }
 
+/* Shared and legacy page chrome must inherit the selected neutral palette.
+   Keep the branding inputs intact; paired owner marks follow the same theme. */
+:root[data-theme] :is(.topbar, .footer) {
+  --bg: inherit;
+  --surface: inherit;
+  --surface2: inherit;
+  --border: inherit;
+  --border2: inherit;
+  --text: inherit;
+  --muted: inherit;
+  --dim: inherit;
+}
+:root[data-theme] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+
 /* Smooth the flip between themes (skip color-only props that would flash). */
 :root[data-theme] body { transition: background-color .2s ease, color .2s ease; }
 

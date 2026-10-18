@@ -7,10 +7,12 @@ whole-source document/short-media representations can be adopted.
 from contextlib import contextmanager
 from copy import deepcopy
 from functools import lru_cache
+import fcntl
 import json
 import os
 from pathlib import Path
 import sqlite3
+import stat
 import time
 from urllib.parse import quote
 
@@ -160,7 +162,66 @@ class ProcessingCache:
         return deepcopy(self._config)
 
     @contextmanager
+    def _file_lock(self, *, exclusive):
+        """Serialize operations using the host-selected cache across processes."""
+        if private_path(self.path)[1] != self.identity:
+            raise ReuseUnavailable('Processing cache file identity changed')
+        lock_path = self.path.with_name(self.path.name + '.maintenance.lock')
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+                         0o600)
+        except OSError as exc:
+            raise ReuseUnavailable('Processing cache lock file cannot be safely opened') from exc
+        locked = False
+        try:
+            metadata = os.fstat(fd)
+            try:
+                path_metadata = os.stat(lock_path, follow_symlinks=False)
+            except OSError as exc:
+                raise ReuseUnavailable('Processing cache lock file changed') from exc
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid()
+                    or metadata.st_nlink != 1 or path_metadata.st_dev != metadata.st_dev
+                    or path_metadata.st_ino != metadata.st_ino):
+                raise ReuseUnavailable('Processing cache lock file is not privately owned')
+            os.fchmod(fd, 0o600)
+            metadata = os.fstat(fd)
+            path_metadata = os.stat(lock_path, follow_symlinks=False)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.getuid()
+                    or metadata.st_nlink != 1 or path_metadata.st_dev != metadata.st_dev
+                    or path_metadata.st_ino != metadata.st_ino):
+                raise ReuseUnavailable('Processing cache lock file changed while securing it')
+            operation = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+            deadline = time.monotonic() + 0.5
+            while True:
+                try:
+                    fcntl.flock(fd, operation | fcntl.LOCK_NB)
+                    locked = True
+                    break
+                except BlockingIOError as exc:
+                    if time.monotonic() >= deadline:
+                        raise ReuseUnavailable('Processing cache has an active reader or writer') from exc
+                    time.sleep(0.01)
+            if private_path(self.path)[1] != self.identity:
+                raise ReuseUnavailable('Processing cache file identity changed')
+            path_metadata = os.stat(lock_path, follow_symlinks=False)
+            if path_metadata.st_dev != metadata.st_dev or path_metadata.st_ino != metadata.st_ino:
+                raise ReuseUnavailable('Processing cache lock file changed while acquiring its lock')
+            yield
+        finally:
+            try:
+                if locked:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
+
+    @contextmanager
     def _transaction(self, *, write=False):
+        with self._file_lock(exclusive=write):
+            with self._transaction_unlocked(write=write) as db:
+                yield db
+
+    @contextmanager
+    def _transaction_unlocked(self, *, write=False):
         db = None
         try:
             if private_path(self.path)[1] != self.identity:

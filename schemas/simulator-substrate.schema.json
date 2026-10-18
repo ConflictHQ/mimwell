@@ -464,7 +464,7 @@
     "timeline"
   ],
   "additionalProperties": true,
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1"
   }
 }

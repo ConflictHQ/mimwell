@@ -26,9 +26,9 @@ def scaffold(root, app_id, template):
     apps.mkdir(parents=True, exist_ok=True)
     title = app_id.replace('-', ' ').title()
     manifest = {'id': app_id, 'slug': app_id, 'name': title, 'title': title, 'version': '0.1.0',
-                'enabled': False, 'entry': 'index.html', 'stack': 'static', 'runtime': 'brain@1.0.0',
+                'enabled': False, 'entry': 'index.html', 'stack': 'static', 'runtime': 'brain@1.1.0',
                 'template': TEMPLATES[template], 'grant': {'principal': 'app.' + app_id, 'read': [], 'owned': {}, 'elsewhere': 'propose'},
-                'pollSeconds': 30, 'budgets': {'bundleBytes': 262144, 'requestsPerMinute': 20},
+                'pollSeconds': 30, 'budgets': {'bundleBytes': 64 * 1024 * 1024, 'requestsPerMinute': 20},
                 'smoke': 'smoke.cjs', 'changelog': [{'version': '0.1.0', 'note': 'Initial disabled app; owner enrollment required.'}]}
     with tempfile.TemporaryDirectory(prefix='brain-app-') as temporary:
         stage = Path(temporary) / app_id

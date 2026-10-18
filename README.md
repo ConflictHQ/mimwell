@@ -18,13 +18,14 @@ learned somewhere anyone can draw from.
 This tree ships the portal, the graph compiler and the shared Python runtime,
 with empty instance data. The engine sources come from the exact revision
 recorded in `edition.json`.
-
-Full documentation lives at [mimwell.dev](https://mimwell.dev). The site's
-sources are in `website/`; delete that folder if you don't need it in your brain.
+The MCP engine version is recorded separately in `engine-release.json` and
+validated against that pinned revision. This public identity descriptor does
+not enable the private template updater or include its ownership catalog.
 
 ## Quick start
 
-You need Python 3.14, Node 22 and the Wrangler CLI.
+You need Python 3.14 and Node 22. The Wrangler CLI is needed only for a
+Cloudflare Worker deployment.
 
 ```sh
 python3 -m pip install -r requirements.txt
@@ -33,8 +34,15 @@ make verify    # build the empty brain and run its smoke tests
 npm run dev    # preview the portal locally through Wrangler
 ```
 
-Configure authentication and your own hostname before you deploy. No deployment
-workflow or account credentials are included.
+To create a separate empty instance, run `python3 scripts/init.py <target>`
+with `--name`, `--domain` and `--slug` values. The public edition supports the
+default scaffold; private `--purpose` and `--recipe` selections are not included.
+
+Configure authentication and your own hostname before you deploy. The edition
+includes GitHub CI and knowledge-refresh workflows. CI runs the shipped
+`make verify` gate. Scheduled refresh can clone an explicitly configured public
+wiki from the `WIKI_REPO` repository variable; without it, the workflow just
+verifies the current sources. No account credentials are included.
 
 ## Make it yours
 
@@ -59,8 +67,21 @@ configuration, authority, policy and authenticated identity. The optional native
 sources under `runtime/` need their own toolchains and third-party license
 review. No classifier models are bundled.
 
+For a MongoDB authority, install the optional pinned driver with
+`python3 -m pip install -r requirements-store-mongo.txt` before configuring the
+store. The portal container's default dependency lock does not install optional
+store drivers.
+
+For an Astrolift container deployment, see
+[`runtime/portal-container/README.md`](runtime/portal-container/README.md).
+`substrate-cells.json` lists all 192 combinations in the storage matrix with
+their canonical supported, planned or unsupported status for install-side
+validation.
+
 See [edition boundaries](docs/edition-boundaries.md) for what this edition
-supports and what it leaves out.
+supports and what it leaves out. See [storage routing](docs/storage-routing.md)
+for the current reference routes, host-registered projection boundary, and
+unqualified backup/topology limits.
 
 ## License
 

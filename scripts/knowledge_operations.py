@@ -15,7 +15,7 @@ from brain_federation import fields
 from context_bundle import encode
 from context_host import decode
 from knowledge_policy import fingerprint, local_path, timestamp
-from knowledge_store import SQLiteAuthority, StoreError, utcnow, encoded
+from knowledge_store import StoreError, utcnow, encoded
 
 ARGUMENTS = {
     "authority.inspect": (),
@@ -26,6 +26,7 @@ ARGUMENTS = {
     "publication.preview": ("consumer",),
     "publication.deliver": ("consumer", "expectedProjectionSha256"),
     "record.get": ("record",),
+    "record.history": ("record", "limit"),
     "record.patch-propose": ("record", "expectedRevision", "requestId", "title", "text", "reason", "evidence"),
     "proposal.propose": ("request", "record"),
     "proposal.inspect": ("proposal",),
@@ -51,6 +52,25 @@ INTAKE_ARGUMENTS = {
     "intake.completion-plan": ("request",),
     "intake.completion-refresh": ("maxEvents", "maxBytes"),
 }
+FILE_ARGUMENTS = {
+    "file.inspect": (),
+    "file.history": ("limit",),
+    "file.propose": ("expectedRevision", "requestId", "reason", "documentWire"),
+    "file.proposal-inspect": ("proposal",),
+    "file.review": ("proposal", "expectedProposalSha256", "reason"),
+    "file.publish": ("proposal", "expectedProposalSha256"),
+    "file.propose-binary": ("expectedRevision", "requestId", "reason", "contentBase64"),
+}
+FILE_GROUP_ARGUMENTS = {
+    "file.group.inspect": (),
+    "file.group.propose": ("expectedGroupRevision", "expectedAuthorizationSha256", "requestId", "reason", "documentWire"),
+    "file.group.propose-binary": ("expectedGroupRevision", "expectedAuthorizationSha256", "requestId", "reason", "contentBase64"),
+    "file.group.proposal-inspect": ("proposal",),
+    "file.group.review": ("proposal", "expectedProposalSha256", "reason"),
+    "file.group.destination-publish": ("proposal", "expectedProposalSha256", "destination"),
+    "file.group.status": ("proposal",),
+}
+FILE_OPERATIONS = frozenset(FILE_ARGUMENTS)
 WRITES = frozenset(
     ("record.patch-propose", "proposal.propose", "proposal.review", "proposal.dispose", "proposal.commit")
 ) | (INTAKE_ARGUMENTS.keys() - {"intake.completion-plan", "intake.completion-refresh"})
@@ -85,21 +105,42 @@ def load_host(root, relative):
     if len(raw) > MAX_REQUEST_BYTES:
         raise StoreError("Operations host exceeds its limit")
     host = decode(raw)
-    fields(host, ("format", "principalsByUid", "authorities"))
+    if not isinstance(host, dict):
+        raise StoreError("Invalid operations host")
+    file_host = host.get("format") in ("knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8")
+    host_fields = (("format", "principalsByUid", "authorities", "fileAuthorities", "publicationGroups")
+                   if host.get("format") == "knowledge-operations-host/v8" else
+                   ("format", "principalsByUid", "authorities", "fileAuthorities") if file_host else
+                   ("format", "principalsByUid", "authorities"))
+    fields(host, host_fields)
     if (
-        host["format"] not in tuple("knowledge-operations-host/v" + str(version) for version in range(1, 5))
+        host["format"] not in tuple("knowledge-operations-host/v" + str(version) for version in range(1, 9))
         or not isinstance(host["principalsByUid"], dict)
         or not isinstance(host["authorities"], dict)
-        or not 1 <= len(host["authorities"]) <= 64
+        or len(host["authorities"]) > 64
+        or file_host and
+           (not isinstance(host["fileAuthorities"], dict) or not 1 <= len(host["fileAuthorities"]) <= 64)
+        or not host["authorities"] and not host.get("fileAuthorities")
+        or host["format"] == "knowledge-operations-host/v8" and not isinstance(host.get("publicationGroups"), dict)
     ):
         raise StoreError("Invalid operations host")
+    if set(host["authorities"]) & set(host.get("fileAuthorities", {})):
+        raise StoreError("Native and file authority identities must be distinct")
+    if host["format"] == "knowledge-operations-host/v8" and (
+            len(host["publicationGroups"]) > 16 or
+            set(host["publicationGroups"]) & (set(host["authorities"]) | set(host["fileAuthorities"]))):
+        raise StoreError("File publication group identities are invalid")
     for uid, actor in host["principalsByUid"].items():
         if not re.fullmatch(r"[0-9]+", uid) or not isinstance(actor, str) or not actor.strip():
             raise StoreError("Invalid local principal mapping")
     for identity, entry in host["authorities"].items():
-        options = ("sources", "consumers", "intake") if host["format"] == "knowledge-operations-host/v4" else ("sources", "consumers")
+        options = ("sources", "consumers", "intake") if host["format"] in ("knowledge-operations-host/v4", "knowledge-operations-host/v5", "knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8") else ("sources", "consumers")
         optional = tuple(key for key in options if key in entry)
-        fields(entry, ("path", "binding", "grants", *optional))
+        remote = host['format'] in ('knowledge-operations-host/v5', 'knowledge-operations-host/v6', 'knowledge-operations-host/v7', 'knowledge-operations-host/v8') and 'connection' in entry
+        fields(entry, ("connection" if remote else "path", "binding", "grants", *optional))
+        if remote:
+            from operation_backend import validate_connection
+            validate_connection(entry['connection'])
         for key in optional:
             if not isinstance(entry[key], dict) or len(entry[key]) > 1000:
                 raise StoreError("Invalid bounded operation registrations")
@@ -119,7 +160,7 @@ def load_host(root, relative):
                 not isinstance(actor, str)
                 or not actor.strip()
                 or not isinstance(verbs, list)
-                or any(not isinstance(verb, str) or verb not in (
+                    or any(not isinstance(verb, str) or verb not in (
                     ARGUMENTS if host["format"] == "knowledge-operations-host/v1" else
                     ARGUMENTS | TRANSFER_ARGUMENTS if host["format"] == "knowledge-operations-host/v2" else
                     ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS if host["format"] == "knowledge-operations-host/v3" else
@@ -128,23 +169,82 @@ def load_host(root, relative):
                 or len(verbs) != len(set(verbs))
             ):
                 raise StoreError("Invalid operations grant")
+    if file_host:
+        from git_file_authoring import ARGUMENTS as FILE_ARGUMENTS
+        file_verbs = set(FILE_ARGUMENTS) | {"authority.inspect"}
+        for identity, entry in host["fileAuthorities"].items():
+            if entry.get("writer") == "json-commit":
+                file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "schema",
+                               "schemaSha256", "configSha256", "maxBytes", "grants")
+            elif host["format"] == "knowledge-operations-host/v7" and entry.get("writer") == "markdown-commit":
+                file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "contentProfile",
+                               "contentProfileSha256", "configSha256", "maxBytes", "grants")
+            elif host["format"] == "knowledge-operations-host/v8" and entry.get("writer") == "markdown-commit":
+                file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "contentProfile",
+                               "contentProfileSha256", "configSha256", "maxBytes", "grants")
+            elif host["format"] == "knowledge-operations-host/v8" and entry.get("writer") == "binary-commit":
+                file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "contentProfile",
+                               "contentProfileSha256", "mediaType", "configSha256", "maxBytes", "grants")
+            else:
+                raise StoreError("Invalid registered file writer")
+            fields(entry, file_fields)
+            if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", identity)
+                    or not isinstance(entry["grants"], dict)):
+                raise StoreError("Invalid registered file authority")
+            for actor, verbs in entry["grants"].items():
+                if (not isinstance(actor, str) or not actor.strip() or not isinstance(verbs, list)
+                        or len(verbs) != len(set(verbs))
+                        or any(not isinstance(verb, str) or verb not in file_verbs for verb in verbs)):
+                    raise StoreError("Invalid file authority grant")
+        if host["format"] == "knowledge-operations-host/v8":
+            groups = host["publicationGroups"]
+            if len(groups) > 16 or set(groups) & (set(host["authorities"]) | set(host["fileAuthorities"])):
+                raise StoreError("Invalid file publication group identity")
+            for group_id, group in groups.items():
+                if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", group_id) or
+                        not isinstance(group, dict) or set(group) != {"controlRepository", "controlRef", "targets"} or
+                        not isinstance(group["targets"], list) or not 2 <= len(group["targets"]) <= 4 or
+                        len(set(group["targets"])) != len(group["targets"]) or
+                        any(target not in host["fileAuthorities"] for target in group["targets"]) or
+                        not isinstance(group["controlRepository"], str) or
+                        not re.fullmatch(r"_internal/[A-Za-z0-9._/-]{1,180}\.git", group["controlRepository"]) or
+                        not isinstance(group["controlRef"], str) or
+                        not re.fullmatch(r"refs/heads/[A-Za-z0-9._/-]{1,120}", group["controlRef"])):
+                    raise StoreError("Invalid registered file publication group")
+                targets = [host["fileAuthorities"][target] for target in group["targets"]]
+                profile_keys = ("writer", "contentProfile", "contentProfileSha256")
+                if any(target.get("writer") not in ("markdown-commit", "binary-commit") for target in targets):
+                    raise StoreError("Publication groups require a compatible declared file writer")
+                first_profile = tuple(targets[0].get(key) for key in profile_keys)
+                if any(tuple(target.get(key) for key in profile_keys) != first_profile for target in targets):
+                    raise StoreError("Publication group writers must share one content profile")
+                if first_profile[0] == "binary-commit" and any(target.get("mediaType") != targets[0].get("mediaType") for target in targets):
+                    raise StoreError("Binary publication group media type must be fixed across destinations")
+                if len({(target["repository"], target["sourceRef"], target["path"]) for target in targets}) != len(targets):
+                    raise StoreError("Publication group targets must be distinct")
+                if (group["controlRepository"] != targets[0]["repository"] or
+                        group["controlRef"] != targets[0]["sourceRef"]):
+                    raise StoreError("Publication group control basis must be its first registered target")
     return host
 
 
 def validate_request(request):
     fields(request, ("format", "authority", "operation", "arguments"))
     if (
-        request["format"] not in tuple("knowledge-operation-request/v" + str(version) for version in range(1, 5))
+        request["format"] not in tuple("knowledge-operation-request/v" + str(version) for version in range(1, 7))
         or not isinstance(request["authority"], str)
         or not isinstance(request["operation"], str)
-        or request["operation"] not in (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS)
+        or request["operation"] not in (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS | FILE_ARGUMENTS | FILE_GROUP_ARGUMENTS)
     ):
         raise StoreError("Unsupported knowledge operation")
     operation, args = request["operation"], request["arguments"]
-    version = "v4" if operation in INTAKE_ARGUMENTS else "v3" if operation in REVIEW_ARGUMENTS else "v2" if operation in TRANSFER_ARGUMENTS else "v1"
+    file_v6 = set(FILE_GROUP_ARGUMENTS) | {"file.propose-binary"}
+    version = ("v6" if operation in file_v6 or operation in FILE_ARGUMENTS and request["format"] == "knowledge-operation-request/v6"
+               else "v5" if operation in FILE_ARGUMENTS else "v4" if operation in INTAKE_ARGUMENTS
+               else "v3" if operation in REVIEW_ARGUMENTS else "v2" if operation in TRANSFER_ARGUMENTS else "v1")
     if request["format"] != "knowledge-operation-request/" + version:
         raise StoreError("Operation request version does not match the selected operation")
-    fields(args, (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS)[operation])
+    fields(args, (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS | FILE_ARGUMENTS | FILE_GROUP_ARGUMENTS)[operation])
     if operation in INTAKE_ARGUMENTS:
         from knowledge_operation_intake import validate_arguments
 
@@ -171,13 +271,64 @@ def validate_request(request):
             raise StoreError("Invalid proposal collection selection")
     if operation in TRANSFER_ARGUMENTS:
         if args["purpose"] not in ("analysis", "interchange") or args["targetFormat"] not in (
-            "brain-exchange/v1", "conflict-kg/v1", "calliope-kg/v1"
+            "brain-exchange/v1", "mimwell-kg/v1"
         ):
             raise StoreError("Unsupported transfer purpose or format")
+    if operation in FILE_ARGUMENTS:
+        if operation == "file.history" and (type(args["limit"]) is not int or not 1 <= args["limit"] <= 50):
+            raise StoreError("Invalid bounded file history limit")
+        if operation in ("file.proposal-inspect", "file.review", "file.publish") and (
+                not isinstance(args["proposal"], str) or not re.fullmatch(r"[0-9a-f-]{36}", args["proposal"])):
+            raise StoreError("Invalid file proposal identity")
+        if operation in ("file.review", "file.publish") and (
+                not isinstance(args["expectedProposalSha256"], str) or
+                not re.fullmatch(r"[0-9a-f]{64}", args["expectedProposalSha256"])):
+            raise StoreError("Exact file proposal basis required")
+        if operation == "file.review" and (
+                not isinstance(args["reason"], str) or not args["reason"].strip() or len(args["reason"]) > 2000):
+            raise StoreError("A bounded review reason is required")
+        if operation == "file.propose" and (
+                not isinstance(args["expectedRevision"], str) or not re.fullmatch(r"[0-9a-f]{64}", args["expectedRevision"])
+                or not isinstance(args["requestId"], str) or not re.fullmatch(r"[0-9a-f-]{36}", args["requestId"])
+                or not isinstance(args["reason"], str) or not args["reason"].strip() or len(args["reason"]) > 2000
+                or not isinstance(args["documentWire"], str) or len(args["documentWire"]) > 262144):
+            raise StoreError("Invalid file proposal")
+        if operation == "file.propose-binary" and (
+                not isinstance(args["expectedRevision"], str) or not re.fullmatch(r"[0-9a-f]{64}", args["expectedRevision"])
+                or not isinstance(args["requestId"], str) or not re.fullmatch(r"[0-9a-f-]{36}", args["requestId"])
+                or not isinstance(args["reason"], str) or not args["reason"].strip() or len(args["reason"]) > 2000
+                or not isinstance(args["contentBase64"], str) or len(args["contentBase64"]) > 699052):
+            raise StoreError("Invalid bounded binary file proposal")
+    if operation in FILE_GROUP_ARGUMENTS:
+        if operation in ("file.group.propose", "file.group.propose-binary") and (
+                not isinstance(args["requestId"], str) or not re.fullmatch(r"[0-9a-f-]{36}", args["requestId"])
+                or not isinstance(args["reason"], str) or not args["reason"].strip() or len(args["reason"]) > 2000):
+            raise StoreError("Invalid file group proposal")
+        if operation in ("file.group.propose", "file.group.propose-binary") and (
+                not isinstance(args["expectedGroupRevision"], str) or
+                not re.fullmatch(r"[0-9a-f]{64}", args["expectedGroupRevision"]) or
+                not isinstance(args["expectedAuthorizationSha256"], str) or
+                not re.fullmatch(r"[0-9a-f]{64}", args["expectedAuthorizationSha256"])):
+            raise StoreError("Exact registered file group revision required")
+        if operation == "file.group.propose" and (not isinstance(args["documentWire"], str) or len(args["documentWire"]) > 65536):
+            raise StoreError("Invalid bounded file group text")
+        if operation == "file.group.propose-binary" and (not isinstance(args["contentBase64"], str) or len(args["contentBase64"]) > 699052):
+            raise StoreError("Invalid bounded file group asset")
+        if operation in ("file.group.proposal-inspect", "file.group.review", "file.group.destination-publish", "file.group.status") and (
+                not isinstance(args["proposal"], str) or not re.fullmatch(r"[0-9a-f-]{36}", args["proposal"])):
+            raise StoreError("Invalid file group proposal identity")
+        if operation in ("file.group.review", "file.group.destination-publish") and (
+                not isinstance(args["expectedProposalSha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", args["expectedProposalSha256"])):
+            raise StoreError("Exact file group proposal basis required")
+        if operation == "file.group.destination-publish" and (
+                not isinstance(args["destination"], str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args["destination"])):
+            raise StoreError("Invalid registered destination identity")
     for key in ("proposal", "reason", "source", "consumer"):
         if key in args and (not isinstance(args[key], str) or not args[key].strip() or len(args[key]) > 2000):
             raise StoreError("Invalid operation text")
-    if operation == "record.get" and (not isinstance(args["record"], str) or not 1 <= len(args["record"]) <= 2000):
+    if operation == "record.history" and (type(args['limit']) is not int or not 1 <= args['limit'] <= 50):
+        raise StoreError('Invalid bounded record history limit')
+    if operation in ("record.get", "record.history") and (not isinstance(args["record"], str) or not 1 <= len(args["record"]) <= 2000):
         raise StoreError("Invalid record identity")
     for key in (
         "expectedProposalSha256",
@@ -230,6 +381,8 @@ def execute(store, operation, args, *, actor, at):
         return result
     if operation == "record.get":
         return store.get(args["record"], actor, at=at)
+    if operation == "record.history":
+        return store.history(args['record'], actor, at=at, limit=args['limit'])
     if operation == "record.patch-propose":
         current = store.get(args["record"], actor, at=at)
         if (
@@ -293,6 +446,133 @@ def response_bytes(request, store, native, actor, at, final_at, limit):
     return raw
 
 
+def _file_authority_response(request, native, actor, at, final_at, binding, limit):
+    response = {
+        "format": request["format"].replace("knowledge-operation-request/", "knowledge-operation/"),
+        "authority": request["authority"],
+        "operation": request["operation"],
+        "contract": binding,
+        "requestWire": encoded(request),
+        "requestSha256": fingerprint(request),
+        "authorization": {"principal": actor, "evaluatedAt": at, "revalidatedAt": final_at},
+        "state": "completed",
+        "native": native,
+        "nativeWire": encoded(native),
+        "nativeSha256": fingerprint(native),
+    }
+    if request["operation"] == "authority.inspect":
+        response["hostCapabilities"] = native.pop("hostCapabilities")
+        response["nativeWire"] = encoded(native)
+        response["nativeSha256"] = fingerprint(native)
+    raw = encode(response)
+    if len(raw) > limit:
+        raise StoreError("Operation response exceeds its limit")
+    return raw
+
+
+def _run_file_authority(root, host_config, host, selected, request, *, actor, clock, authorize, max_response_bytes):
+    operation = request["operation"]
+    if operation != "authority.inspect" and operation not in FILE_ARGUMENTS:
+        raise StoreError("Operation unavailable for this file authority")
+    if operation == "authority.inspect":
+        if "authority.inspect" not in selected["grants"].get(actor, []):
+            raise StoreError("Operation unavailable")
+    elif ("file.propose" if operation == "file.propose-binary" else operation) not in selected["grants"].get(actor, []):
+        raise StoreError("Operation unavailable")
+    initial = timestamp(clock())
+
+    def guard(not_before=initial):
+        if authorize is not None and authorize() != actor:
+            raise StoreError("Operation identity changed")
+        if load_host(root, host_config) != host or timestamp(clock()) < not_before:
+            raise StoreError("Operation host selection changed")
+
+    guard()
+    from git_file_authoring import _load_pins, capabilities, run_operation
+    pin = _load_pins(root, selected)
+    binding = fingerprint(selected)
+    if operation == "authority.inspect":
+        native = {"authority": request["authority"], "driver": "files", "collections": []}
+        file_writer = {"path": pin["path"], "writer": selected["writer"]}
+        if selected["writer"] == "json-commit":
+            file_writer["schema"] = selected["schema"]
+        else:
+            file_writer["contentProfile"] = selected["contentProfile"]
+        native["hostCapabilities"] = {
+            "format": "authoring-capabilities/v1",
+            "authority": request["authority"],
+            "principal": actor,
+            "binding": binding,
+            "operations": capabilities(selected, actor),
+            "authorization": "host-registration-only",
+            "nativePolicy": "required-per-operation",
+            "executionAuthorized": False,
+            "fileWriter": file_writer,
+        }
+    else:
+        native = run_operation(root, selected, operation, request["arguments"], actor=actor,
+                               actors=tuple(selected["grants"]), clock=clock, guard=guard)
+    final_at = clock()
+    if timestamp(final_at) < initial:
+        raise StoreError("Operation clock moved backwards")
+    guard(not_before=timestamp(final_at))
+    pin_now = _load_pins(root, selected)
+    if pin_now["schemaBytes"] != pin["schemaBytes"]:
+        raise StoreError("File writer schema changed during operation")
+    return _file_authority_response(request, native, actor, initial.isoformat(), final_at,
+                                   binding, max_response_bytes)
+
+
+def _run_file_group_authority(root, host_config, host, group, request, *, actor, clock, authorize, max_response_bytes):
+    operation = request["operation"]
+    if operation != "authority.inspect" and operation not in FILE_GROUP_ARGUMENTS:
+        raise StoreError("Operation unavailable for this publication group")
+    verb = {"authority.inspect": "file.inspect", "file.group.inspect": "file.inspect",
+            "file.group.propose": "file.propose", "file.group.propose-binary": "file.propose",
+            "file.group.proposal-inspect": "file.proposal-inspect", "file.group.review": "file.review",
+            "file.group.destination-publish": "file.publish", "file.group.status": "file.proposal-inspect"}.get(operation)
+    targets = [host["fileAuthorities"][target_id] for target_id in group["targets"]]
+    if verb is None or any(verb not in target["grants"].get(actor, []) for target in targets):
+        raise StoreError("Operation unavailable")
+    initial = timestamp(clock())
+    group_id = request["authority"]
+    binding = fingerprint({"group": group, "targets": [{"id": target_id, "entry": host["fileAuthorities"][target_id]}
+                                                       for target_id in group["targets"]]})
+
+    def guard(not_before=initial):
+        if authorize is not None and authorize() != actor:
+            raise StoreError("Operation identity changed")
+        if load_host(root, host_config) != host or timestamp(clock()) < not_before:
+            raise StoreError("Operation host selection changed")
+
+    guard()
+    if operation == "authority.inspect":
+        from git_file_publication import inspect
+        native = {"authority": group_id, "driver": "files", "collections": [],
+                  "group": inspect(root, host, group, group_id)}
+        native["hostCapabilities"] = {
+            "format": "authoring-capabilities/v1", "authority": group_id, "principal": actor,
+            "binding": binding,
+            "operations": sorted(name for name, mapped in {
+                "file.group.inspect": "file.inspect", "file.group.propose": "file.propose",
+                "file.group.propose-binary": "file.propose", "file.group.proposal-inspect": "file.proposal-inspect",
+                "file.group.review": "file.review", "file.group.destination-publish": "file.publish",
+                "file.group.status": "file.proposal-inspect"}.items()
+                if all(mapped in target["grants"].get(actor, []) for target in targets)),
+            "authorization": "host-registration-only", "nativePolicy": "required-per-operation",
+            "executionAuthorized": False,
+        }
+    else:
+        from git_file_publication import run_group
+        native = run_group(root, host, group, group_id, operation, request["arguments"], actor=actor, guard=guard)
+    final_at = clock()
+    if timestamp(final_at) < initial:
+        raise StoreError("Operation clock moved backwards")
+    guard(not_before=timestamp(final_at))
+    return _file_authority_response(request, native, actor, initial.isoformat(), final_at,
+                                   binding, max_response_bytes)
+
+
 def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_response_bytes=MAX_RESPONSE_BYTES):
     """Trusted identity/clock; authorize() refreshes transport identity at each gate."""
     if type(max_response_bytes) is not int or not 1 <= max_response_bytes <= MAX_RESPONSE_BYTES:
@@ -302,12 +582,22 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
     validate_request(request)
     root = Path(root).absolute()
     host = load_host(root, host_config)
+    file_group = host.get("publicationGroups", {}).get(request["authority"])
+    if file_group is not None:
+        return _run_file_group_authority(root, host_config, host, file_group, request, actor=actor,
+                                         clock=clock, authorize=authorize, max_response_bytes=max_response_bytes)
+    file_selected = host.get("fileAuthorities", {}).get(request["authority"])
+    if file_selected is not None:
+        return _run_file_authority(root, host_config, host, file_selected, request, actor=actor,
+                                   clock=clock, authorize=authorize, max_response_bytes=max_response_bytes)
     selected = host["authorities"].get(request["authority"])
     operation, args = request["operation"], request["arguments"]
     if selected is None or operation not in selected["grants"].get(actor, []):
         raise StoreError("Operation unavailable")
-    path = private_path(root, selected["path"])
-    path_identity = (path.stat().st_dev, path.stat().st_ino)
+    from operation_backend import select_backend, supports
+    adapter, target, driver, store_id, backend_current = select_backend(root, selected)
+    if not supports(driver, operation):
+        raise StoreError('Operation is not packaged for this native adapter')
     initial = timestamp(clock())
 
     def guard(not_before=initial):
@@ -315,19 +605,19 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
             raise StoreError("Operation identity changed")
         if load_host(root, host_config) != host or timestamp(clock()) < not_before:
             raise StoreError("Operation host selection changed")
-        current = private_path(root, selected["path"]).stat()
-        if (current.st_dev, current.st_ino) != path_identity:
-            raise StoreError("Authority file changed during operation")
+        backend_current()
 
     guard()
     write = operation in WRITES
-    store = SQLiteAuthority(
-        path,
+    store = adapter(
+        target,
         expected_binding=selected["binding"],
         readonly=not (write or operation == "publication.deliver"),
         intake_clock=clock,
     )
     try:
+        if store_id is not None and store.contract.authority != store_id:
+            raise StoreError('Native authority store differs from the registered writer')
         intake = None
         if "intake" in selected:
             from knowledge_operation_intake import IntakeOperations
@@ -403,6 +693,19 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
                 "nativeWire": encoded(native),
                 "nativeSha256": fingerprint(native),
             }
+            if operation == "authority.inspect":
+                # Host availability is separate from the untouched native
+                # description. It never promises per-record permission.
+                response["hostCapabilities"] = {
+                    "format": "authoring-capabilities/v1",
+                    "authority": request["authority"],
+                    "principal": actor,
+                    "binding": store.contract.binding,
+                    "operations": sorted(verb for verb in selected["grants"][actor] if supports(driver, verb)),
+                    "authorization": "host-registration-only",
+                    "nativePolicy": "required-per-operation",
+                    "executionAuthorized": False,
+                }
             raw = encode(response)
             if len(raw) > max_response_bytes:
                 raise StoreError("Operation response exceeds its limit")

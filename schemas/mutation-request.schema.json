@@ -23,6 +23,10 @@
         "create",
         "correct",
         "supersede",
+        "strategy",
+        "confirm",
+        "archive",
+        "unarchive",
         "retract",
         "delete",
         "retain",
@@ -55,6 +59,11 @@
         "null"
       ],
       "minLength": 1
+    },
+    "successor": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
     }
   },
   "required": [

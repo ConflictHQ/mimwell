@@ -3,7 +3,7 @@
   "$id": "conflict:schema/open-questions/v1",
   "title": "Open questions (app/open-questions.json)",
   "description": "Open questions raised across the engagement, rendered by /decisions/ (Open Questions view).",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/open-questions.json"

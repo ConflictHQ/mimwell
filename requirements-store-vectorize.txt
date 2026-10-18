@@ -1,0 +1,3 @@
+# Optional: the edge-db vectors driver, Cloudflare Vectorize over its REST API (docs/design/substrate-matrix.md).
+# scripts/vector_role.py imports it only when an edge-db vectors store opens.
+requests==2.34.2

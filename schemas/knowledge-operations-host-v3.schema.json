@@ -73,7 +73,8 @@
                   "transfer.download",
                   "source.list",
                   "proposal.list",
-                  "collection.semantic-inspect"
+                  "collection.semantic-inspect",
+                  "record.history"
                 ]
               }
             }

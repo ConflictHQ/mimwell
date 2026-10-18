@@ -1,0 +1,57 @@
+name: Public knowledge refresh
+
+on:
+  schedule:
+    - cron: "20 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: public-knowledge-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: python -m pip install --quiet -r requirements.txt
+      - run: npm ci
+      - name: Sync configured public wiki
+        if: vars.WIKI_REPO != ''
+        env:
+          WIKI_REPO: ${{ vars.WIKI_REPO }}
+        run: |
+          test ! -e knowledge/wiki || { echo "knowledge/wiki already exists; refusing to overwrite it"; exit 1; }
+          git clone --depth=1 --no-tags "$WIKI_REPO" knowledge/wiki
+          rm -rf knowledge/wiki/.git
+      - name: Rebuild and verify
+        run: make verify
+      - name: Open review PR when source or projections changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git add -A -- app
+          if [ -d knowledge/wiki ]; then git add -A -- knowledge/wiki; fi
+          if git diff --cached --quiet; then
+            echo "No public knowledge or generated projections changed."
+            exit 0
+          fi
+          branch="chore/public-knowledge-refresh-$(date -u +%Y%m%d)-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -m "chore(knowledge): refresh public wiki and projections"
+          git push --set-upstream origin "$branch"
+          gh pr create --fill --head "$branch" || gh pr view "$branch"

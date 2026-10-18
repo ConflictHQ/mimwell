@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "conflict:schema/brain-protection/v1",
   "title": "Protection requirements, selected profiles, protected records and transitions",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "$ref": "#/$defs/record",

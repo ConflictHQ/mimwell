@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Engagement Portal</title>
+<title>Knowledge Portal</title>
 <style>
   :root {
     /* ── Branding seam: defaults below are overwritten at runtime from
@@ -294,20 +294,16 @@
 <section class="hero">
   <div class="hero-eyebrow">
     <span class="hero-eyebrow-line"></span>
-    <span id="hero-eyebrow-text">Engagement</span>
+    <span id="hero-eyebrow-text">Knowledge</span>
     <span class="hero-eyebrow-line"></span>
   </div>
-  <!-- Hero mark: defaults to the Mimwell mark (a dark/light pair swapped by the
-       theme.css logo-on-* classes); if the client config supplies
-       branding.heroMark, it is swapped for that image at runtime. -->
-  <div id="hero-mark-slot">
-    <img class="hero-mark logo-on-dark" src="/app/brand/mimwell-mark-dark.svg" width="96" height="96" alt="Mimwell">
-    <img class="hero-mark logo-on-light" src="/app/brand/mimwell-mark-light.svg" width="96" height="96" alt="Mimwell">
-  </div>
+  <!-- Optional branding.heroMark / heroMarkDark / heroMarkWidth. With no
+       configured artwork, the brain's text wordmark identifies this portal. -->
+  <div id="hero-mark-slot"></div>
   <h1 class="hero-title" id="hero-title">—</h1>
   <div class="hero-subtitle" id="hero-subtitle">—</div>
   <p class="hero-desc" id="hero-desc">Explore this brain’s knowledge and the sources behind it.</p>
-  <div class="hero-meta" id="hero-meta">Engagement Portal · <span id="hero-engagement">—</span></div>
+  <div class="hero-meta" id="hero-meta">Knowledge Portal · <span id="hero-engagement">—</span></div>
 </section>
 
 <!-- Stats strip -->
@@ -425,7 +421,7 @@ async function loadConfig() {
   // Document title + injected client/engagement text.
   if (b.portalTitle) document.title = b.portalTitle;
 
-  // Optional client hero mark — falls back to the inline generic mark.
+  // Optional brain hero mark; no artwork is shown when it is unconfigured.
   // With branding.heroMarkDark, render a theme-aware pair (heroMarkDark shows on
   // dark chrome, heroMark on light) swapped by the theme.css logo-on-* classes.
   if (b.heroMark) {
@@ -647,11 +643,11 @@ async function loadActivity() {
 }
 
 // ── Needs attention (reads open counts from the data artifacts) ──────────────
-// Surfaces three at-a-glance counts: open action items, open questions, and
-// deliverables that aren't done yet (planned / at-risk / in-progress). Each
-// source is fetched independently; a missing/empty artifact yields a clean "0"
-// card rather than an error. The whole strip stays hidden until at least one
-// source resolves, so a brand-new portal with no data shows nothing.
+// Surfaces at-a-glance counts: open action items, open questions, deliverables
+// that aren't done yet (planned / at-risk / in-progress), open RAID items and
+// open issues. Each source is fetched independently. A tile renders only when
+// its source has records, so a collection with no data shows no tile rather
+// than a hollow "All clear"; the whole strip stays hidden when none does.
 async function loadNeedsAttention() {
   const section = document.getElementById('attn-section');
   const grid = document.getElementById('attn-grid');
@@ -673,14 +669,22 @@ async function loadNeedsAttention() {
     fetchJson('/issues.json'),
   ]);
 
-  // Action items: items have no done-state by default, so every tracked item
-  // counts as open — but honor an explicit done/status field if one is present.
+  // Action items: extracted items carry no follow-up state until someone triages
+  // them. Only an explicit open-like `status` (or `done: false`) counts as open;
+  // an item with neither is untriaged and reported beside the count, never
+  // claimed open (or closed).
   const aiItems = (ai && Array.isArray(ai.items)) ? ai.items : [];
-  const aiOpen = aiItems.filter(it => {
-    if (it && it.done === true) return false;
-    const s = it && it.status != null ? String(it.status).toLowerCase() : '';
-    return !(s === 'done' || s === 'closed' || s === 'completed' || s === 'resolved');
-  }).length;
+  const aiState = it => {
+    if (it && it.status != null && String(it.status).trim()) {
+      const s = String(it.status).trim().toLowerCase();
+      return (s === 'open' || s === 'in-progress' || s === 'in progress' || s === 'blocked' || s === 'todo') ? 'open' : 'closed';
+    }
+    if (it && it.done === true) return 'closed';
+    if (it && it.done === false) return 'open';
+    return 'untriaged';
+  };
+  const aiOpen = aiItems.filter(it => aiState(it) === 'open').length;
+  const aiUntriaged = aiItems.filter(it => aiState(it) === 'untriaged').length;
 
   // Open questions: count anything not closed/resolved/answered/deferred.
   const oqRows = (oq && Array.isArray(oq.questions)) ? oq.questions : [];
@@ -703,20 +707,27 @@ async function loadNeedsAttention() {
     return !(s === 'closed' || s === 'resolved' || s === 'done' || s === 'mitigated');
   }).length;
 
-  // Open issues: the live GitHub tracker carries an `issues` array once repos are
-  // configured; count anything not closed. Empty-state has no array → 0, no card.
+  // Open issues: scripts/gen-issues.py writes per-repo lists under `repos` and,
+  // when GitHub can count them, a `totals` rollup; prefer the rollup, then each
+  // repo's open_total, then the length of its list. A flat `issues` array (older
+  // exports) still counts anything not closed.
+  const issRepos = (iss && Array.isArray(iss.repos)) ? iss.repos : [];
   const issRows = (iss && Array.isArray(iss.issues)) ? iss.issues : [];
-  const issOpen = issRows.filter(it => {
-    const s = it && it.state != null ? String(it.state).trim().toLowerCase() : 'open';
-    return s !== 'closed';
-  }).length;
+  const issOpen = (iss && iss.totals && typeof iss.totals.open === 'number') ? iss.totals.open
+    : issRepos.length ? issRepos.reduce((n, r) => n + (r && typeof r.open_total === 'number' ? r.open_total
+        : r && Array.isArray(r.open) ? r.open.length : 0), 0)
+    : issRows.filter(it => {
+        const s = it && it.state != null ? String(it.state).trim().toLowerCase() : 'open';
+        return s !== 'closed';
+      }).length;
 
   // Nothing to render against → leave the strip hidden.
   if (!ai && !oq && !dl && !raid && !iss) return;
 
-  const card = (count, label, sub, href) => {
-    const tone = count > 0 ? (count >= 5 ? 'alert' : 'warn') : 'clear';
-    const subText = count > 0 ? sub : 'All clear';
+  const card = (count, label, sub, href, pending = 0) => {
+    const tone = count > 0 ? (count >= 5 ? 'alert' : 'warn') : pending > 0 ? 'warn' : 'clear';
+    const note = pending > 0 ? `${pending} not yet triaged` : '';
+    const subText = count > 0 ? [sub, note].filter(Boolean).join(' · ') : (note || 'All clear');
     return `<a class="attn-card ${tone}" href="${esc(href)}">
       <span class="attn-num">${count}</span>
       <span class="attn-body">
@@ -728,15 +739,15 @@ async function loadNeedsAttention() {
 
   // Show the issues card only when the live tracker is actually wired (repos
   // configured) — an unconfigured engagement shouldn't get a hollow "All clear".
-  const issConfigured = !!(iss && Array.isArray(iss.repos) && iss.repos.length);
+  const issConfigured = issRepos.length > 0 || issRows.length > 0;
 
-  const cards = [
-    card(aiOpen, 'Open Action Items', 'awaiting follow-up', '/action-items/'),
-    card(oqOpen, 'Open Questions', 'need a decision', '/decisions/'),
-    card(dlOpen, 'Deliverables In Flight', 'planned or in progress', '/deliverables/'),
-    card(raidOpen, 'Open RAID Items', 'risks, assumptions, issues, deps', '/raid/'),
-  ];
+  const cards = [];
+  if (aiItems.length) cards.push(card(aiOpen, 'Open Action Items', 'awaiting follow-up', '/action-items/', aiUntriaged));
+  if (oqRows.length) cards.push(card(oqOpen, 'Open Questions', 'need a decision', '/decisions/'));
+  if (dlRows.length) cards.push(card(dlOpen, 'Deliverables In Flight', 'planned or in progress', '/deliverables/'));
+  if (raidRows.length) cards.push(card(raidOpen, 'Open RAID Items', 'risks, assumptions, issues, deps', '/raid/'));
   if (issConfigured) cards.push(card(issOpen, 'Open Issues', 'across the project repos', '/issues/'));
+  if (!cards.length) return;
 
   grid.innerHTML = cards.join('');
   section.style.display = 'block';
