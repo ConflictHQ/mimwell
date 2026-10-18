@@ -575,7 +575,7 @@ def stamp_config(target: Path, opts: argparse.Namespace, composition: dict | Non
 
 
 # ---------------------------------------------------------------------------
-# Step 3 — rename worker identity (wrangler.toml + package.json)
+# Step 3 — rename worker identity (wrangler.toml + package metadata)
 # ---------------------------------------------------------------------------
 def rename_worker(target: Path, slug: str) -> None:
     worker_name = f"{slug}-portal"
@@ -599,7 +599,29 @@ def rename_worker(target: Path, slug: str) -> None:
     pkg["name"] = worker_name
     _dump_json(pkg_path, pkg)
 
-    _say(f"  worker identity -> {worker_name!r} (wrangler.toml, package.json)")
+    # Keep npm's lockfile root identity aligned with package.json. Only update
+    # the project-level names; dependency entries may legitimately have the
+    # same name and their versions, integrity hashes and metadata are immutable.
+    lock_path = target / "package-lock.json"
+    if lock_path.is_file():
+        lock = _load_json(lock_path)
+        if not isinstance(lock, dict):
+            raise ValueError("package-lock.json must contain a JSON object")
+        if "name" in lock:
+            lock["name"] = worker_name
+        packages = lock.get("packages")
+        if packages is not None:
+            if not isinstance(packages, dict):
+                raise ValueError("package-lock.json packages must be an object")
+            root_package = packages.get("")
+            if root_package is not None:
+                if not isinstance(root_package, dict):
+                    raise ValueError("package-lock.json root package must be an object")
+                if "name" in root_package:
+                    root_package["name"] = worker_name
+        _dump_json(lock_path, lock)
+
+    _say(f"  worker identity -> {worker_name!r} (wrangler.toml, package metadata)")
 
 
 # ---------------------------------------------------------------------------
