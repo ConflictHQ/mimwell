@@ -18,7 +18,7 @@
       "sha256": "f4005c8a7a7dcd3e6e1fcdcdefabe1bb7603a80de5310f482104d1b47eb0f92c",
       "size": 3473,
       "source": "publication/assets/mimwell/.github/assets/conflict-logo-dark.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "f4005c8a7a7dcd3e6e1fcdcdefabe1bb7603a80de5310f482104d1b47eb0f92c"
     },
     {
@@ -27,7 +27,7 @@
       "sha256": "6f52bfb51ebfd45858a1ab79b0b9d464b4dabb626d1096ae2ce7107865626948",
       "size": 3464,
       "source": "publication/assets/mimwell/.github/assets/conflict-logo-light.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "6f52bfb51ebfd45858a1ab79b0b9d464b4dabb626d1096ae2ce7107865626948"
     },
     {
@@ -36,7 +36,7 @@
       "sha256": "2974b996559642d2ffd78eda5bb6a468ba64f54285179cc7379a99737d6e2a15",
       "size": 505,
       "source": "publication/assets/common/.github/workflows/ci.yml",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "2974b996559642d2ffd78eda5bb6a468ba64f54285179cc7379a99737d6e2a15"
     },
     {
@@ -45,7 +45,7 @@
       "sha256": "efe35579221cdb8c4babc07fc3a76805e459f64f85158621f29292900eb73318",
       "size": 1879,
       "source": "publication/assets/common/.github/workflows/knowledge-refresh.yml",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "efe35579221cdb8c4babc07fc3a76805e459f64f85158621f29292900eb73318"
     },
     {
@@ -54,7 +54,7 @@
       "sha256": "fdea50b350e00b3ba4cc9744b7fd42e8384da2b57d8be979bfc91bc4a873ec88",
       "size": 261,
       "source": "publication/assets/common/.gitignore",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "fdea50b350e00b3ba4cc9744b7fd42e8384da2b57d8be979bfc91bc4a873ec88"
     },
     {
@@ -63,7 +63,7 @@
       "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
       "size": 11358,
       "source": "publication/assets/common/LICENSE",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
     {
@@ -72,7 +72,7 @@
       "sha256": "b8e0b291fcf28ba2fbb48571a12da4ad776d8c928cec6be58341b259485260c3",
       "size": 1994,
       "source": "publication/assets/mimwell/Makefile",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "b8e0b291fcf28ba2fbb48571a12da4ad776d8c928cec6be58341b259485260c3"
     },
     {
@@ -81,7 +81,7 @@
       "sha256": "266c00a092d82b40777148360c5ed6196cea102debe9c8491d11a32bc9d6a933",
       "size": 416,
       "source": "publication/assets/common/NOTICE",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "266c00a092d82b40777148360c5ed6196cea102debe9c8491d11a32bc9d6a933"
     },
     {
@@ -90,7 +90,7 @@
       "sha256": "d6898b0e77c38c81f89c1d0343524e9d64692db40b3f3c7ed6f84fffcc9dca58",
       "size": 4859,
       "source": "publication/assets/mimwell/README.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "d6898b0e77c38c81f89c1d0343524e9d64692db40b3f3c7ed6f84fffcc9dca58"
     },
     {
@@ -135,7 +135,7 @@
       "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
       "size": 3,
       "source": "publication/assets/common/activity.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
     },
     {
@@ -144,7 +144,7 @@
       "sha256": "e982439bc9dd074d003c2cc81e47f601f96507784433340f1903d7d98a7a53de",
       "size": 32,
       "source": "publication/assets/common/app/action-items.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "e982439bc9dd074d003c2cc81e47f601f96507784433340f1903d7d98a7a53de"
     },
     {
@@ -189,7 +189,7 @@
       "sha256": "f9e0a4e155be62b6d7305bcaa522c871134908c571676d85df21fef87656cbc6",
       "size": 187,
       "source": "publication/assets/common/app/collections.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "f9e0a4e155be62b6d7305bcaa522c871134908c571676d85df21fef87656cbc6"
     },
     {
@@ -216,7 +216,7 @@
       "sha256": "055e7044f1db7dbe61d4317e7bfd39741a8009eec39d7337228075d36f22205a",
       "size": 199,
       "source": "publication/assets/common/app/decisions.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "055e7044f1db7dbe61d4317e7bfd39741a8009eec39d7337228075d36f22205a"
     },
     {
@@ -234,7 +234,7 @@
       "sha256": "4294a5cefc5866cf04dbbc8fea0151458db3e57290c02d1dfc172635d3f76051",
       "size": 196,
       "source": "publication/assets/common/app/deck.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "4294a5cefc5866cf04dbbc8fea0151458db3e57290c02d1dfc172635d3f76051"
     },
     {
@@ -243,7 +243,7 @@
       "sha256": "aa39e5725121f9b0d5038e8b3d036b00328f8453f37baa9d33e2259e713cbdb9",
       "size": 188,
       "source": "publication/assets/common/app/deliverables.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "aa39e5725121f9b0d5038e8b3d036b00328f8453f37baa9d33e2259e713cbdb9"
     },
     {
@@ -297,7 +297,7 @@
       "sha256": "d704d358dd8d142033cd731451051e7e814b82e6afc3e20b86b153001a6a1322",
       "size": 25,
       "source": "publication/assets/common/app/equivalences.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "d704d358dd8d142033cd731451051e7e814b82e6afc3e20b86b153001a6a1322"
     },
     {
@@ -342,7 +342,7 @@
       "sha256": "48eb411b7c58b6ae57907911389f1e2f48e06317dc38b4804df803fdc9f5ddb0",
       "size": 181,
       "source": "publication/assets/common/app/glossary.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "48eb411b7c58b6ae57907911389f1e2f48e06317dc38b4804df803fdc9f5ddb0"
     },
     {
@@ -360,7 +360,7 @@
       "sha256": "b97c957dec6a2fc1ee3b9c7dda13f445917b0ac4185c46442b5c70db13ff405c",
       "size": 22,
       "source": "publication/assets/common/app/issues-history.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "b97c957dec6a2fc1ee3b9c7dda13f445917b0ac4185c46442b5c70db13ff405c"
     },
     {
@@ -414,7 +414,7 @@
       "sha256": "34ba6dcb578ebf71e1bb7b6288950b95298af6054d32521db87d7ea802a45f72",
       "size": 63,
       "source": "publication/assets/common/app/knowledge_graph.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "34ba6dcb578ebf71e1bb7b6288950b95298af6054d32521db87d7ea802a45f72"
     },
     {
@@ -450,7 +450,7 @@
       "sha256": "f5124fc71d35e18252f55b47b72673bfb900243cd6066a684c159205680ce467",
       "size": 199,
       "source": "publication/assets/common/app/open-questions.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "f5124fc71d35e18252f55b47b72673bfb900243cd6066a684c159205680ce467"
     },
     {
@@ -477,7 +477,7 @@
       "sha256": "ad3ad3722f9fa11376b2f5a64baab564f49db8e6e196b0f3d6d0e77288c59377",
       "size": 50,
       "source": "publication/assets/common/app/proposals.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "ad3ad3722f9fa11376b2f5a64baab564f49db8e6e196b0f3d6d0e77288c59377"
     },
     {
@@ -504,7 +504,7 @@
       "sha256": "386c428957671d85fb4503a547f7ed03c19364b30af66cb26722d5304b51a909",
       "size": 181,
       "source": "publication/assets/common/app/raid.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "386c428957671d85fb4503a547f7ed03c19364b30af66cb26722d5304b51a909"
     },
     {
@@ -567,7 +567,7 @@
       "sha256": "0fbe4b9537ded0f0d0dc73849268f517d8be024c20fc27d639e34ea13e82c044",
       "size": 182,
       "source": "publication/assets/common/app/roadmap.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "0fbe4b9537ded0f0d0dc73849268f517d8be024c20fc27d639e34ea13e82c044"
     },
     {
@@ -612,7 +612,7 @@
       "sha256": "972ef5c3126ec262887e9b7d2df2f1b6c9eb2b7dec71425104f81028dd3ba27a",
       "size": 201,
       "source": "publication/assets/common/app/sensemaking.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "972ef5c3126ec262887e9b7d2df2f1b6c9eb2b7dec71425104f81028dd3ba27a"
     },
     {
@@ -630,7 +630,7 @@
       "sha256": "cf2f56e2f26a5dedb7c4ff3c83c7992cf0bd88abbd2b400195f7c47712f84f37",
       "size": 35,
       "source": "publication/assets/common/app/sessions.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "cf2f56e2f26a5dedb7c4ff3c83c7992cf0bd88abbd2b400195f7c47712f84f37"
     },
     {
@@ -648,7 +648,7 @@
       "sha256": "355fd7b8ccedfb3a364b1abc2a81155ea8c25028a0f7269c35386df7fffd20ed",
       "size": 182,
       "source": "publication/assets/common/app/stakeholders.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "355fd7b8ccedfb3a364b1abc2a81155ea8c25028a0f7269c35386df7fffd20ed"
     },
     {
@@ -720,7 +720,7 @@
       "sha256": "15f4fd0c4a3deea98158e9b20c85ea19fafac68c951561d1b451239008706d1f",
       "size": 183,
       "source": "publication/assets/common/app/user-stories.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "15f4fd0c4a3deea98158e9b20c85ea19fafac68c951561d1b451239008706d1f"
     },
     {
@@ -729,7 +729,7 @@
       "sha256": "fe17c0f2581d71b4e1ea7e636e7f4877c29223e11bb1dd1a871e8c3f2a86336b",
       "size": 4384,
       "source": "publication/assets/mimwell/assets/brand/OFL-Oxanium.txt",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "fe17c0f2581d71b4e1ea7e636e7f4877c29223e11bb1dd1a871e8c3f2a86336b"
     },
     {
@@ -738,7 +738,7 @@
       "sha256": "0712c26e48bb9dfd4e49426f94ce618a5f0f7feefa97f976f07f0ea07b3f174e",
       "size": 34904,
       "source": "publication/assets/mimwell/assets/brand/mimwell-favicon-512.png",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "0712c26e48bb9dfd4e49426f94ce618a5f0f7feefa97f976f07f0ea07b3f174e"
     },
     {
@@ -747,7 +747,7 @@
       "sha256": "a31ab1ebb3cdfd249f3373793ea5740aaa732562b3bcfcedfe7a902778058706",
       "size": 977,
       "source": "publication/assets/mimwell/assets/brand/mimwell-favicon.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "a31ab1ebb3cdfd249f3373793ea5740aaa732562b3bcfcedfe7a902778058706"
     },
     {
@@ -756,7 +756,7 @@
       "sha256": "281c64185eece36a2894580b5f2710a1578eaf4347faac3cee16930c7101ec67",
       "size": 22808,
       "source": "publication/assets/mimwell/assets/brand/mimwell-lockup-horizontal-dark.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "281c64185eece36a2894580b5f2710a1578eaf4347faac3cee16930c7101ec67"
     },
     {
@@ -765,7 +765,7 @@
       "sha256": "769c0d740c00461e57c32677fb3f928dc588068df8ba6e7a6cda8c9054067cb4",
       "size": 22808,
       "source": "publication/assets/mimwell/assets/brand/mimwell-lockup-horizontal-light.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "769c0d740c00461e57c32677fb3f928dc588068df8ba6e7a6cda8c9054067cb4"
     },
     {
@@ -774,7 +774,7 @@
       "sha256": "fc4d2cbe506a65162c285d738c53fbc3d18a6e978b522698d97b8e3b9c7e158c",
       "size": 21159,
       "source": "publication/assets/mimwell/assets/brand/mimwell-lockup-horizontal-mono.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "fc4d2cbe506a65162c285d738c53fbc3d18a6e978b522698d97b8e3b9c7e158c"
     },
     {
@@ -783,7 +783,7 @@
       "sha256": "a488cc0616004f1758584dd54b106e65df14ddb22277eb8c517b41f2b0a6e7dd",
       "size": 22822,
       "source": "publication/assets/mimwell/assets/brand/mimwell-lockup-stacked-dark.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "a488cc0616004f1758584dd54b106e65df14ddb22277eb8c517b41f2b0a6e7dd"
     },
     {
@@ -792,7 +792,7 @@
       "sha256": "7eeff75ce801d2bb1920793281d7da1923022c65f16109395c9595df43bd9eee",
       "size": 22822,
       "source": "publication/assets/mimwell/assets/brand/mimwell-lockup-stacked-light.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "7eeff75ce801d2bb1920793281d7da1923022c65f16109395c9595df43bd9eee"
     },
     {
@@ -801,7 +801,7 @@
       "sha256": "ef2788c411bc6ecf77eba812238a42a2f321fd0c3d2335c174e2c4434257c039",
       "size": 21173,
       "source": "publication/assets/mimwell/assets/brand/mimwell-lockup-stacked-mono.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "ef2788c411bc6ecf77eba812238a42a2f321fd0c3d2335c174e2c4434257c039"
     },
     {
@@ -810,7 +810,7 @@
       "sha256": "f1e187f1d5287f11f38322e261f12a3bc9d57e2508c3c2875af2794e789d0b0f",
       "size": 19766,
       "source": "publication/assets/mimwell/assets/brand/mimwell-mark-dark.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "f1e187f1d5287f11f38322e261f12a3bc9d57e2508c3c2875af2794e789d0b0f"
     },
     {
@@ -819,7 +819,7 @@
       "sha256": "e9ef4499ece37f6ca509a530d5269516dac46dd51f792cf883b527bd930f8b6d",
       "size": 18077,
       "source": "publication/assets/mimwell/assets/brand/mimwell-mark-mono.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "e9ef4499ece37f6ca509a530d5269516dac46dd51f792cf883b527bd930f8b6d"
     },
     {
@@ -828,7 +828,7 @@
       "sha256": "38ce6d3d3219dacc174eb66a1c8516e9a375297b9adc60f405c8ae506104d673",
       "size": 19766,
       "source": "publication/assets/mimwell/assets/brand/mimwell-mark.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "38ce6d3d3219dacc174eb66a1c8516e9a375297b9adc60f405c8ae506104d673"
     },
     {
@@ -837,7 +837,7 @@
       "sha256": "d241b61f897bd164eb4461315f8b20c8a067bc12363b9f8a245afa8fcd745274",
       "size": 3112,
       "source": "publication/assets/mimwell/assets/brand/mimwell-wordmark-dark.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "d241b61f897bd164eb4461315f8b20c8a067bc12363b9f8a245afa8fcd745274"
     },
     {
@@ -846,7 +846,7 @@
       "sha256": "608bfaffd1511b3286bf5106da1f7fb5ef0c2454a0ce992c26fe13b333da86dd",
       "size": 3112,
       "source": "publication/assets/mimwell/assets/brand/mimwell-wordmark-light.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "608bfaffd1511b3286bf5106da1f7fb5ef0c2454a0ce992c26fe13b333da86dd"
     },
     {
@@ -855,7 +855,7 @@
       "sha256": "17fb7c1bb42b17d7adb4f1ff673e9e45d9ce70e5942ed9129151723f77445e10",
       "size": 3152,
       "source": "publication/assets/mimwell/assets/brand/mimwell-wordmark-mono.svg",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "17fb7c1bb42b17d7adb4f1ff673e9e45d9ce70e5942ed9129151723f77445e10"
     },
     {
@@ -882,7 +882,7 @@
       "sha256": "b90fac35954aaa4c42263620c85c9731d5d98777f85da74382b4adf2daa39606",
       "size": 10631,
       "source": "publication/assets/mimwell/client.config.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "b90fac35954aaa4c42263620c85c9731d5d98777f85da74382b4adf2daa39606"
     },
     {
@@ -900,7 +900,7 @@
       "sha256": "a2b0eece5e5bdc5822048925fad2d0c6020511309a4bfeb1b228af067e89beda",
       "size": 2911,
       "source": "publication/assets/mimwell/connectors/README.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "a2b0eece5e5bdc5822048925fad2d0c6020511309a4bfeb1b228af067e89beda"
     },
     {
@@ -1044,7 +1044,7 @@
       "sha256": "0c30ad508da54934cb42787f137c28d5e4aebbbb9c3199ae32ac29e560acfcb5",
       "size": 43198,
       "source": "publication/assets/common/substrate-cells.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "0c30ad508da54934cb42787f137c28d5e4aebbbb9c3199ae32ac29e560acfcb5"
     },
     {
@@ -1089,7 +1089,7 @@
       "sha256": "f2187f0b17818a94b8865e8bd61cc72a6f37395a0ff1a576839543b5c6468bea",
       "size": 1897,
       "source": "publication/assets/common/docs/edition-boundaries.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "f2187f0b17818a94b8865e8bd61cc72a6f37395a0ff1a576839543b5c6468bea"
     },
     {
@@ -1098,7 +1098,7 @@
       "sha256": "b633837acb76b061f862d691ff35bdaa1c17a5f8d2fb0b93e3a94f5476400299",
       "size": 5050,
       "source": "publication/assets/mimwell/docs/native-capabilities.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "b633837acb76b061f862d691ff35bdaa1c17a5f8d2fb0b93e3a94f5476400299"
     },
     {
@@ -1107,7 +1107,7 @@
       "sha256": "91e00dcf32e745cae43cd9e98e3966183c76d3d6978a19577697f4b1b8b8e91e",
       "size": 2989,
       "source": "publication/assets/mimwell/docs/host-jobs.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "91e00dcf32e745cae43cd9e98e3966183c76d3d6978a19577697f4b1b8b8e91e"
     },
     {
@@ -1116,7 +1116,7 @@
       "sha256": "9815ce71fcc3960cfe3fd822833fc3803884a3049eed46ef343f58cd80bfebd2",
       "size": 2004,
       "source": "publication/assets/mimwell/docs/host-status.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "9815ce71fcc3960cfe3fd822833fc3803884a3049eed46ef343f58cd80bfebd2"
     },
     {
@@ -1125,7 +1125,7 @@
       "sha256": "0c981f5c4e24bf0aad75af6d4703561391ae074092062ac7d7438b6f87503aa1",
       "size": 2596,
       "source": "publication/assets/common/docs/storage-routing.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "0c981f5c4e24bf0aad75af6d4703561391ae074092062ac7d7438b6f87503aa1"
     },
     {
@@ -1134,7 +1134,7 @@
       "sha256": "b3153e2d89484833452a8e05a9cd5c23e24f9aa5d15c7d601da939e1dc4ecbab",
       "size": 135,
       "source": "publication/assets/mimwell/engine-release.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "b3153e2d89484833452a8e05a9cd5c23e24f9aa5d15c7d601da939e1dc4ecbab"
     },
     {
@@ -1143,7 +1143,7 @@
       "sha256": "f5247ba0e1aabdebd80fe2c99e1cd3847a66b8cc42dbf5f84146924f879eb26f",
       "size": 12788,
       "source": "publication/assets/mimwell/favicon.ico",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "f5247ba0e1aabdebd80fe2c99e1cd3847a66b8cc42dbf5f84146924f879eb26f"
     },
     {
@@ -1188,7 +1188,7 @@
       "sha256": "4878fd6e0f8de06fe079d0b20d04b72169e747c1725e508bcb123f673d6ae1e2",
       "size": 34,
       "source": "publication/assets/common/issues.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "4878fd6e0f8de06fe079d0b20d04b72169e747c1725e508bcb123f673d6ae1e2"
     },
     {
@@ -1224,7 +1224,7 @@
       "sha256": "7f6d1b6472321170d04d9a8b4a2c937140321cd7f24f6d14bb2373e5bbd74fd5",
       "size": 53,
       "source": "publication/assets/mimwell/knowledge/curation.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "7f6d1b6472321170d04d9a8b4a2c937140321cd7f24f6d14bb2373e5bbd74fd5"
     },
     {
@@ -1233,7 +1233,7 @@
       "sha256": "388ff5b601f490bb329eb4f06e13ca065b126e2a19b66c230432ab75af0c4c96",
       "size": 80,
       "source": "publication/assets/common/knowledge/docs/README.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "388ff5b601f490bb329eb4f06e13ca065b126e2a19b66c230432ab75af0c4c96"
     },
     {
@@ -3024,7 +3024,7 @@
       "sha256": "db8a2864bed95043e98fb15952d76d972d16ea9e94f5aa5bd4d698de4ae31ef8",
       "size": 6774,
       "source": "publication/assets/common/scripts/brain-d1-deploy.py",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "db8a2864bed95043e98fb15952d76d972d16ea9e94f5aa5bd4d698de4ae31ef8"
     },
     {
@@ -4482,7 +4482,7 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "size": 0,
       "source": "publication/assets/common/specs/.gitkeep",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
@@ -4491,7 +4491,7 @@
       "sha256": "5c30c9628d8940c855217e2922742531a8382d4426dfabe07c6eece9782f43af",
       "size": 52,
       "source": "publication/assets/common/specs/estimate-bands.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "5c30c9628d8940c855217e2922742531a8382d4426dfabe07c6eece9782f43af"
     },
     {
@@ -4527,7 +4527,7 @@
       "sha256": "afd754a60c65cfb9d6e8c30861fd8d5975fc7b14c83834997ab83989076b5514",
       "size": 83,
       "source": "publication/assets/common/specs/roles.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "afd754a60c65cfb9d6e8c30861fd8d5975fc7b14c83834997ab83989076b5514"
     },
     {
@@ -4563,7 +4563,7 @@
       "sha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338",
       "size": 564,
       "source": "publication/assets/common/stores/examples/PRACTICE.md",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338"
     },
     {
@@ -4581,7 +4581,7 @@
       "sha256": "557ece6ad4fd0b85677e8f8940d0316c745bdcd01af203b0c9290f20f3c2d16a",
       "size": 4040,
       "source": "publication/assets/common/stores/examples/policy.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "557ece6ad4fd0b85677e8f8940d0316c745bdcd01af203b0c9290f20f3c2d16a"
     },
     {
@@ -4590,7 +4590,7 @@
       "sha256": "0c30ad508da54934cb42787f137c28d5e4aebbbb9c3199ae32ac29e560acfcb5",
       "size": 43198,
       "source": "publication/assets/common/substrate-cells.json",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "0c30ad508da54934cb42787f137c28d5e4aebbbb9c3199ae32ac29e560acfcb5"
     },
     {
@@ -4599,7 +4599,7 @@
       "sha256": "40f5c017f3d468c09e1cebb7184ea52084f7ea2a2d27c24f945250118a440b39",
       "size": 1119,
       "source": "publication/assets/mimwell/tests/test_engine_identity.py",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "40f5c017f3d468c09e1cebb7184ea52084f7ea2a2d27c24f945250118a440b39"
     },
     {
@@ -4608,7 +4608,7 @@
       "sha256": "ca4d8d7911e808bfa6542006ea94a3713973a5c4bca27d728d6ca296c26d9838",
       "size": 2767,
       "source": "publication/assets/common/tests/test_public_smoke.py",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "ca4d8d7911e808bfa6542006ea94a3713973a5c4bca27d728d6ca296c26d9838"
     },
     {
@@ -4653,7 +4653,7 @@
       "sha256": "2acd79fd419eddca3c6571e368486c5191526ff73b5ba5917cccf4a1d4ce8bd7",
       "size": 1578,
       "source": "publication/assets/common/wrangler.toml",
-      "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+      "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
       "sourceSha256": "220cb1076ae5813c0c13578bbe5974ccfde00ef74fa88ea53cbac1719c5bfbe5"
     }
   ],
@@ -4666,7 +4666,7 @@
     "Host jobs execute the selected file-authority build/recording pipeline in a private clone. Native capture and review remain separate; no cloud deployment, live provider qualification or automated commit-back is included.",
     "Brain-wide retained App byte quotas and protected attachment storage admission are not implemented. Per-bundle and per-App limits do not satisfy those capabilities; unsupported protected destinations refuse."
   ],
-  "manifestCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+  "manifestCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
   "manifestPath": "publication/mimwell.json",
   "manifestSha256": "9af56dd89a6709fc63e673d3be4a9052df10892af40455702309cb940a750a89",
   "publicationBlockers": [
@@ -4676,6 +4676,6 @@
   ],
   "publicationReady": false,
   "schemaVersion": 1,
-  "sourceCommit": "1cbfe3136fdba80f27cd2f69520199e70e09af5d",
+  "sourceCommit": "4795fd899a3d74fad40e1653374ed56fc80790a9",
   "version": "0.3.6"
 }
