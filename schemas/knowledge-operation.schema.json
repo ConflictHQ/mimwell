@@ -41,7 +41,8 @@
         "proposal.review",
         "proposal.dispose",
         "proposal.commit",
-        "record.patch-propose"
+        "record.patch-propose",
+        "record.history"
       ]
     },
     "contract": {
@@ -90,6 +91,58 @@
     "requestSha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "hostCapabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "principal",
+        "binding",
+        "operations",
+        "authorization",
+        "nativePolicy",
+        "executionAuthorized"
+      ],
+      "properties": {
+        "format": {
+          "const": "authoring-capabilities/v1"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "principal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "binding": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "operations": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "authorization": {
+          "const": "host-registration-only"
+        },
+        "nativePolicy": {
+          "const": "required-per-operation"
+        },
+        "executionAuthorized": {
+          "const": false
+        }
+      }
     }
   }
 }

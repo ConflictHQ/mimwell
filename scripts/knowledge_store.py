@@ -46,6 +46,162 @@ def utcnow():
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
 
 
+class LifecycleError(ValueError):
+    pass
+
+
+def _plus_days(value, days):
+    return (timestamp(value) + dt.timedelta(days=days)).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def lifecycle(record):
+    result = record.get("content", {}).get("data", {}).get("lifecycle", {})
+    if not isinstance(result, dict):
+        raise LifecycleError("record lifecycle must be an object")
+    for field in ("observedAt", "validFrom", "validUntil", "confirmedAt", "reviewAt", "expiresAt", "archivedAt", "supersededAt"):
+        if field in result:
+            try:
+                timestamp(result[field])
+            except PolicyError as exc:
+                raise LifecycleError(f"invalid {field}: {exc}") from exc
+    if "validFrom" in result and "validUntil" in result and timestamp(result["validFrom"]) >= timestamp(result["validUntil"]):
+        raise LifecycleError("validFrom must precede validUntil")
+    if result.get("state") == "archived" and "archivedAt" not in result:
+        raise LifecycleError("archived records require archivedAt")
+    if result.get("state") == "superseded" and not (result.get("supersededAt") and result.get("supersededBy")):
+        raise LifecycleError("superseded records require supersededAt and supersededBy")
+    return result
+
+
+def apply_strategy(policy, resource, record, *, at):
+    """Return a proposal payload; this never writes and never invents confirmation."""
+    try:
+        strategy = policy.lifecycle_strategy(resource, record)
+    except PolicyError as exc:
+        raise LifecycleError(str(exc)) from exc
+    if strategy is None:
+        raise LifecycleError("no lifecycle strategy matches this record's kind, source and scope")
+    current = lifecycle(record)
+    updated = deepcopy(record)
+    state = deepcopy(current)
+    state.setdefault("state", "current")
+    state.setdefault("observedAt", at)
+    if strategy["reviewAfterDays"] is not None and "reviewAt" not in state:
+        state["reviewAt"] = _plus_days(state["observedAt"], strategy["reviewAfterDays"])
+    if strategy["expiresAfterDays"] is not None and "expiresAt" not in state:
+        state["expiresAt"] = _plus_days(state["observedAt"], strategy["expiresAfterDays"])
+    state["strategyId"] = strategy["id"]
+    state["strategySha256"] = fingerprint(strategy)
+    updated["content"].setdefault("data", {})["lifecycle"] = state
+    effects = evaluate(policy, resource, updated, at=at)
+    return {"record": updated, "strategy": strategy, "basis": {"policy": policy.binding, "at": at},
+            "effects": effects, "changed": current != state, "dryRun": True}
+
+
+def evaluate(policy, resource, record, *, at):
+    """Effects for ordinary context and operator review at a trusted timestamp."""
+    now = timestamp(at)
+    state = lifecycle(record)
+    strategy = policy.lifecycle_strategy(resource, record)
+    effective_until = state.get("validUntil")
+    if state.get("expiresAt") and (effective_until is None or timestamp(state["expiresAt"]) < timestamp(effective_until)):
+        effective_until = state["expiresAt"]
+    valid_from = state.get("validFrom")
+    expired = bool(effective_until and now >= timestamp(effective_until))
+    not_yet_valid = bool(valid_from and now < timestamp(valid_from))
+    archived = state.get("state") == "archived"
+    superseded = state.get("state") == "superseded"
+    review_due = bool(state.get("reviewAt") and now >= timestamp(state["reviewAt"]))
+    action = strategy["expiryAction"] if strategy else "keep"
+    excluded = archived or superseded or not_yet_valid or (expired and action in ("exclude", "archive-recommendation"))
+    return {"at": at, "strategyId": strategy["id"] if strategy else None,
+            "valid": not expired and not not_yet_valid, "expired": expired,
+            "notYetValid": not_yet_valid, "reviewDue": review_due,
+            "archived": archived, "superseded": superseded,
+            "ordinaryContext": "excluded" if excluded else "included",
+            "recommendedOperation": "archive" if expired and action == "archive-recommendation" and not archived else
+                                    "review" if review_due else None}
+
+
+def confirm(record, *, at):
+    """Stamp a trusted confirmation time; caller must use a reviewed native operation."""
+    timestamp(at)
+    updated = deepcopy(record)
+    state = deepcopy(lifecycle(record))
+    state["confirmedAt"] = at
+    state["state"] = "current"
+    state.pop("archivedAt", None)
+    updated["content"].setdefault("data", {})["lifecycle"] = state
+    lifecycle(updated)
+    return updated
+
+
+def unarchive(record, *, at):
+    if lifecycle(record).get("state") != "archived":
+        raise LifecycleError("only an archived record can be unarchived")
+    return confirm(record, at=at)
+
+
+def confirm_with_strategy(policy, resource, record, *, at):
+    updated = confirm(record, at=at)
+    strategy = policy.lifecycle_strategy(resource, updated)
+    if strategy is None:
+        return updated
+    state = updated["content"]["data"]["lifecycle"]
+    if strategy["reviewAfterDays"] is not None:
+        state["reviewAt"] = _plus_days(at, strategy["reviewAfterDays"])
+    if strategy["expiresAfterDays"] is not None:
+        state["expiresAt"] = _plus_days(at, strategy["expiresAfterDays"])
+    state["strategyId"] = strategy["id"]
+    state["strategySha256"] = fingerprint(strategy)
+    lifecycle(updated)
+    return updated
+
+
+def unarchive_with_strategy(policy, resource, record, *, at):
+    if lifecycle(record).get("state") != "archived":
+        raise LifecycleError("only an archived record can be unarchived")
+    return confirm_with_strategy(policy, resource, record, at=at)
+
+
+def archive(record, *, at):
+    timestamp(at)
+    updated = deepcopy(record)
+    state = deepcopy(lifecycle(record))
+    if state.get("state") == "superseded":
+        raise LifecycleError("superseded record cannot be archived through the active-record verb")
+    state["state"] = "archived"
+    state["archivedAt"] = at
+    updated["content"].setdefault("data", {})["lifecycle"] = state
+    lifecycle(updated)
+    return updated
+
+
+def mark_superseded(record, successor_id, *, at):
+    timestamp(at)
+    if not isinstance(successor_id, str) or not successor_id or successor_id == record.get("id"):
+        raise LifecycleError("a distinct successor identity is required")
+    updated = deepcopy(record)
+    state = deepcopy(lifecycle(record))
+    if state.get("state") == "archived":
+        raise LifecycleError("archived record cannot be superseded")
+    state.update(state="superseded", supersededAt=at, supersededBy=successor_id)
+    updated["content"].setdefault("data", {})["lifecycle"] = state
+    lifecycle(updated)
+    return updated
+
+
+def context_records(contract, records, *, at):
+    """Filter a selected authority view by stored state and its pinned time policy."""
+    visible = []
+    for record in records:
+        collection = contract.collections[record["collection"]]
+        resource = collection["resource"]
+        if evaluate(contract.policy, resource, record, at=at)["ordinaryContext"] == "included":
+            visible.append(record)
+    return visible
+
+
 def schema_check(value, name):
     schema = json.loads((ROOT / "schemas" / (name + ".schema.json")).read_text())
     errors = list(Draft202012Validator(schema).iter_errors(value))
@@ -67,13 +223,15 @@ def unique(rows):
 # role its row serves. contract.json declares it: the authority store's driver, and the
 # driver of the store holding the `blobs`, `vectors` or `graph` role (defaults below).
 AXES = {
-    "authority": ("files", "sqlite", "postgres", "mysql", "d1"),
+    "authority": ("files", "sqlite", "postgres", "mysql", "mongo", "d1"),
     "blobs": ("fs", "db-blob", "s3", "azure-blob"),
     "vectors": ("local", "in-db", "edge-db", "external"),
     "graph": ("edges-table", "age"),
 }
 DEFAULT_PLACEMENT = {"blobs": "fs", "vectors": "local", "graph": "edges-table"}
 DATABASE_DRIVERS = ("sqlite", "postgres", "mysql")
+# The authorities that can keep blobs in their own database (db-blob): mongo in chunked documents.
+BLOB_DATABASE_DRIVERS = DATABASE_DRIVERS + ("mongo",)
 # Placements with no implementation yet, and the issue that makes them supported.
 PLANNED = {}
 
@@ -87,8 +245,10 @@ def cell_status(cell):
     authority = cell["authority"]
     if authority == "d1":
         return "unsupported", "d1 is a projection target, never an authority"
-    if cell["blobs"] == "db-blob" and authority not in DATABASE_DRIVERS:
+    if cell["blobs"] == "db-blob" and authority not in BLOB_DATABASE_DRIVERS:
         return "unsupported", f"db-blob keeps blobs in the authority database and {authority} has none"
+    if cell["vectors"] == "in-db" and authority == "mongo":
+        return "unsupported", "in-db vectors are SQL vector columns (sqlite-vec, pgvector, MySQL) and mongo has none"
     if cell["vectors"] == "in-db" and authority not in DATABASE_DRIVERS:
         return "unsupported", f"in-db vectors live in the authority database and {authority} has none"
     if cell["graph"] == "age" and authority != "postgres":
@@ -182,6 +342,9 @@ def adopted_authority(settings):
             if errors:
                 raise StoreError("; ".join(f"client.config.json brain.{key}/{'/'.join(map(str, e.path))}: {e.message}"
                                            for e in errors))
+    store_ids = [store["id"] for store in brain.get("stores", [])]
+    if len(store_ids) != len(set(store_ids)):
+        raise StoreError("Duplicate store id in client.config.json brain.stores")
     return brain.get("authority")
 
 
@@ -205,10 +368,19 @@ def resolve_store_dsn(settings, store_id):
     return value
 
 
+# The synthetic example policy lives with the practices in the private master; a
+# public edition, which never ships practices/, carries the same example beside
+# the store contract instead (#441).
+EXAMPLE_POLICIES = ("practices/examples/policy.json", "stores/examples/policy.json")
+
+
 def example_bundle(root, contract=None):
     ontology = json.loads((root / "brain-schema.json").read_text())
     kinds = {kind["id"] for kind in ontology["kinds"]}
-    policy = json.loads((root / "practices/examples/policy.json").read_text())
+    policy_path = next((root / p for p in EXAMPLE_POLICIES if (root / p).is_file()), None)
+    if policy_path is None:
+        raise StoreError("No example policy found; expected one of " + ", ".join(EXAMPLE_POLICIES))
+    policy = json.loads(policy_path.read_text())
     # The example spans every overlay; keep only the resources the composed schema declares (#241).
     policy["resources"] = [r for r in policy["resources"] if r["kind"] in kinds]
     practices = {
@@ -324,6 +496,11 @@ class Contract:
         self.document = self.bundle["contract"]
         schema_check(self.document, "knowledge-store")
         self.registry = Registry(self.bundle["ontology"])
+        overlays = self.registry.declaration.get("composition", {}).get("overlays", [])
+        self.studio_apps_enabled = ("apps" in overlays and all(
+            self.registry.kinds.get(identity, {}).get("node") == node
+            for identity, node in (("studio.app", "App"), ("studio.component", "Component"),
+                                   ("studio.app-query", "AppQuery"))))
         self.policy = Policy(self.bundle["policy"], self.bundle["ontology"])
         self.binding = contract_binding(self.bundle)
         self.stores = unique(self.document["stores"])
@@ -398,6 +575,40 @@ class Contract:
 
     def validate_record(self, record):
         schema_check(record, "knowledge-record")
+        if "lifecycle" in record.get("content", {}).get("data", {}):
+            lifecycle(record)
+        record_kind = self.registry.kinds.get(record["kind"], {}).get("node")
+        if self.studio_apps_enabled and record["kind"] == "studio.app":
+            from studio_app_attachments import validate_app_attachments
+            validate_app_attachments(record)
+        elif (self.studio_apps_enabled and record["kind"] in ("studio.component", "studio.app-query")
+              and record.get("blobs")):
+            raise StoreError("Studio Components and App Queries cannot carry data attachments")
+        if self.studio_apps_enabled and record["kind"] in ("studio.app", "studio.component", "studio.app-query"):
+            # The enclosing record schema is the accepted content surface: title,
+            # inert text/source/owner metadata and the strict profile payload only.
+            allowed_content = {"title", "text", "data", "source", "labels", "owner", "status",
+                               "durability", "derived"}
+            if set(record.get("content", {})) - allowed_content:
+                raise StoreError("Studio App records contain unsupported content fields")
+            content = record.get("content", {})
+            for field, limit in (("title", 512), ("text", 4096), ("owner", 256)):
+                if field in content and (not isinstance(content[field], str) or len(content[field]) > limit):
+                    raise StoreError("Studio App record exceeds its text field limit")
+            if len(encoded(record).encode("utf-8")) > 256 * 1024:
+                raise StoreError("Studio App record exceeds its byte limit")
+        if record_kind == "Metric":
+            content = record["content"]
+            data = content.get("data", {})
+            schema_check(data, "metric-definition")
+            if not all(isinstance(content.get(key), str) and content[key].strip()
+                       for key in ("title", "text", "owner")):
+                raise StoreError("a governed Metric requires a name, business definition and owner")
+        if record_kind == "Term":
+            schema_check(record["content"].get("data", {}), "business-term")
+            if not all(isinstance(record["content"].get(key), str) and record["content"][key].strip()
+                       for key in ("title", "text", "owner")):
+                raise StoreError("a governed business term requires a name, definition and owner")
         history = record.get("content", {}).get("data", {}).get("intakeHistory")
         if history is not None:
             from intake_contract import validate_history
@@ -505,8 +716,10 @@ def _table_schema(dialect, table):
 
 
 def _schema(dialect, *, db_blob=False):
-    """Authority DDL; a db-blob contract also gets its blob table, created with the rest."""
-    return dialect.authority_schema() + ("\n" + DbBlobStore.ddl(dialect.driver) + ";\n" if db_blob else "")
+    """Authority DDL; a db-blob contract also gets its blob table, created with the rest.
+    A document store has none: its create() makes its collections."""
+    schema = dialect.authority_schema()
+    return schema + ("\n" + DbBlobStore.ddl(dialect.driver) + ";\n" if db_blob and schema else "")
 
 
 # Authority columns, in export order; server dialects add generated index columns that are not exported.
@@ -665,10 +878,10 @@ class Authority:
         return _stored_version(self.dialect)[0]
 
     def _meta(self, key):
-        row = self.dialect.execute("SELECT value FROM metadata WHERE key=?", (key,)).fetchone()
-        if row is None:
+        value = self.dialect.meta(key)
+        if value is None:
             raise StoreError(f"missing authority metadata: {key}")
-        return row[0]
+        return value
 
     def _writer_ready(self):
         if self._meta("status") != "active":
@@ -692,6 +905,8 @@ class Authority:
 
         Only trusted adapters establish this scope. Existing native mutations use
         savepoints inside it; a response failure rolls back their changes too.
+        On a driver without savepoints a failed mutation fails the whole request:
+        nothing it did can be undone alone, so the request can only roll back.
         This is not a cross-authority or external-publication transaction.
         """
         if self.dialect.in_transaction:
@@ -699,12 +914,18 @@ class Authority:
         self.dialect.begin(write=write)
         self._request_write = write
         self._request_checks = []
+        self._request_graph = False
+        self._request_failed = False
         try:
             if write:
                 self._writer_ready()
             yield
             if write:
+                self._request_intact()
                 self._writer_ready()
+                if self._request_graph:
+                    # Once per request: the global rules the per-mutation checks leave out (#399).
+                    self.contract.graph(self._all_records())
                 self._record_schema_version()
             self.dialect.commit()
         except BaseException:
@@ -714,6 +935,12 @@ class Authority:
         finally:
             self._request_write = False
             self._request_checks = []
+            self._request_graph = False
+            self._request_failed = False
+
+    def _request_intact(self):
+        if getattr(self, "_request_failed", False):
+            raise StoreError("a mutation in this request failed without a savepoint; the request can only roll back")
 
     def revalidate_request(self, at):
         """Recheck original native mutation bases before a shared request commits."""
@@ -726,18 +953,29 @@ class Authority:
     def transaction(self):
         dialect = self.dialect
         nested = dialect.in_transaction and getattr(self, '_request_write', False)
-        if nested:
-            dialect.require("savepoints")
-        dialect.savepoint("native_mutation") if nested else dialect.begin(write=True)
+        savepoint = nested and "savepoints" in dialect.capabilities()
+        if savepoint:
+            dialect.savepoint("native_mutation")
+        elif nested:
+            self._request_intact()
+        else:
+            dialect.begin(write=True)
         try:
             self._writer_ready()
             yield
             self._record_schema_version()
-            dialect.release("native_mutation") if nested else dialect.commit()
-        except BaseException:
-            dialect.rollback_to("native_mutation") if nested else dialect.rollback()
-            if nested:
+            if savepoint:
                 dialect.release("native_mutation")
+            elif not nested:
+                dialect.commit()
+        except BaseException:
+            if savepoint:
+                dialect.rollback_to("native_mutation")
+                dialect.release("native_mutation")
+            elif nested:
+                self._request_failed = True
+            else:
+                dialect.rollback()
             raise
 
     @classmethod
@@ -753,28 +991,15 @@ class Authority:
         if contract.document["history"]["priorHistory"] == "included" and prior_history is None:
             raise StoreError("declared prior history must be supplied, not silently omitted")
         dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=contract.cell["blobs"] == "db-blob"))
-        db = dialect.db
         try:
-            db.executemany(
-                "INSERT INTO metadata VALUES (?,?)",
-                [
-                    ("bundle", encoded(bundle)),
-                    ("status", "active"),
-                    ("instance", secrets.token_hex(16)),
-                    ("prior_history", encoded(prior_history)),
-                ],
-            )
+            for key, value in (("bundle", encoded(bundle)), ("status", "active"), ("instance", secrets.token_hex(16)),
+                               ("prior_history", encoded(prior_history))):
+                dialect.add_meta(key, value)
             for record in records:
-                revision = "1:" + fingerprint(record)
-                db.execute(
-                    "INSERT INTO records VALUES (?,?,?,?,0)",
-                    (record["id"], record["collection"], revision, encoded(record)),
-                )
+                dialect.add_record(record["id"], record["collection"], "1:" + fingerprint(record), encoded(record))
             for record in records:
-                for edge in record["relations"]:
-                    db.execute(
-                        "INSERT INTO edges VALUES (?,?,?,?)", (record["id"], edge["target"], edge["rel"], encoded(edge))
-                    )
+                dialect.replace_edges(record["id"], [(edge["target"], edge["rel"], encoded(edge))
+                                                     for edge in record["relations"]])
             event = {
                 "operation": "import",
                 "at": utcnow(),
@@ -783,8 +1008,8 @@ class Authority:
                 "priorHistory": deepcopy(prior_history),
             }
             digest = fingerprint({"previous": None, "event": event})
-            db.execute("INSERT INTO events (sequence,previous,digest,body) VALUES (1,NULL,?,?)", (digest, encoded(event)))
-            db.execute("INSERT INTO outbox VALUES (1,?)", (encoded({"sequence": 1, "digest": digest}),))
+            dialect.append_event(1, None, digest, encoded(event))
+            dialect.add_outbox(1, encoded({"sequence": 1, "digest": digest}))
             dialect.set_schema_version(DB_VERSION)
             dialect.commit()
         except BaseException:
@@ -799,37 +1024,152 @@ class Authority:
         budget = getattr(self, "_inspection_budget", None)
         if budget is not None:
             budget.body(self.db, "records", "id", identity)
-        return self.dialect.execute("SELECT * FROM records WHERE id=?", (identity,)).fetchone()
+        return self.dialect.record(identity)
 
     def _record_metadata(self, identity):
         budget = getattr(self, "_inspection_budget", None)
         if budget is not None:
             budget.charge()
-        return self.dialect.execute("SELECT id, collection, revision, deleted FROM records WHERE id=?", (identity,)).fetchone()
+        return self.dialect.record_metadata(identity)
+
+    def _live_record(self, identity):
+        body = self.dialect.live_body(identity)
+        return json.loads(body) if body is not None else None
+
+    def _local_graph(self, identity, record):
+        """Validate ``record`` (``None`` for a deletion) with its neighbours: the
+        live records its relations name, and the live records whose relations
+        name it, each carrying only the edges between them. Every node and edge
+        rule is local; the one global rule, acyclic ``broader``, is left to the
+        whole-graph check a request makes before it commits (#399)."""
+        if record is None:
+            return
+        records = {identity: record}
+        for edge in record["relations"]:
+            target = edge["target"]
+            if target not in records:
+                value = self._live_record(target)
+                if value is not None:
+                    records[target] = {**value, "relations": []}
+        for source in self.dialect.referencing_sources(identity):
+            value = self._live_record(source)
+            if value is not None:
+                links = [edge for edge in value["relations"] if edge["target"] == identity]
+                kept = records.get(source, {**value, "relations": []})
+                records[source] = {**kept, "relations": kept["relations"] + links}
+        self.contract.graph(list(records.values()))
 
     def _all_records(self):
-        return [json.loads(row[0]) for row in self.dialect.execute("SELECT body FROM records WHERE deleted=0 ORDER BY id")]
+        return [json.loads(body) for body in self.dialect.live_bodies()]
 
     def get(self, identity, actor, *, at=None):
-        state = self._read_state()
         row = self._record_metadata(identity)
         if row is None or not self.contract.can_read(row["collection"], actor, at):
             return None
+        if (not row["deleted"] and self.contract.studio_apps_enabled
+                and self.contract.collections[row["collection"]]["kind"] in
+                ("studio.app", "studio.component", "studio.app-query")):
+            return self._get_studio_record(identity, actor, at)
+        state = self._read_state()
         if not row["deleted"]:
             row = self._row(identity)
         record = None if row["deleted"] else json.loads(row["body"])
         withheld = False
+        app_availability = None
         if record:
+            original = deepcopy(record)
             visible = [edge for edge in record["relations"] if self._target_readable(edge["target"], actor, at)]
             withheld = len(visible) != len(record["relations"])
             record["relations"] = visible
+            if (self.contract.studio_apps_enabled
+                    and record.get("kind") in ("studio.app", "studio.component", "studio.app-query")):
+                from studio_app_bindings import app_binding_status
+                app_availability = app_binding_status(
+                    original, self._readable_studio_binding_targets(original, actor, at))
         return {
             "record": record,
             "revision": row["revision"],
             "deleted": bool(row["deleted"]),
             "withheldRelations": withheld,
             "authorityState": state,
+            **({"appAvailability": app_availability} if app_availability is not None else {}),
         }
+
+    def _get_studio_record(self, identity, actor, at):
+        opened = not self.dialect.in_transaction
+        if opened:
+            self.dialect.begin()
+        try:
+            state = self._read_state()
+            metadata = self._record_metadata(identity)
+            if (metadata is None or metadata["deleted"]
+                    or not self.contract.can_read(metadata["collection"], actor, at)):
+                return None
+            row = self._row(identity)
+            record = json.loads(row["body"])
+            targets = self._readable_studio_binding_targets(record, actor, at)
+            from studio_app_bindings import app_binding_status
+            availability = app_binding_status(record, targets)
+            visible = [edge for edge in record["relations"] if self._target_readable(edge["target"], actor, at)]
+            withheld = len(visible) != len(record["relations"])
+            record["relations"] = visible
+            return {"record": record, "revision": row["revision"], "deleted": False,
+                    "withheldRelations": withheld, "authorityState": state,
+                    "appAvailability": availability}
+        finally:
+            if opened and self.dialect.in_transaction:
+                self.dialect.rollback()
+
+    def _readable_studio_binding_targets(self, record, actor, at):
+        from studio_app_bindings import (MAX_APP_BINDING_BYTES, MAX_APP_BINDING_RECORDS,
+                                         MAX_APP_BINDING_REFERENCES,
+                                         binding_targets)
+        targets = {}
+        body_bytes = len(encoded(record).encode("utf-8"))
+        if body_bytes > MAX_APP_BINDING_BYTES:
+            raise StoreError("Studio App dependency budget exceeded")
+        pending = list(binding_targets(record))
+        total_references = len(pending)
+        if total_references > MAX_APP_BINDING_REFERENCES:
+            raise StoreError("Studio App dependency budget exceeded")
+        visited = {record["id"]}
+        total_bytes = body_bytes
+        while pending:
+            batch = []
+            while pending:
+                identity = pending.pop()
+                if not isinstance(identity, str) or identity in visited:
+                    continue
+                visited.add(identity)  # Count before the access check, including denied references.
+                if len(visited) > MAX_APP_BINDING_RECORDS:
+                    raise StoreError("Studio App dependency budget exceeded")
+                batch.append(identity)
+            metadata = self.dialect.record_metadata_by_ids(batch)
+            readable = [item["id"] for item in metadata if not item["deleted"]
+                        and self.contract.can_read(item["collection"], actor, at)]
+            count, size = self.dialect.live_volume_by_ids(readable)
+            if count > MAX_APP_BINDING_RECORDS or total_bytes + size > MAX_APP_BINDING_BYTES:
+                raise StoreError("Studio App dependency budget exceeded")
+            total_bytes += size
+            for item in self.dialect.live_records_by_ids(readable):
+                value = json.loads(item["body"])
+                value["revision"] = item["revision"]
+                targets[item["id"]] = value
+                next_targets = binding_targets(value)
+                total_references += len(next_targets)
+                if total_references > MAX_APP_BINDING_REFERENCES:
+                    raise StoreError("Studio App dependency budget exceeded")
+                pending.extend(next_targets)
+        return targets
+
+    def _require_studio_app_bindings(self, record, actor, at):
+        if not self.contract.studio_apps_enabled or record.get("kind") not in ("studio.app", "studio.component", "studio.app-query"):
+            return
+        from studio_app_bindings import require_current_bindings
+        try:
+            require_current_bindings(record, self._readable_studio_binding_targets(record, actor, at))
+        except ValueError as exc:
+            raise StoreError(str(exc)) from exc
 
     def _read_state(self):
         state = self._meta("status")
@@ -840,6 +1180,10 @@ class Authority:
     def _target_readable(self, identity, actor, at):
         target = self._record_metadata(identity)
         return target is not None and not target["deleted"] and self.contract.can_read(target["collection"], actor, at)
+
+    def history(self, identity, actor, *, at=None, limit=25):
+        from record_history import inspect_history
+        return inspect_history(self, identity, actor, at=at, limit=limit)
 
     def describe(self, actor, *, at=None):
         return {
@@ -855,7 +1199,7 @@ class Authority:
             "collections": [
                 deepcopy(c) for key, c in self.contract.collections.items() if self.contract.can_read(key, actor, at)
             ],
-            "capabilities": [
+            "capabilities": (["record-history-metadata"] if self.dialect.driver == 'sqlite' else []) + [
                 "get",
                 "search",
                 "context",
@@ -871,6 +1215,10 @@ class Authority:
                 "migrate",
                 "projection-delivery",
                 "reviewed-publication",
+                "lifecycle-strategy-preview",
+                "reviewed-lifecycle-strategy",
+                "reviewed-archive-unarchive",
+                "reviewed-supersession",
                 "intake-metadata-delivery",
                 "intake-processed-delivery",
                 "independent-intake-release",
@@ -912,17 +1260,33 @@ class Authority:
             "expired": timestamp(at or utcnow()) >= timestamp(proposal["expiresAt"]),
         }
 
+    def preview_lifecycle(self, identity, actor, *, at=None):
+        """Pinned read-only strategy preview; no proposal, journal, or record is written."""
+        at = at or utcnow()
+        observed = self.get(identity, actor, at=at)
+        if observed is None or observed["record"] is None:
+            raise PolicyError("lifecycle preview target is unavailable")
+        record = observed["record"]
+        resource = self.contract.collections[record["collection"]]["resource"]
+        plan = apply_strategy(self.contract.policy, resource, record, at=at)
+        return {"format": "lifecycle-preview/v1", "authorityBinding": self.contract.binding,
+                "record": identity, "revision": observed["revision"], "resource": resource,
+                **plan}
+
     def context(self, actor, *, at=None):
+        at = at or utcnow()
         state = self._read_state()
         readable = {
             collection for collection in self.contract.collections if self.contract.can_read(collection, actor, at)
         }
         records = [record for record in self._all_records() if record["collection"] in readable]
+        records = context_records(self.contract, records, at=at)
         ids = {record["id"] for record in records}
         for record in records:
             record["relations"] = [edge for edge in record["relations"] if edge["target"] in ids]
         graph = self.contract.graph(records)
         graph["meta"]["authority"] = {"binding": self.contract.binding, "state": state}
+        graph["meta"]["lifecycle"] = {"policySha256": self.contract.policy.binding["sha256"]}
         return graph
 
     def read_snapshot(self, actor, *, at=None, max_records=None, max_body_bytes=None):
@@ -946,32 +1310,28 @@ class Authority:
             readable = sorted(key for key in self.contract.collections if self.contract.can_read(key, actor, at))
             rows = []
             if readable:
-                placeholders = self.dialect.placeholders(len(readable))
                 if max_records is not None or max_body_bytes is not None:
-                    counts = self.dialect.execute(
-                        f"SELECT COUNT(*), COALESCE(SUM({self.dialect.byte_length('body')}), 0) FROM records WHERE deleted=0 AND collection IN ({placeholders})",
-                        readable,
-                    ).fetchone()
-                    if (max_records is not None and counts[0] > max_records or
-                            max_body_bytes is not None and counts[1] > max_body_bytes):
+                    count, size = self.dialect.live_volume(readable)
+                    if (max_records is not None and count > max_records or
+                            max_body_bytes is not None and size > max_body_bytes):
                         raise StoreError("Selected snapshot exceeds its bounds")
-                rows = self.dialect.execute(
-                    f"SELECT id, collection, revision, body FROM records WHERE deleted=0 AND collection IN ({placeholders}) ORDER BY id",
-                    readable,
-                ).fetchall()
+                rows = self.dialect.live_records(readable)
             records = [json.loads(row["body"]) for row in rows]
+            records = context_records(self.contract, records, at=at)
+            visible_ids = {record["id"] for record in records}
+            rows = [row for row in rows if row["id"] in visible_ids]
             ids = {record["id"] for record in records}
             for record in records:
                 record["relations"] = [edge for edge in record["relations"] if edge["target"] in ids]
-            head = self.dialect.execute(
-                f"SELECT sequence, digest, {self.dialect.json_path('body', 'at')} AS head_at FROM events "
-                "ORDER BY sequence DESC LIMIT 1").fetchone()
+            head = self.dialect.journal_head()
             if head is None:
                 raise StoreError("authority journal has no import checkpoint")
             checkpoint = {"binding": self.contract.binding, "instance": self._meta("instance"),
                           "state": state, "sequence": head["sequence"], "digest": head["digest"]}
             # asOf: when the journal head was written, the knowledge basis of this read.
-            return {"graph": self.contract.graph(records), "checkpoint": checkpoint, "asOf": head["head_at"],
+            graph = self.contract.graph(records)
+            graph["meta"]["lifecycle"] = {"policySha256": self.contract.policy.binding["sha256"]}
+            return {"graph": graph, "checkpoint": checkpoint, "asOf": head["head_at"],
                     "revisions": {row["id"]: row["revision"] for row in rows},
                     "resources": {row["id"]: self.contract.collections[row["collection"]]["resource"] for row in rows}}
         finally:
@@ -1025,29 +1385,23 @@ class Authority:
             readable = sorted(key for key in self.contract.collections if self.contract.can_read(key, actor, at))
             ids = set()
             if readable:
-                ids = {row[0] for row in self.dialect.execute(
-                    f"SELECT id FROM records WHERE deleted=0 AND collection IN ({self.dialect.placeholders(len(readable))})",
-                    readable)}
+                ids = self.dialect.live_ids(readable)
             if start not in ids:
                 return {"traversal": None, "nodes": []}
             if graph is not None:
                 # AgeGraph.write checks only a payload's shape, so the projection is used only when
                 # this authority acknowledged its delivery at the head and its node and edge sets match.
-                head = self.dialect.execute("SELECT MAX(sequence) FROM outbox").fetchone()[0]
+                head = self.dialect.outbox_head()
                 consumer = encoded({"consumer": graph.consumer(self.contract.binding, actor), "actor": actor,
                                     "contract": self.contract.binding})
-                acknowledged = self.dialect.execute(
-                    "SELECT sequence FROM deliveries WHERE consumer=?", (consumer,)).fetchone()
-                if acknowledged is not None and acknowledged[0] == head:
-                    edges = [(row[0], row[1], row[2]) for row in self.dialect.execute("SELECT source, target, rel FROM edges")
-                             if row[0] in ids and row[1] in ids]
+                if self.dialect.delivery(consumer) == head:
+                    edges = [edge for edge in self.dialect.edges() if edge[0] in ids and edge[1] in ids]
                     nodes = graph.walk(self.contract.binding, actor, start, depth, sequence=head, ids=ids, edges=edges)
                     if nodes is not None:
                         return {"traversal": "age", "nodes": nodes}
             if self.dialect.driver in ("postgres", "mysql"):
                 return {"traversal": "recursive-cte", "nodes": edges_table_walk(self.dialect, readable, start, depth)}
-            edges = [(row[0], row[1]) for row in self.dialect.execute("SELECT source, target FROM edges")
-                     if row[0] in ids and row[1] in ids]
+            edges = [(source, target) for source, target, _ in self.dialect.edges() if source in ids and target in ids]
             return {"traversal": "frontier", "nodes": frontier_walk(edges, start, depth)}
         finally:
             if own_transaction:
@@ -1073,14 +1427,17 @@ class Authority:
             self._promotion_source(proposal, actor, at, _destination_basis=_basis)
         retention_since = None
         if request["mutation"] == "delete":
-            record_path, mutation_path = (self.dialect.json_path("body", key) for key in ("request.record", "request.mutation"))
-            event = self.dialect.execute(
-                f"SELECT body FROM events WHERE {record_path}=? "
-                f"AND {mutation_path} IN ('create','retain') ORDER BY sequence DESC LIMIT 1",
-                (request["record"],),
-            ).fetchone()
+            event = self.dialect.retention_event(request["record"])
             if event:
-                retention_since = json.loads(event["body"])["at"]
+                retention_since = json.loads(event)["at"]
+            else:
+                # A record brought in by initialize has no create or retain
+                # event; its retention runs from that import (#400).
+                first = self.dialect.event_body(1)
+                imported = json.loads(first) if first else {}
+                if imported.get("operation") == "import" and any(
+                        value["id"] == request["record"] for value in imported.get("records", [])):
+                    retention_since = imported["at"]
         result = self.contract.decision(
             request,
             actor,
@@ -1101,19 +1458,26 @@ class Authority:
             for edge in value["relations"]
         ):
             raise PolicyError("whole-record mutation requires read access to its relationship targets")
-        if request["mutation"] not in ("create", "correct", "retract", "retain", "delete", "promote"):
+        lifecycle_ops = {"strategy", "confirm", "archive", "unarchive", "supersede"}
+        if request["mutation"] not in ("create", "correct", "retract", "retain", "delete", "promote", *lifecycle_ops):
             raise StoreError("this adapter does not implement cross-record supersession")
         materializing = promotion and proposal['promotion'].get('projection') in ('intake-metadata-record/v1', 'intake-processed-record/v1')
         if (request["mutation"] == 'create' or promotion and not materializing) and row is not None:
             raise StoreError("identity already exists, including tombstoned identities")
         if request["mutation"] not in ("create", "promote") and before is None:
             raise StoreError("mutation requires a live record")
+        if request.get("successor") is not None and request["mutation"] != "supersede":
+            raise StoreError("successor is only valid for reviewed supersession")
+        if request["mutation"] == "supersede":
+            successor_id = request.get("successor")
+            successor = self._live_record(successor_id) if successor_id else None
+            if not successor or not any(edge["rel"] == "supersedes" and edge["target"] == request["record"]
+                                        for edge in successor["relations"]):
+                raise StoreError("reviewed supersession requires a successor linked to this predecessor")
         if request["mutation"] == "delete":
             if record is not None:
                 raise StoreError("deletion must not carry a replacement record")
-            if self.dialect.execute(
-                "SELECT 1 FROM edges WHERE target=? AND source!=?", (request["record"], request["record"])
-            ).fetchone():
+            if self.dialect.referencing_sources(request["record"]):
                 raise StoreError("deletion would leave referenced knowledge unresolved")
         else:
             if not record or record["id"] != request["record"]:
@@ -1146,12 +1510,43 @@ class Authority:
             previous_links = [edge for edge in (before or {}).get("relations", []) if edge["rel"] == "supersedes"]
             next_links = [edge for edge in record["relations"] if edge["rel"] == "supersedes"]
             if previous_links != next_links:
-                raise StoreError("supersession relations require a supported reviewed cross-record transaction")
+                allowed_successor_link = (request["mutation"] == "create" and not previous_links
+                                           and len(next_links) == 1 and next_links[0]["target"] != record["id"])
+                if not allowed_successor_link:
+                    raise StoreError("supersession relations require a linked successor and reviewed predecessor transition")
+                if allowed_successor_link:
+                    target = self._live_record(next_links[0]["target"])
+                    if not target or target.get("content", {}).get("data", {}).get("lifecycle", {}).get("state") in ("archived", "superseded"):
+                        raise StoreError("a successor can link only to a live predecessor")
+            old_lifecycle = (before or {}).get("content", {}).get("data", {}).get("lifecycle", {})
+            new_lifecycle = record.get("content", {}).get("data", {}).get("lifecycle", {})
+            if old_lifecycle != new_lifecycle and request["mutation"] not in lifecycle_ops:
+                raise StoreError("lifecycle fields require a dedicated governed operation")
+            if request["mutation"] == "supersede" and (
+                new_lifecycle.get("state") != "superseded"
+                or new_lifecycle.get("supersededBy") != request.get("successor")
+            ):
+                raise StoreError("supersession must mark the predecessor and name the linked successor")
+            if request["mutation"] == "archive" and new_lifecycle.get("state") != "archived":
+                raise StoreError("archive operation must derive archived state")
+            if request["mutation"] == "unarchive" and new_lifecycle.get("state") != "current":
+                raise StoreError("unarchive operation must derive current state")
+            if request["mutation"] == "confirm" and not new_lifecycle.get("confirmedAt"):
+                raise StoreError("confirmation must carry the trusted confirmation time")
+            if request["mutation"] == "unarchive" and old_lifecycle.get("state") != "archived":
+                raise StoreError("only archived records can be unarchived")
         self.contract.writable(before, record)
-        records = [r for r in self._all_records() if r["id"] != request["record"]]
-        if record:
-            records.append(record)
-        self.contract.graph(records)
+        if getattr(self, '_request_write', False):
+            # Inside a request only what this mutation can change is checked
+            # now; the whole graph is checked once before the request commits,
+            # so a bulk change is linear, not quadratic (#399).
+            self._local_graph(request["record"], record)
+            self._request_graph = True
+        else:
+            records = [r for r in self._all_records() if r["id"] != request["record"]]
+            if record:
+                records.append(record)
+            self.contract.graph(records)
         if _basis is None and getattr(self, '_request_write', False):
             captured = deepcopy((request, record, proposal, dict(row) if row is not None else None))
             def recheck(now):
@@ -1239,10 +1634,8 @@ class Authority:
             self.contract.source_reviewer(resource, actor, proposal['actor'], at=at or utcnow())
 
     def _reviewed_intake(self, pin):
-        record_path, revision_path = (self.dialect.json_path('body', key) for key in ('request.record', 'revision'))
-        row = self.dialect.execute(f"SELECT body FROM events WHERE {record_path}=? AND {revision_path}=?",
-                                   (pin['source'], pin['revision'])).fetchone()
-        event = json.loads(row['body']) if row else None
+        body = self.dialect.revision_event(pin['source'], pin['revision'])
+        event = json.loads(body) if body else None
         if not event or not event.get('review') or fingerprint(event['after']) != pin['sha256']:
             raise StoreError('Intake requires a natively reviewed current history revision')
         self.contract.source_reviewer(pin['resource'], event['review']['actor'], event['proposedBy'], at=event['review']['at'])
@@ -1307,9 +1700,9 @@ class Authority:
         at = at or utcnow()
         with self.transaction():
             key = fingerprint({'publicationRequest': request_id, 'actor': actor, 'contract': self.contract.binding})[:32]
-            existing = self.dialect.execute('SELECT body FROM proposals WHERE id=?', (key,)).fetchone()
+            existing = self.dialect.proposal(key)
             if existing:
-                proposal = json.loads(existing['body'])
+                proposal = json.loads(existing)
                 pin, previous = proposal.get('promotion', {}), proposal['request']
                 if pin.get('representation') != representation or pin.get('release') != release:
                     raise StoreError('Publication request ID was reused with different representation')
@@ -1322,8 +1715,7 @@ class Authority:
                 if not self.contract.can_read(collection, actor, at):
                     raise StoreError('Publication destination is unavailable')
                 self._intake_target(proposal['record'], destination_target)
-                committed = self.dialect.execute('SELECT body FROM receipts WHERE actor=? AND request_id=?',
-                                           (actor, request_id)).fetchone()
+                committed = self.dialect.receipt(actor, request_id)
                 if committed:
                     receipt = json.loads(committed['body'])
                     if (receipt.get('promotion') != pin or receipt['request'] != previous
@@ -1374,7 +1766,7 @@ class Authority:
                        'sourceReview': None,
                        'expiresAt': (timestamp(at) + dt.timedelta(minutes=10)).isoformat(timespec='milliseconds')}
             current, before, decision = self._prepare(request, record, actor, 'propose', proposal=payload, at=at)
-            self.dialect.execute('INSERT INTO proposals VALUES (?,?)', (payload['id'], encoded(payload)))
+            self.dialect.add_proposal(payload['id'], encoded(payload))
             return {'proposal': payload['id'], 'status': 'prepared', 'before': before, 'after': deepcopy(record),
                     'decision': decision, 'revision': current, 'source': deepcopy(pin)}
 
@@ -1401,7 +1793,7 @@ class Authority:
             self._promotion_source(proposal, actor, at)
             self._check_source_reviewer(proposal, actor, at)
             proposal['sourceReview'] = {'actor': actor, 'reason': reason, 'at': at}
-            self.dialect.execute('UPDATE proposals SET body=? WHERE id=?', (encoded(proposal), identity))
+            self.dialect.update_proposal(identity, encoded(proposal))
             return deepcopy(proposal['sourceReview'])
 
     def revoke_source_review(self, identity, actor, reason, *, at=None):
@@ -1421,7 +1813,7 @@ class Authority:
             self._check_source_reviewer(proposal, actor, at)
             revoked = {'actor': actor, 'reason': reason, 'at': at}
             proposal.update(sourceReview=None, sourceRevocation=revoked)
-            self.dialect.execute('UPDATE proposals SET body=? WHERE id=?', (encoded(proposal), identity))
+            self.dialect.update_proposal(identity, encoded(proposal))
             return deepcopy(revoked)
 
     def propose_transfer(self, peer, release, release_revision, identity, collection, actor, *,
@@ -1437,18 +1829,39 @@ class Authority:
             schema_check(record, "knowledge-record")
         at = at or utcnow()
         with self.transaction():
-            if request.get("mutation") in ("retract", "retain"):
+            mutation = request.get("mutation")
+            if mutation in ("retract", "retain", "strategy", "confirm", "archive", "unarchive", "supersede"):
                 if record is not None:
                     raise StoreError("lifecycle operations derive their record; do not supply replacement content")
                 row = self._row(request["record"])
                 if row is None or row["deleted"]:
                     raise StoreError("lifecycle operation requires a live record")
                 record = json.loads(row["body"])
-                if request["mutation"] == "retract":
+                if mutation == "retract":
                     record["content"]["status"] = "retracted"
-                else:
+                elif mutation == "retain":
                     record["content"].setdefault("data", {})["retainedAt"] = at
+                elif mutation == "strategy":
+                    resource = request["resource"]
+                    record = apply_strategy(self.contract.policy, resource, record, at=at)["record"]
+                elif mutation == "confirm":
+                    record = confirm_with_strategy(self.contract.policy, request["resource"], record, at=at)
+                elif mutation == "archive":
+                    record = archive(record, at=at)
+                elif mutation == "unarchive":
+                    record = unarchive_with_strategy(self.contract.policy, request["resource"], record, at=at)
+                elif mutation == "supersede":
+                    successor_id = request.get("successor")
+                    successor = self._live_record(successor_id) if successor_id else None
+                    if not successor or not any(edge["rel"] == "supersedes" and edge["target"] == request["record"]
+                                                for edge in successor["relations"]):
+                        raise StoreError("create and review a linked successor before superseding this record")
+                    record = mark_superseded(record, successor_id, at=at)
+            elif request.get("successor") is not None:
+                raise StoreError("successor is only valid for supersession")
             current, before, decision = self._prepare(request, record, actor, "propose", at=at)
+            if record is not None:
+                self._require_studio_app_bindings(record, actor, at)
             payload = {
                 "id": secrets.token_hex(16),
                 "request": deepcopy(request),
@@ -1459,7 +1872,7 @@ class Authority:
                 "review": None,
                 "expiresAt": (timestamp(at or utcnow()) + dt.timedelta(minutes=10)).isoformat(timespec="milliseconds"),
             }
-            self.dialect.execute("INSERT INTO proposals VALUES (?,?)", (payload["id"], encoded(payload)))
+            self.dialect.add_proposal(payload["id"], encoded(payload))
             return {
                 "proposal": payload["id"],
                 "before": before,
@@ -1472,10 +1885,10 @@ class Authority:
         budget = getattr(self, "_inspection_budget", None)
         if budget is not None:
             budget.body(self.db, "proposals", "id", identity)
-        row = self.dialect.execute("SELECT body FROM proposals WHERE id=?", (identity,)).fetchone()
-        if row is None:
+        body = self.dialect.proposal(identity)
+        if body is None:
             raise StoreError("unknown proposal")
-        proposal = json.loads(row[0])
+        proposal = json.loads(body)
         if (
             proposal["contract"] != self.contract.binding
             or not allow_expired
@@ -1506,7 +1919,7 @@ class Authority:
             self._prepare(proposal["request"], proposal["record"], actor, "review", proposal=proposal, at=at)
             from proposal_disposition import approve
             approve(self, proposal, actor, reason, at or utcnow())
-            self.dialect.execute("UPDATE proposals SET body=? WHERE id=?", (encoded(proposal), identity))
+            self.dialect.update_proposal(identity, encoded(proposal))
             return deepcopy(proposal["review"])
 
     def commit(self, identity, actor, *, at=None, fault=None, expected_proposal_sha256=None):
@@ -1520,9 +1933,7 @@ class Authority:
             intent = fingerprint(
                 {"request": request, "record": record, "proposer": proposal["actor"], "contract": proposal["contract"]}
             )
-            previous = self.dialect.execute(
-                "SELECT intent,body FROM receipts WHERE actor=? AND request_id=?", (actor, request["id"])
-            ).fetchone()
+            previous = self.dialect.receipt(actor, request["id"])
             if previous:
                 collection = record["collection"] if record else self._row(request["record"])["collection"]
                 if previous["intent"] != intent or not self.contract.can_read(collection, actor, at):
@@ -1538,6 +1949,8 @@ class Authority:
                 return receipt
             self._proposal(identity, at)
             current, before, decision = self._prepare(request, record, actor, "commit", proposal=proposal, at=at)
+            if record is not None:
+                self._require_studio_app_bindings(record, actor, at)
             transfer_witness = None
             if "transfer" in proposal:
                 from intake_transfer_store import witness
@@ -1546,16 +1959,10 @@ class Authority:
                 current, before, decision = self._prepare(request, record, actor, "commit", proposal=proposal, at=at)
             sequence = self.dialect.next_sequence("events")
             revision = f"{sequence}:" + fingerprint(record)
-            self.dialect.execute(
-                self.dialect.upsert("records", ("id", "collection", "revision", "body", "deleted"), "id"),
-                (request["record"], (record or before)["collection"], revision, encoded(record), int(record is None)),
-            )
-            self.dialect.execute("DELETE FROM edges WHERE source=?", (request["record"],))
-            for edge in (record or {}).get("relations", []):
-                self.dialect.execute(
-                    "INSERT INTO edges VALUES (?,?,?,?)",
-                    (request["record"], edge["target"], edge["rel"], encoded(edge)),
-                )
+            self.dialect.put_record(request["record"], (record or before)["collection"], revision, encoded(record),
+                                    int(record is None))
+            self.dialect.replace_edges(request["record"], [(edge["target"], edge["rel"], encoded(edge))
+                                                           for edge in (record or {}).get("relations", [])])
             if fault:
                 fault("after-record")
             receipt = {
@@ -1578,14 +1985,11 @@ class Authority:
                     raise StoreError('Transfer journal event exceeds its byte budget')
             if request['mutation'] == 'promote':
                 receipt.update(promotion=deepcopy(proposal['promotion']), sourceReview=deepcopy(proposal['sourceReview']))
-            head = self.dialect.execute("SELECT digest FROM events ORDER BY sequence DESC LIMIT 1").fetchone()[0]
+            head = self.dialect.journal_head()["digest"]
             digest = fingerprint({"previous": head, "event": receipt})
-            self.dialect.execute("INSERT INTO events (sequence,previous,digest,body) VALUES (?,?,?,?)",
-                                (sequence, head, digest, encoded(receipt)))
-            self.dialect.execute("INSERT INTO receipts VALUES (?,?,?,?)", (actor, request["id"], intent, encoded(receipt)))
-            self.dialect.execute(
-                "INSERT INTO outbox VALUES (?,?)", (sequence, encoded({"sequence": sequence, "digest": digest}))
-            )
+            self.dialect.append_event(sequence, head, digest, encoded(receipt))
+            self.dialect.add_receipt(actor, request["id"], intent, encoded(receipt))
+            self.dialect.add_outbox(sequence, encoded({"sequence": sequence, "digest": digest}))
             if fault:
                 fault("before-commit")
             if record:
@@ -1636,8 +2040,7 @@ class Authority:
             ("outbox", "sequence"),
             ("deliveries", "consumer"),
         ):
-            columns = ",".join(SNAPSHOT_COLUMNS[table])
-            tables[table] = [dict(row) for row in self.dialect.execute(f"SELECT {columns} FROM {table} ORDER BY {ordering}")]
+            tables[table] = self.dialect.table_rows(table, SNAPSHOT_COLUMNS[table], ordering.split(","))
         snapshot = {"format": "knowledge-authority/v1", "schemaVersion": DB_VERSION, "tables": tables}
         contract = getattr(self, "contract", None) or Contract(json.loads(self._meta("bundle")))
         if contract.blob_store is not None:
@@ -1666,22 +2069,16 @@ class Authority:
         """
         tables, blobs = _restorable(snapshot, cls.dialect_class.driver, blob_store)
         dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=blobs["completeness"] == "included"))
-        db = dialect.db
         try:
             for table, rows in tables.items():
                 for row in rows:
-                    columns = list(row)
-                    db.execute(
-                        f"INSERT INTO {table} ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})",
-                        tuple(row.values()),
-                    )
+                    dialect.insert_row(table, row)
             if blobs["completeness"] == "included":
                 for locator in blobs["locators"]:
-                    db.execute("INSERT INTO blob_objects (blob_key, content) VALUES (?,?)",
-                               (locator["key"], decode_blob(blobs["content"][locator["key"]])))
-            db.execute("UPDATE metadata SET value='standby' WHERE key='status'")
-            db.execute("UPDATE metadata SET value=? WHERE key='instance'", (secrets.token_hex(16),))
-            db.execute(dialect.upsert("metadata", ("key", "value"), "key"), ("restoredFrom", snapshot["sha256"]))
+                    dialect.add_blob(locator["key"], decode_blob(blobs["content"][locator["key"]]))
+            dialect.set_meta("status", "standby")
+            dialect.set_meta("instance", secrets.token_hex(16))
+            dialect.set_meta("restoredFrom", snapshot["sha256"])
             dialect.set_schema_version(DB_VERSION)
             dialect.commit()
         except BaseException:
@@ -1814,6 +2211,42 @@ class Authority:
                     contract.decision(body['request'], body['actor'], 'commit', body['previousRevision'], at=body['at'],
                         proposed_by=body['proposedBy'], reviewed_by=(body.get('review') or {}).get('actor'),
                         source_approved_by=release['actor'])
+                mutation = body['request']['mutation']
+                if mutation in ('strategy', 'confirm', 'archive', 'unarchive', 'supersede'):
+                    if not body.get('before') or not after:
+                        raise StoreError('lifecycle journal operation requires a live before and after record')
+                    resource = body['request']['resource']
+                    if mutation == 'strategy':
+                        expected = apply_strategy(contract.policy, resource, body['before'], at=body['at'])['record']
+                    elif mutation == 'confirm':
+                        expected = confirm_with_strategy(contract.policy, resource, body['before'], at=body['at'])
+                    elif mutation == 'archive':
+                        expected = archive(body['before'], at=body['at'])
+                    elif mutation == 'unarchive':
+                        expected = unarchive_with_strategy(contract.policy, resource, body['before'], at=body['at'])
+                    else:
+                        expected = mark_superseded(body['before'], body['request'].get('successor'), at=body['at'])
+                        successor = replay.get(body['request'].get('successor'))
+                        successor_record = json.loads(successor['body']) if successor and not successor['deleted'] else None
+                        if not successor_record or not any(edge['rel'] == 'supersedes' and edge['target'] == identity
+                                                            for edge in successor_record['relations']):
+                            raise StoreError('journal supersession lacks its committed successor link')
+                    if after != expected:
+                        raise StoreError('lifecycle journal effect differs from the pinned operation and time')
+                    decision = contract.decision(body['request'], body['actor'], 'commit', body['previousRevision'],
+                        at=body['at'], proposed_by=body['proposedBy'],
+                        reviewed_by=(body.get('review') or {}).get('actor'))
+                    if not decision['allowed'] or not decision['requiresReview'] or not body.get('review'):
+                        raise StoreError('lifecycle journal operation lacks its governed independent review')
+                if mutation == 'create' and after:
+                    predecessor_links = [edge for edge in after['relations'] if edge['rel'] == 'supersedes']
+                    if predecessor_links:
+                        if len(predecessor_links) != 1:
+                            raise StoreError('successor must name exactly one predecessor')
+                        predecessor = replay.get(predecessor_links[0]['target'])
+                        predecessor_record = json.loads(predecessor['body']) if predecessor and not predecessor['deleted'] else None
+                        if not predecessor_record or predecessor_record.get('content', {}).get('data', {}).get('lifecycle', {}).get('state') in ('archived', 'superseded'):
+                            raise StoreError('successor link must target a live predecessor')
                 if "transfer" in body:
                     from intake_transfer_store import validate_event
                     validate_event(contract, body)
@@ -1904,7 +2337,7 @@ class Authority:
         if own_transaction:
             self.dialect.begin()
         try:
-            head = self.dialect.execute("SELECT MAX(sequence) FROM outbox").fetchone()[0]
+            head = self.dialect.outbox_head()
             payload = {
                 "protocolVersion": "1.0",
                 "authority": self.contract.document["id"],
@@ -1929,10 +2362,9 @@ class Authority:
             self.dialect.begin()
         try:
             status, version = self._meta("status"), self.schema_version()
-            head = self.dialect.execute("SELECT MAX(sequence) FROM outbox").fetchone()[0]
-            delivered = self.dialect.rows("SELECT consumer, sequence FROM deliveries")
-            rejected = [row[0] for row in self.dialect.rows("SELECT id, body FROM proposals ORDER BY id")
-                        if state(json.loads(row[1])) == "rejected"]
+            head = self.dialect.outbox_head()
+            delivered = self.dialect.deliveries()
+            rejected = [identity for identity, body in self.dialect.proposals() if state(json.loads(body)) == "rejected"]
         finally:
             if own_transaction:
                 self.dialect.rollback()
@@ -1966,10 +2398,7 @@ class Authority:
         with self.transaction():
             if acknowledge_guard:
                 acknowledge_guard()
-            self.dialect.execute(
-                self.dialect.upsert("deliveries", ("consumer", "sequence"), "consumer", monotonic=("sequence",)),
-                (encoded({"consumer": consumer, "actor": actor, "contract": self.contract.binding}), head),
-            )
+            self.dialect.acknowledge(encoded({"consumer": consumer, "actor": actor, "contract": self.contract.binding}), head)
             if acknowledge_guard:
                 acknowledge_guard()
         return {"delivered": True, "sequence": head}
@@ -1981,9 +2410,9 @@ class Authority:
         with self.transaction():
             if self._snapshot()["sha256"] != expected_snapshot:
                 raise StoreError("source changed since backup; make a new cutover snapshot")
-            self.dialect.execute("UPDATE metadata SET value='frozen' WHERE key='status'")
+            self.dialect.set_meta("status", "frozen")
             for key, value in fence.items():
-                self.dialect.execute("INSERT INTO metadata VALUES (?,?)", (key, value))
+                self.dialect.add_meta(key, value)
 
     def activate_from(self, source):
         """Finish an interrupted cutover only after the exact source snapshot is frozen."""
@@ -1999,7 +2428,7 @@ class Authority:
             if self._meta("status") not in ("standby", "active"):
                 raise StoreError("successor cannot be activated")
             self.validate_snapshot(self._snapshot())
-            self.dialect.execute("UPDATE metadata SET value='active' WHERE key='status'")
+            self.dialect.set_meta("status", "active")
             self.dialect.commit()
         except BaseException:
             self.dialect.rollback()
@@ -2044,21 +2473,19 @@ class Authority:
             version, legacy = _stored_version(dialect)
             if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) and not (legacy and version == DB_VERSION):
                 raise StoreError(f"only schema 1, 2, 3, 4, 5, 6, 7, 8, 9 or 10 -> {DB_VERSION} migration is supported")
-            declaration = Contract(json.loads(db.execute("SELECT value FROM metadata WHERE key='bundle'").fetchone()[0]))
+            declaration = Contract(json.loads(dialect.meta("bundle")))
             # The adopted pin may still be the binding schema 10 and earlier computed.
             if expected_binding is not None and expected_binding not in {declaration.binding, *declaration.legacy_bindings}:
                 raise StoreError("authority contract differs from adopted migration binding")
             if version == 1:
                 dialect.apply_schema("".join(_table_schema(dialect, table) + ";\n" for table in ("outbox", "deliveries")))
-                for sequence, digest in db.execute("SELECT sequence,digest FROM events ORDER BY sequence").fetchall():
-                    db.execute(
-                        "INSERT INTO outbox VALUES (?,?)", (sequence, encoded({"sequence": sequence, "digest": digest}))
-                    )
+                for sequence, digest in dialect.event_digests():
+                    dialect.add_outbox(sequence, encoded({"sequence": sequence, "digest": digest}))
             if version != DB_VERSION:
-                old = db.execute("SELECT value FROM metadata WHERE key='schemaMigrations'").fetchone()
-                migrations = json.loads(old[0]) if old else []
+                old = dialect.meta("schemaMigrations")
+                migrations = json.loads(old) if old else []
                 migrations.append({"from": version, "to": DB_VERSION, "at": utcnow()})
-                db.execute(dialect.upsert("metadata", ("key", "value"), "key"), ("schemaMigrations", encoded(migrations)))
+                dialect.set_meta("schemaMigrations", encoded(migrations))
             if not dialect.has_index(REVIEW_INDEX):
                 db.execute(_review_index(dialect))
             dialect.set_schema_version(DB_VERSION)
@@ -2139,13 +2566,27 @@ class MySQLAuthority(Authority):
     dialect_class = MySQLDialect
 
 
+class _MongoDialectClass:
+    """mongo_dialect.MongoDialect, imported when a mongo authority is first used, so packages
+    that never open one need not carry the module."""
+
+    def __get__(self, instance, owner):
+        from mongo_dialect import MongoDialect
+        return MongoDialect
+
+
+class MongoAuthority(Authority):
+    dialect_class = _MongoDialectClass()
+
+
 def authority_class(dsn):
-    """The adapter a resolved store dsn names: a postgres or mysql URL, a `.json` files authority
-    snapshot, otherwise a SQLite path."""
+    """The adapter a resolved store dsn names: a postgres, mysql or mongodb URL, a `.json` files
+    authority snapshot, otherwise a SQLite path."""
     if "://" not in dsn:
         return FileReference if dsn.endswith(".json") else SQLiteAuthority
     scheme = dsn.split("://", 1)[0]
-    adapters = {"postgres": PostgresAuthority, "postgresql": PostgresAuthority, "mysql": MySQLAuthority}
+    adapters = {"postgres": PostgresAuthority, "postgresql": PostgresAuthority, "mysql": MySQLAuthority,
+                "mongodb": MongoAuthority, "mongodb+srv": MongoAuthority}
     if scheme not in adapters:
         raise StoreError(f"no authority driver for store dsn scheme {scheme}")
     return adapters[scheme]
@@ -2306,6 +2747,7 @@ class FileReference:
     def context(self, actor, *, at=None):
         if self.state == "frozen":
             raise StoreError("source authority is frozen; read from its declared successor")
+        at = at or utcnow()
         readable = {
             collection for collection in self.contract.collections if self.contract.can_read(collection, actor, at)
         }
@@ -2314,11 +2756,13 @@ class FileReference:
             for row in self.records.values()
             if not row["deleted"] and row["collection"] in readable
         ]
+        records = context_records(self.contract, records, at=at)
         ids = {record["id"] for record in records}
         for record in records:
             record["relations"] = [edge for edge in record["relations"] if edge["target"] in ids]
         graph = self.contract.graph(records)
         graph["meta"]["authority"] = {"binding": self.contract.binding, "state": self.state}
+        graph["meta"]["lifecycle"] = {"policySha256": self.contract.policy.binding["sha256"]}
         return graph
 
     def walk(self, start, actor, *, depth, at=None):

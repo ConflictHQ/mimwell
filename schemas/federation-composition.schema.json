@@ -3,7 +3,7 @@
   "$id": "conflict:schema/federation-composition/v1",
   "title": "Bounded source-authorized graph composition",
   "description": "Request by default; result definition is a derived graph, not authority or an access grant. Semantic record, exact digest, source consistency and endpoint validation also apply at runtime.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "type": "object",

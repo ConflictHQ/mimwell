@@ -2,6 +2,8 @@
 from pathlib import Path
 import json
 import re
+import os
+import hashlib
 from html.parser import HTMLParser
 
 from jsonschema import Draft202012Validator
@@ -46,15 +48,16 @@ def safe_asset(directory, relative):
 
 
 class AppHTML(HTMLParser):
-    def __init__(self, directory):
+    def __init__(self, directory, modules=False):
         super().__init__()
         self.directory = directory
+        self.modules = modules
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
         if any(key.lower().startswith('on') for key in values):
             raise ValueError('app-script: inline event handlers are forbidden')
-        if tag == 'script' and values.get('type', '').lower() not in ('', 'text/javascript', 'application/javascript'):
+        if tag == 'script' and values.get('type', '').lower() not in ('', 'text/javascript', 'application/javascript', *(('module',) if self.modules else ())):
             raise ValueError('app-script: module and nonclassic script types are unsupported')
         if tag == 'link' and values.get('rel', '').lower() == 'stylesheet':
             source = values.get('href', '')
@@ -75,7 +78,7 @@ def check_app(directory, contract, now, *, allow_draft=False):
     enabled = manifest.get('enabled', True)
     if not enabled and not allow_draft:
         raise ValueError('app-disabled: draft is not installed')
-    if manifest['runtime'] != 'brain@1.0.0':
+    if manifest['runtime'] not in ('brain@1.0.0', 'brain@1.1.0'):
         raise ValueError('app-runtime: runtime pin is not installed on this host')
     grant = manifest['grant']
     if any('*' in key for key in [grant['principal'], *grant['read'], *grant['owned']]):
@@ -100,11 +103,20 @@ def check_app(directory, contract, now, *, allow_draft=False):
         raise ValueError('app-rate: polling exceeds declared request budget')
     safe_asset(directory, manifest['entry'])
     safe_asset(directory, manifest['smoke'])
+    capacity = int(os.environ.get('BRAIN_APPS_MAX_BUNDLE_BYTES', 64 * 1024 * 1024))
+    if manifest['budgets']['bundleBytes'] > capacity:
+        raise ValueError('app-budget: declared budget exceeds host capacity')
+    catalog = json.loads((ROOT / 'scripts/app-vendor/libraries.json').read_text())
+    libraries = {path: digest for item in catalog for path, digest in item['files'].items()}
     total = 0
+    count = 0
     for path in directory.rglob('*'):
         if path.is_symlink():
             raise ValueError('app-publish: symlink in bundle')
         if path.is_file():
+            count += 1
+            if count > int(os.environ.get('BRAIN_APPS_MAX_FILES', 10000)):
+                raise ValueError('app-budget: bundle exceeds host file capacity')
             safe_asset(directory, path.relative_to(directory).as_posix())
             total += path.stat().st_size
             if total > manifest['budgets']['bundleBytes']:
@@ -112,7 +124,8 @@ def check_app(directory, contract, now, *, allow_draft=False):
             raw = path.read_bytes()
             if re.search(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:sk-proj-|AKIA)[A-Za-z0-9]{12,}', raw):
                 raise ValueError('app-publish: credential material in bundle')
-            if path.suffix in ('.html', '.js', '.mjs', '.json', '.css'):
+            bundled = libraries.get(path.relative_to(directory).as_posix()) == hashlib.sha256(raw).hexdigest()
+            if not bundled and path.suffix in ('.html', '.js', '.mjs', '.json', '.css'):
                 text = raw.decode('utf-8')
                 if path.suffix in ('.html', '.js', '.mjs'):
                     if re.search(r'\b(?:innerHTML|outerHTML|insertAdjacentHTML|document\s*\.\s*write)\b', text):
@@ -120,7 +133,7 @@ def check_app(directory, contract, now, *, allow_draft=False):
                     if re.search(r'(?:import\s*(?:\(|.*?from)|require\s*\()\s*[\"\'](?:https?:|//)', text):
                         raise ValueError('app-script: remote module outside host allowlist')
                 if path.suffix == '.html':
-                    AppHTML(directory).feed(text)
+                    AppHTML(directory, modules=manifest['runtime'] == 'brain@1.1.0').feed(text)
     if total > manifest['budgets']['bundleBytes']:
         raise ValueError('app-budget: bundle exceeds declared size budget')
     return manifest

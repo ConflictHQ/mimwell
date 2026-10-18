@@ -414,7 +414,7 @@ def specs(root):
 
 @adapter
 def knowledge_graph(root):
-    """conflict-kg/v1 nodes -> Concept; KG edges carried through verbatim.
+    """Mimwell/legacy conflict-kg/v1 nodes -> Concept; KG edges carried through verbatim.
 
     Multi-valued provenance (#57, item 1 — scoped to Concept nodes, the one
     kind that already carries this data): build-kg.py already aggregates
@@ -474,19 +474,20 @@ def knowledge_graph(root):
 @adapter
 def glossary(root):
     src = "app/glossary.json"
-    nodes = []
+    nodes, edges = [], []
     for d in _rows(_load(root, "app", "glossary.json"), "terms"):
         if not isinstance(d, dict) or not d.get("term"):
             continue
+        term_id = "term:" + _slug(d["term"])
         nodes.append(_node(
-            "term:" + _slug(d["term"]), "Term",
+            term_id, "Term",
             title=d.get("term"),
             text=d.get("definition"),
             source=src,
             durability=_DURABILITY.get("Term"),
             data={k: d[k] for k in ("aliases", "related") if d.get(k)},
         ))
-    return nodes, []
+    return nodes, edges
 
 
 @adapter
@@ -1352,6 +1353,70 @@ def ownership_links(root, nodes):
     return edges
 
 
+@linker
+def github_links(root, nodes):
+    """GitHub mirror records -> in_repository, in_milestone, closes and
+    references edges (scripts/source_adapters.py tracker_edges).
+
+    A LINKER for the usual reason: a pull request's `closes: owner/name#12`
+    becomes an edge only when that issue is a node of this brain, so a link to
+    an unmirrored repository emits nothing instead of a dangling edge. No
+    `github` adapter selected -> no such records -> no edges.
+    """
+    from source_adapters import tracker_edges
+    return tracker_edges(nodes)
+
+
+@linker
+def governed_semantic_links(root, nodes):
+    """Resolve authority-reviewed Metric/Term references against the current source catalog."""
+    by_id = {node["id"]: node for node in nodes if isinstance(node, dict) and isinstance(node.get("id"), str)}
+    edges = []
+    for metric in (node for node in nodes if node.get("kind") == "Metric"):
+        data = metric.get("data") if isinstance(metric.get("data"), dict) else {}
+        source = data.get("datasource") if isinstance(data.get("datasource"), dict) else {}
+        if not isinstance(source.get("id"), str) or not isinstance(data.get("entity"), str):
+            raise ValueError(f"Metric {metric['id']} needs a datasource id and entity")
+        source_id = "source:" + _slug(source["id"])
+        entity_id = source_id + ":entity:" + _slug(data["entity"])
+        if by_id.get(source_id, {}).get("kind") != "Source" or by_id.get(entity_id, {}).get("kind") != "Entity":
+            raise ValueError(f"Metric {metric['id']} refers to a missing source or catalogued entity")
+        if by_id[entity_id].get("data", {}).get("name") != data["entity"]:
+            raise ValueError(f"Metric {metric['id']} entity identity differs from the catalog")
+        edges.extend([
+            {"source": metric["id"], "target": source_id, "rel": "backed_by", "class": "semantic"},
+            {"source": metric["id"], "target": entity_id, "rel": "measures", "class": "semantic"},
+        ])
+        references = [("uses_measure", data.get("measure"))]
+        references.extend(("has_dimension", row.get("field")) for row in data.get("dimensions", [])
+                          if isinstance(row, dict))
+        references.extend(("filterable_by", row.get("field")) for row in data.get("filters", [])
+                          if isinstance(row, dict))
+        grain = data.get("grain")
+        if isinstance(grain, dict):
+            references.append(("groups_by_time", grain.get("field")))
+        for relation, field_name in references:
+            field_id = entity_id + ":field:" + _slug(field_name) if isinstance(field_name, str) else ""
+            field = by_id.get(field_id)
+            if not field or field.get("kind") != "Field" or field.get("data", {}).get("name") != field_name:
+                raise ValueError(f"Metric {metric['id']} refers to uncatalogued field {field_name!r}")
+            edges.append({"source": metric["id"], "target": field_id, "rel": relation, "class": "semantic"})
+
+    for term in (node for node in nodes if node.get("kind") == "Term"):
+        data = term.get("data") if isinstance(term.get("data"), dict) else {}
+        for key, expected_kind, relation in (("governsMetrics", "Metric", "defines_metric"),
+                                             ("governsEntities", "Entity", "governs_field"),
+                                             ("governsFields", "Field", "governs_field")):
+            targets = data.get(key, [])
+            if not isinstance(targets, list):
+                raise ValueError(f"Term {term['id']} {key} must be a list")
+            for target in targets:
+                if not isinstance(target, str) or by_id.get(target, {}).get("kind") != expected_kind:
+                    raise ValueError(f"Term {term['id']} refers to a missing {expected_kind} {target!r}")
+                edges.append({"source": term["id"], "target": target, "rel": relation, "class": "semantic"})
+    return edges
+
+
 # ----------------------------------------------------------------------------
 # Compile
 # ----------------------------------------------------------------------------
@@ -1446,9 +1511,20 @@ def projections(root: str, authority) -> tuple[list, list]:
             "is read from the authority at request time. See docs/design/adr-authority-per-brain-kind.md")
     from projection_receipts import load
     nodes, edges = [], []
-    for consumer, payload, _receipt in load(root, authority["binding"]):
+    for consumer, payload, receipt in load(root, authority["binding"]):
         source = f"app/projections/{consumer}.json"
-        nodes.extend({"source": source, **node} for node in payload["graph"]["nodes"])
+        for node in payload["graph"]["nodes"]:
+            projected = {"source": source, **node}
+            if projected.get("kind") == "Metric":
+                data = projected.setdefault("data", {})
+                data["governance"] = {
+                    "consumer": consumer,
+                    "authority": receipt["authority"],
+                    "binding": receipt["binding"],
+                    "sequence": receipt["sequence"],
+                    "projectionSha256": receipt["sha256"],
+                }
+            nodes.append(projected)
         edges.extend(payload["graph"]["edges"])
     return nodes, edges
 

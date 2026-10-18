@@ -3,7 +3,7 @@
   "$id": "conflict:schema/action-items/v1",
   "title": "Action items rollup (app/action-items.json)",
   "description": "Cross-session action-item rollup rendered by /action-items/.",
-  "x-conflict": { "version": "1", "editable": true, "source": "app/action-items.json" },
+  "x-mimwell": { "version": "1", "editable": true, "source": "app/action-items.json" },
   "type": "object",
   "required": ["items"],
   "properties": {
@@ -21,7 +21,21 @@
           "date": { "type": "string" },
           "labels": { "type": "array", "items": { "type": "string" } },
           "session": { "type": "string" },
-          "session_title": { "type": "string" }
+          "session_title": { "type": "string" },
+          "id": { "type": "string", "minLength": 1, "description": "Stable identifier, kept across regenerations." },
+          "status": { "type": "string", "minLength": 1, "description": "Follow-up state, e.g. open, in-progress, done, operational (an ongoing practice), superseded, cancelled. Absent means not yet triaged." },
+          "due": { "type": "string", "description": "When it is due, as stated: an ISO date or the words used in the session." },
+          "confidence": { "enum": ["high", "medium", "low"], "description": "Confidence that the item was extracted correctly." },
+          "evidence": { "type": "string", "description": "What the status rests on: a session excerpt or the tracker state." },
+          "links": {
+            "type": "array",
+            "description": "Issues, pull requests or documents that track or settle the item.",
+            "items": {
+              "type": "object", "required": ["url"], "additionalProperties": false,
+              "properties": { "url": { "type": "string", "minLength": 1 }, "kind": { "type": "string" }, "note": { "type": "string" } }
+            }
+          },
+          "superseded_by": { "type": "string", "minLength": 1, "description": "The item, issue or URL that replaced this one." }
         }
       }
     }

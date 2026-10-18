@@ -217,7 +217,10 @@ def build(schema_path: str = SCHEMA) -> OrderedDict:
         # The artifact schema's own writability declaration (#38). The Worker
         # and the in-portal editor combine it with `mutability` (anchor kinds are
         # never writable) instead of keeping a parallel list of editable types.
-        entry["editable"] = (aschema.get("x-conflict") or {}).get("editable") is True
+        # Current writers use x-mimwell; read the released x-conflict marker
+        # until the identifier deprecation window closes.
+        marker = aschema.get("x-mimwell", aschema.get("x-conflict")) or {}
+        entry["editable"] = marker.get("editable") is True
         key, props = _records(aschema)
         if key is None:
             entry["renderable"] = False

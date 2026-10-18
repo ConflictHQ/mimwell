@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "conflict:schema/component-interfaces/v1",
+  "$id": "conflict:schema/component-interfaces/v2",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "protocolVersion": {
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "entries": {
       "type": "array",
@@ -18,6 +18,10 @@
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$"
           },
           "version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "discoveryVersion": {
             "type": "string",
             "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
           },

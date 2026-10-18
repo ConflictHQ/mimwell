@@ -109,16 +109,33 @@
     }).join('');
   }
 
+  // A labels-role field is an array of strings or a single string (one value,
+  // e.g. a category or group); either way its values are the record's labels.
+  function labelValues(v) {
+    if (Array.isArray(v)) return v.filter(function (x) { return typeof x === 'string' && x; });
+    return typeof v === 'string' && v ? [v] : [];
+  }
+
   function recordHtml(kind, r) {
     var d = kind.display;
     var title = d.title ? r[d.title] : null;
     var body = d.body ? r[d.body] : null;
     var statuses = (d.status || []).map(function (f) { return r[f]; }).filter(Boolean);
     var labels = [];
-    (d.labels || []).forEach(function (f) { if (Array.isArray(r[f])) labels = labels.concat(r[f]); });
+    (d.labels || []).forEach(function (f) { labels = labels.concat(labelValues(r[f])); });
     var meta = (d.meta || []).map(function (f) {
       var v = r[f];
-      if (v == null || v === '' || typeof v === 'object') return '';
+      if (v == null || v === '') return '';
+      if (Array.isArray(v)) {
+        var values = v.filter(function (item) {
+          return (typeof item === 'string' && item !== '') ||
+            typeof item === 'number' || typeof item === 'boolean';
+        });
+        if (!values.length) return '';
+        return '<span class="kp-meta-item"><span class="kp-meta-key">' + esc(f) +
+          '</span> ' + values.map(esc).join(', ') + '</span>';
+      }
+      if (typeof v === 'object') return '';
       return '<span class="kp-meta-item"><span class="kp-meta-key">' + esc(f) + '</span> ' + esc(v) + '</span>';
     }).join('');
     var owner = (d.owner || []).map(function (f) { return r[f]; }).filter(Boolean).join(', ');
@@ -180,7 +197,7 @@
 
   function labelsOf(kind, r) {
     var out = [];
-    (kind.display.labels || []).forEach(function (f) { if (Array.isArray(r[f])) out = out.concat(r[f]); });
+    (kind.display.labels || []).forEach(function (f) { out = out.concat(labelValues(r[f])); });
     return out;
   }
 

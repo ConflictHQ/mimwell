@@ -1,0 +1,166 @@
+{
+  "protocolVersion": "1.0",
+  "id": "policy.example",
+  "version": "1.0.0",
+  "principals": [
+    {
+      "id": "alice@example.test",
+      "kind": "human"
+    },
+    {
+      "id": "bob@example.test",
+      "kind": "human"
+    },
+    {
+      "id": "cy@example.test",
+      "kind": "agent"
+    }
+  ],
+  "scopes": [
+    {
+      "id": "company",
+      "parent": null,
+      "space": "company",
+      "owner": "alice@example.test",
+      "practice": {
+        "id": "practice.example",
+        "version": "1.0.0",
+        "path": "stores/examples/PRACTICE.md",
+        "sha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338"
+      },
+      "rules": {
+        "readers": [
+          "alice@example.test",
+          "bob@example.test",
+          "cy@example.test"
+        ],
+        "proposers": [
+          "alice@example.test",
+          "bob@example.test",
+          "cy@example.test"
+        ],
+        "committers": [
+          "alice@example.test",
+          "bob@example.test",
+          "cy@example.test"
+        ],
+        "reviewers": [
+          "alice@example.test",
+          "bob@example.test"
+        ],
+        "fastAuto": false,
+        "separateReview": true,
+        "allowDelete": false,
+        "retentionDays": 30
+      }
+    },
+    {
+      "id": "product",
+      "parent": "company",
+      "space": "product",
+      "owner": "bob@example.test",
+      "practice": {
+        "id": "practice.example",
+        "version": "1.0.0",
+        "path": "stores/examples/PRACTICE.md",
+        "sha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338"
+      },
+      "rules": {}
+    },
+    {
+      "id": "workspace",
+      "parent": "product",
+      "space": "workspace",
+      "owner": "cy@example.test",
+      "practice": {
+        "id": "practice.example",
+        "version": "1.0.0",
+        "path": "stores/examples/PRACTICE.md",
+        "sha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338"
+      },
+      "rules": {
+        "fastAuto": true
+      }
+    },
+    {
+      "id": "private",
+      "parent": "workspace",
+      "space": "private",
+      "owner": "cy@example.test",
+      "practice": {
+        "id": "practice.example",
+        "version": "1.0.0",
+        "path": "stores/examples/PRACTICE.md",
+        "sha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338"
+      },
+      "rules": {
+        "readers": [
+          "alice@example.test",
+          "cy@example.test"
+        ],
+        "proposers": [
+          "cy@example.test"
+        ],
+        "committers": [
+          "cy@example.test"
+        ],
+        "reviewers": [
+          "alice@example.test"
+        ]
+      }
+    },
+    {
+      "id": "session",
+      "parent": "private",
+      "space": "session",
+      "owner": "cy@example.test",
+      "practice": {
+        "id": "practice.example",
+        "version": "1.0.0",
+        "path": "stores/examples/PRACTICE.md",
+        "sha256": "937795475013d8d8ee01f4538af6427d8b36192b93e301262e755dd0db4a7338"
+      },
+      "rules": {}
+    }
+  ],
+  "exceptions": [
+    {
+      "scope": "workspace",
+      "approvedBy": "bob@example.test",
+      "reason": "Permit the workspace owner to maintain routine fast-tier knowledge.",
+      "expiresAt": "2030-01-01T00:00:00Z"
+    }
+  ],
+  "resources": [
+    {
+      "id": "app/decisions.json",
+      "scope": "company",
+      "kind": "decision",
+      "retentionSince": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "product-decisions",
+      "scope": "product",
+      "kind": "decision",
+      "retentionSince": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "app/action-items.json",
+      "scope": "workspace",
+      "kind": "action-item",
+      "retentionSince": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "agent-memory",
+      "scope": "private",
+      "kind": "memory-note",
+      "retentionSince": "2026-01-01T00:00:00Z"
+    },
+    {
+      "id": "session-captures",
+      "scope": "session",
+      "kind": "session",
+      "retentionSince": "2026-01-01T00:00:00Z"
+    }
+  ]
+}

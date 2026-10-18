@@ -155,15 +155,16 @@ class _Backend:
 
 
 class _JsonBackend(_Backend):
-    def __init__(self, path: str = BRAIN_JSON):
+    def __init__(self, path: str = BRAIN_JSON, *, data=None):
         self._nodes: dict[str, dict] = {}
         self._out: dict[str, list[dict]] = {}
         self._in: dict[str, list[dict]] = {}
-        try:
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, ValueError):
-            data = {"nodes": [], "edges": []}
+        if data is None:
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = json.load(f)
+            except (OSError, ValueError):
+                data = {"nodes": [], "edges": []}
         for n in data.get("nodes") or []:
             if isinstance(n, dict) and n.get("id"):
                 self._nodes[n["id"]] = n
@@ -519,6 +520,14 @@ class _D1Backend(_Backend):
 
 _BACKENDS = {"json": _JsonBackend, "sqlite": _SqliteBackend}
 
+
+class StoreUnavailable(RuntimeError):
+    """The configured compiled store is missing, so reads cannot be served.
+
+    Raised instead of silently returning empty results (#439): an empty search
+    over a missing app/brain.db looks exactly like "no matches", which hides a
+    build that never produced the store."""
+
 _backend: _Backend | None = None
 
 
@@ -539,6 +548,11 @@ def backend() -> _Backend:
     global _backend
     if _backend is None:
         store = _store()
+        if store == "sqlite" and not os.path.exists(BRAIN_DB):
+            raise StoreUnavailable(
+                "brain.store is \"sqlite\" but app/brain.db does not exist. "
+                "Build it with `make brain-db` (python3 scripts/brain-sqlite.py build), "
+                "or set brain.store to \"json\".")
         cls = _BACKENDS.get(store, _JsonBackend)
         _backend = cls()
     return _backend

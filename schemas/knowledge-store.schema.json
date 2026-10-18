@@ -37,6 +37,7 @@
               "external",
               "postgres",
               "mysql",
+              "mongo",
               "d1",
               "fs",
               "db-blob",

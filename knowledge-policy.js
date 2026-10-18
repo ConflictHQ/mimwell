@@ -25,7 +25,7 @@ export function localPath(value) {
 // keyword is rejected, rather than silently weakening a future contract.
 export function validate(schema, value, root = schema, depth = 0) {
   if (depth > 100) throw new PolicyError("schema nesting limit exceeded");
-  const known = new Set(["$schema", "$id", "$defs", "$ref", "title", "description", "x-conflict", "type", "properties", "required", "additionalProperties", "items", "enum", "const", "pattern", "minLength", "minimum"]);
+  const known = new Set(["$schema", "$id", "$defs", "$ref", "title", "description", "x-mimwell", "x-conflict", "type", "properties", "required", "additionalProperties", "items", "enum", "const", "pattern", "minLength", "minimum"]);
   if (Object.keys(schema).some(k => !known.has(k))) throw new PolicyError("unsupported policy schema keyword");
   if (schema.$ref) {
     if (!schema.$ref.startsWith("#/$defs/")) throw new PolicyError("only local schema definitions are supported");
@@ -61,6 +61,7 @@ export async function makePolicy(input, ontology, schemas) {
   validate(schemas.policy, document);
   const binding = {id: document.id, version: document.version, sha256: await sha256(canonical(document)), ontologySha256: await sha256(canonical(ontology))};
   const principals = indexed(document.principals), scopes = indexed(document.scopes), resources = indexed(document.resources);
+  const lifecycleStrategies = indexed(document.lifecycleStrategies || []);
   const exceptions = indexed(document.exceptions, "scope"), kinds = new Map(ontology.kinds.map(k => [k.id, k.mutability]));
   if ([...kinds.values()].some(t => !["fast", "slow", "anchor"].includes(t))) throw new PolicyError("unsupported ontology mutability");
   for (const scope of scopes.values()) {
@@ -78,6 +79,13 @@ export async function makePolicy(input, ontology, schemas) {
   for (const r of resources.values()) {
     if (!scopes.has(r.scope) || !kinds.has(r.kind)) throw new PolicyError("resource names an unknown scope or ontology kind");
     if (r.retentionSince !== null) time(r.retentionSince);
+  }
+  const selectors = new Set();
+  for (const strategy of lifecycleStrategies.values()) {
+    if (!scopes.has(strategy.scope) || !kinds.has(strategy.kind)) throw new PolicyError("lifecycle strategy names an unknown scope or ontology kind");
+    const selector = canonical([strategy.scope, strategy.kind, strategy.source]);
+    if (selectors.has(selector)) throw new PolicyError("duplicate lifecycle strategy selector");
+    selectors.add(selector);
   }
   for (const e of exceptions.values()) {
     if (!scopes.has(e.scope) || !principals.has(e.approvedBy)) throw new PolicyError("exception names an unknown scope or approver");
@@ -136,13 +144,14 @@ export async function makePolicy(input, ontology, schemas) {
       if (operation === "commit" && !sourceRules.reviewers.includes(trusted.sourceApprovedBy)) return deny("promotion requires source-scope release approval");
     } else if (request.sourceResource !== null) return deny("sourceResource is only valid for promotion");
     const proposedBy = trusted.proposedBy === undefined ? actor : trusted.proposedBy;
-    let needsReview = tier !== "fast" || !rules.fastAuto || proposedBy !== scopes.get(resource.scope).owner || ["supersede", "retract", "delete", "promote"].includes(request.mutation);
+    const governedLifecycle = ["strategy", "confirm", "archive", "unarchive", "supersede"];
+    let needsReview = tier !== "fast" || !rules.fastAuto || proposedBy !== scopes.get(resource.scope).owner || ["supersede", "retract", "delete", "promote", ...governedLifecycle].includes(request.mutation);
     const owner = scopes.get(resource.scope).owner;
     if (trusted.appPrincipal === owner && proposedBy === owner && principals.get(owner).kind === "service" &&
         tier === "fast" && rules.fastAuto && ["create", "correct", "retract"].includes(request.mutation)) needsReview = false;
     result.requiresReview = needsReview; result.reviewers = [...rules.reviewers].sort();
     if (operation === "review" && rules.separateReview && actor === trusted.proposedBy) return deny("an independent reviewer is required");
-    const slowReview = tier === "slow" || ["supersede", "retract", "delete", "promote"].includes(request.mutation);
+    const slowReview = tier === "slow" || ["supersede", "retract", "delete", "promote", ...governedLifecycle].includes(request.mutation);
     if (operation === "review" && slowReview && principals.get(actor).kind !== "human") return deny("slow-tier review requires a human authority");
     if (operation === "commit" && needsReview) {
       const reviewer = trusted.approvedBy;
@@ -153,7 +162,18 @@ export async function makePolicy(input, ontology, schemas) {
     result.allowed = true;
     return result;
   }
-  return {binding, document, resources, kinds, evaluate};
+  function lifecycleStrategy(resourceId, record) {
+    const resource = resources.get(resourceId);
+    if (!resource || record.kind !== resource.kind) throw new PolicyError("record does not match a governed lifecycle resource");
+    let source = record.content?.source;
+    if (source && typeof source === "object") source = source.path;
+    if (typeof source !== "string") source = null;
+    const matches = [...lifecycleStrategies.values()].filter(item => item.scope === resource.scope && item.kind === resource.kind && (item.source === null || item.source === source));
+    matches.sort((a, b) => Number(b.source !== null) - Number(a.source !== null));
+    if (matches.length > 1 && (matches[0].source !== null) === (matches[1].source !== null)) throw new PolicyError("ambiguous lifecycle strategy");
+    return matches.length ? clone(matches[0]) : null;
+  }
+  return {binding, document, resources, kinds, evaluate, lifecycleStrategy};
 }
 
 export async function loadPolicy(env, config) {

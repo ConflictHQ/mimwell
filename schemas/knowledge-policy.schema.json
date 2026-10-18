@@ -235,6 +235,24 @@
           "retentionSince"
         ]
       }
+    },
+    "lifecycleStrategies": {
+      "type": "array",
+      "description": "Optional store-executed lifecycle profiles. Exact source selectors override null source selectors.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "scope": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "kind": {"type": "string", "minLength": 1, "pattern": "\\S"},
+          "source": {"type": ["string", "null"], "minLength": 1, "pattern": "\\S"},
+          "reviewAfterDays": {"type": ["integer", "null"], "minimum": 0},
+          "expiresAfterDays": {"type": ["integer", "null"], "minimum": 0},
+          "expiryAction": {"enum": ["keep", "exclude", "archive-recommendation"]}
+        },
+        "required": ["id", "scope", "kind", "source", "reviewAfterDays", "expiresAfterDays", "expiryAction"]
+      }
     }
   },
   "required": [

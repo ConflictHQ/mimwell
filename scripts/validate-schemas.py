@@ -24,6 +24,7 @@ What it validates
   app/sources.json          -> schemas/sources.schema.json (source inventory, #13)
   app/staleness.json        -> schemas/staleness.schema.json (staleness sweep, #29)
   app/machine.json          -> schemas/machine.schema.json (living blueprint, #69)
+  app/github.json           -> schemas/github-mirror.schema.json (make github-sync)
   analysis/artifacts/catalog.json -> schemas/artifact-catalog.schema.json (#14)
   client.config.json        -> schemas/client.config.schema.json
   specs/**/*.md frontmatter -> schemas/specs-frontmatter.schema.json
@@ -97,6 +98,7 @@ ARTIFACTS: dict[str, str] = {
     "app/sources.json": "sources.schema.json",
     "app/staleness.json": "staleness.schema.json",
     "app/machine.json": "machine.schema.json",
+    "app/github.json": "github-mirror.schema.json",
     "analysis/artifacts/catalog.json": "artifact-catalog.schema.json",
     "client.config.json": "client.config.schema.json",
 }

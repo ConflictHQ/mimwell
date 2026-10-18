@@ -172,9 +172,9 @@
   }
 
   /* Home hero copy (#362): the brain's name and purpose through the seam above,
-   * its kind from scope.level, and the portal template's front door. Engagement
-   * wording belongs to a project-scope brain only: a company, topic or personal
-   * brain on the engagement template gets its kind's framing instead. The
+   * its kind from scope.level, and the portal template's front door. A company,
+   * topic or personal brain on the historical engagement template gets its
+   * kind's framing instead. The
    * co-brand (the portal owner beside the brain in the footer and stat) is
    * dropped when the portal owner is the brain's own party, and only an
    * engagement eyebrow reads "<portal owner> for <brain>" (never "ACME for
@@ -195,11 +195,11 @@
     var engagementTemplate = !tpl || tpl.id === 'engagement';
     var eyebrow, desc;
     if (project) {
-      eyebrow = name ? (coBrand ? coBrand + ' for ' + name : name + ' Engagement')
-        : (runner ? runner + ' Engagement' : 'Engagement');
-      desc = !engagementTemplate && front.desc ? front.desc : name
-        ? 'A living project command center for the ' + name + ' engagement. Direct access to the ' +
-          'engagement knowledge base and interactive knowledge graph — continuously updated as work progresses.'
+      eyebrow = name ? (coBrand ? coBrand + ' for ' + name : name + ' Project')
+        : (runner ? runner + ' Project' : 'Project');
+      desc = front.desc ? front.desc : name
+        ? 'A living project command center for ' + name + '. Direct access to the ' +
+          'project knowledge base and interactive knowledge graph — continuously updated as work progresses.'
         : '';
     } else {
       eyebrow = holder && !same(holder, name) && !same(holder, short) ? holder : kind;
@@ -207,7 +207,7 @@
         : 'The living ' + kind.toLowerCase() + (name ? ' of ' + name : '') + ': its knowledge, decisions ' +
           'and the documents behind them, continuously updated.';
     }
-    var label = engagementTemplate ? (project ? front.eyebrow || 'Engagement Portal' : kind) : front.eyebrow || kind;
+    var label = engagementTemplate ? (project ? front.eyebrow || 'Project Portal' : kind) : front.eyebrow || kind;
     return { eyebrow: eyebrow, title: short, subtitle: brainPurpose(c), purpose: brainPurpose(c),
              desc: desc, label: label, coBrand: coBrand };
   }
@@ -440,25 +440,25 @@
       /* ── Owner co-brand slots (#47) ── artwork or a text wordmark, both
          driven by branding.owner; colors come from the shared --kb-* seam so a
          rebrand recolors them, never a baked brand value. ── */
-      'img.owner-mark{display:block;width:auto;}' +
+      'img.owner-mark{width:auto;}img.owner-mark:not(.logo-on-light):not(.logo-on-dark){display:block;}' +
       '.owner-wordmark{display:inline-block;line-height:1;white-space:nowrap;' +
         'font-family:var(--kb-font-heading,inherit);letter-spacing:.16em;' +
-        'text-transform:uppercase;color:var(--kb-text,inherit);}' +
+        'text-transform:uppercase;color:var(--text,var(--kb-text,inherit));}' +
       '.footer-mark{display:inline-flex;align-items:center;line-height:0;opacity:.45;}' +
       /* ── Desktop tiers: group button + dropdown panel ── */
       '.topnav-group{position:relative;display:inline-flex;align-items:center;}' +
       '.topnav-group-btn{display:inline-flex;align-items:center;gap:5px;background:none;' +
-        'border:none;cursor:pointer;padding:6px 10px;color:var(--kb-muted,inherit);' +
+        'border:none;cursor:pointer;padding:6px 10px;color:var(--muted,var(--kb-text-muted,inherit));' +
         'font:inherit;letter-spacing:inherit;text-transform:inherit;white-space:nowrap;}' +
       '.topnav-group-btn::after{content:"";width:6px;height:6px;margin-top:-3px;' +
         'border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;' +
         'transform:rotate(45deg);opacity:.55;transition:transform .15s ease;}' +
       '.topnav-group-btn:hover,.topnav-group.open>.topnav-group-btn,' +
-        '.topnav-group.has-active>.topnav-group-btn{color:var(--kb-text,#fff);}' +
+        '.topnav-group.has-active>.topnav-group-btn{color:var(--text,var(--kb-text,#fff));}' +
       '.topnav-menu{position:absolute;top:100%;left:0;min-width:200px;display:none;' +
         'flex-direction:column;padding:6px;margin-top:4px;z-index:250;' +
-        'background:var(--kb-surface,var(--kb-bg,#1c1c1c));' +
-        'border:1px solid var(--kb-border,rgba(128,128,128,.3));border-radius:6px;' +
+        'background:var(--surface,var(--kb-surface,var(--kb-bg,#1c1c1c)));' +
+        'border:1px solid var(--border,var(--kb-border,rgba(128,128,128,.3)));border-radius:6px;' +
         'box-shadow:0 10px 28px rgba(0,0,0,.35);}' +
       /* keep an invisible hover bridge so the pointer can cross the 4px gap */
       '.topnav-menu::before{content:"";position:absolute;top:-5px;left:0;right:0;height:5px;}' +
@@ -471,13 +471,13 @@
         '.topnav-group.open>.topnav-menu{display:flex;}' +
         '.topnav-group.open>.topnav-group-btn::after{transform:rotate(225deg);margin-top:3px;}' +
         '.topnav-menu a{display:block;padding:8px 12px;border-radius:4px;white-space:nowrap;}' +
-        '.topnav-menu a:hover{background:var(--kb-border,rgba(128,128,128,.18));}' +
+        '.topnav-menu a:hover{background:var(--border,var(--kb-border,rgba(128,128,128,.18)));}' +
         /* group labels never render as inline text on desktop anymore */
         '.topnav-group-label{display:none;}' +
       '}' +
       '.topnav-toggle{display:none;align-items:center;justify-content:center;' +
-        'width:36px;height:32px;background:none;border:1px solid var(--kb-border,rgba(128,128,128,.3));' +
-        'border-radius:4px;cursor:pointer;padding:0;color:var(--kb-text,#fff);}' +
+        'width:36px;height:32px;background:none;border:1px solid var(--border,var(--kb-border,rgba(128,128,128,.3)));' +
+        'border-radius:4px;cursor:pointer;padding:0;color:var(--text,var(--kb-text,#fff));}' +
       '.topnav-toggle-bars,.topnav-toggle-bars::before,.topnav-toggle-bars::after{' +
         'content:"";display:block;width:16px;height:2px;background:currentColor;' +
         'border-radius:2px;transition:transform .18s ease,opacity .18s ease;}' +
@@ -491,13 +491,13 @@
         '.topnav-toggle{display:inline-flex;}' +
         '.topnav{position:fixed;top:54px;right:0;bottom:0;width:min(82vw,320px);' +
           'flex-direction:column;align-items:stretch;gap:2px;overflow-y:auto;' +
-          'padding:14px 14px 28px;background:var(--kb-bg,#0B1619);' +
-          'border-left:1px solid var(--kb-border,rgba(128,128,128,.3));' +
+          'padding:14px 14px 28px;background:var(--bg,var(--kb-bg,#0B1619));' +
+          'border-left:1px solid var(--border,var(--kb-border,rgba(128,128,128,.3)));' +
           'transform:translateX(100%);transition:transform .22s ease;z-index:300;}' +
         'body.nav-open .topnav{transform:translateX(0);}' +
         '.topnav-group{flex-direction:column;align-items:stretch;gap:2px;}' +
         '.topnav-group+.topnav-group{margin-left:0;padding-left:0;border-left:none;' +
-          'margin-top:10px;padding-top:10px;border-top:1px solid var(--kb-border,rgba(128,128,128,.25));}' +
+          'margin-top:10px;padding-top:10px;border-top:1px solid var(--border,var(--kb-border,rgba(128,128,128,.25)));}' +
         /* in the drawer the tiers flatten: label as heading, menu always expanded */
         '.topnav-group-btn{display:none;}' +
         '.topnav-group-label{display:block;padding:2px 8px;}' +

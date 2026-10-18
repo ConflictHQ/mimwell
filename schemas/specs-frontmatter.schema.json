@@ -3,7 +3,7 @@
   "$id": "conflict:schema/specs-frontmatter/v1",
   "title": "Spec frontmatter (specs/**/*.md)",
   "description": "YAML frontmatter block of a plan node (phase | epic | feature | story). Validated by parsing the leading --- block of each spec markdown file.",
-  "x-conflict": { "version": "1", "editable": true, "source": "specs/**/*.md (frontmatter)" },
+  "x-mimwell": { "version": "1", "editable": true, "source": "specs/**/*.md (frontmatter)" },
   "type": "object",
   "required": ["title", "type", "status"],
   "additionalProperties": false,

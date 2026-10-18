@@ -2,6 +2,9 @@
 import html
 from html.parser import HTMLParser
 import json
+import base64
+import mimetypes
+from pathlib import Path
 
 from brain_apps import safe_asset
 
@@ -120,6 +123,8 @@ class Entry(HTMLParser):
 
 
 def shell(directory, manifest, token):
+    if manifest['runtime'] == 'brain@1.1.0':
+        return portable_shell(directory, manifest, token)
     if manifest['runtime'] != 'brain@1.0.0':
         raise ValueError('App runtime pin is not installed on this host')
     parser = Entry(directory)
@@ -129,6 +134,62 @@ def shell(directory, manifest, token):
     entry = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; form-action \'none\'">' + FRAME_RUNTIME + ''.join(parser.parts + parser.deferred)
     def quoted(value):
         return json.dumps(value).replace('<', '\\u003c')
+    script = BRIDGE.replace('const token = TOKEN;', 'const token = ' + quoted(token) + ';').replace('frame.srcdoc = ENTRY;', 'frame.srcdoc = ' + quoted(entry) + ';')
+    return ('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
+            '<title>' + html.escape(manifest['title']) + '</title>'
+            '<style>html,body,iframe{width:100%;height:100%;margin:0;border:0}</style></head><body>'
+            '<iframe sandbox="allow-scripts allow-forms" title="' + html.escape(manifest['title'], quote=True) + '"></iframe>'
+            '<script>' + script + '</script></body></html>').encode()
+
+
+class PortableEntry(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script':
+            values = dict(attrs)
+            kind = 'module' if values.get('type') == 'module' else 'classic'
+            self.parts.append('<script type="application/x-brain-script" data-brain-script="' + kind + '"' +
+                              (' data-brain-src="' + html.escape(values['src'], quote=True) + '"' if values.get('src') else '') + '>')
+        else:
+            self.parts.append(self.get_starttag_text())
+
+    def handle_endtag(self, tag):
+        self.parts.append('</' + tag + '>')
+
+    def handle_data(self, data):
+        self.parts.append(data)
+
+    def handle_entityref(self, name):
+        self.parts.append('&' + name + ';')
+
+    def handle_charref(self, name):
+        self.parts.append('&#' + name + ';')
+
+
+def portable_shell(directory, manifest, token):
+    def quoted(value):
+        return json.dumps(value).replace('<', '\\u003c')
+    assets = {}
+    for path in directory.rglob('*'):
+        if path.is_file():
+            name = path.relative_to(directory).as_posix()
+            safe_asset(directory, name)
+            mime = {'.js': 'text/javascript', '.mjs': 'text/javascript', '.wasm': 'application/wasm'}.get(path.suffix)
+            assets[name] = {'type': mime or mimetypes.guess_type(name)[0] or 'application/octet-stream',
+                            'data': base64.b64encode(path.read_bytes()).decode()}
+    scripts = Path(__file__).parent
+    lexer = base64.b64encode((scripts / 'app-vendor/es-module-lexer.js').read_bytes()).decode()
+    loader = (scripts / 'app_bundle.mjs').read_text().replace('./app-vendor/es-module-lexer.js', 'data:text/javascript;base64,' + lexer)
+    parser = PortableEntry()
+    parser.feed(safe_asset(directory, manifest['entry']).read_text())
+    policy = "default-src 'none'; script-src 'unsafe-inline' 'wasm-unsafe-eval' blob: data:; style-src 'unsafe-inline' blob:; img-src data: blob:; font-src data: blob:; media-src data: blob:; connect-src blob: data:; base-uri 'none'; form-action 'none'"
+    entry = '<meta http-equiv="Content-Security-Policy" content="' + html.escape(policy, quote=True) + '">' + FRAME_RUNTIME
+    entry += ''.join(parser.parts)
+    entry += '<script type="application/json" id="brain-app-assets">' + quoted(assets) + '</script>'
+    entry += '<script type="module">' + loader.replace('</script', '<\\/script') + '</script>'
     script = BRIDGE.replace('const token = TOKEN;', 'const token = ' + quoted(token) + ';').replace('frame.srcdoc = ENTRY;', 'frame.srcdoc = ' + quoted(entry) + ';')
     return ('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
             '<title>' + html.escape(manifest['title']) + '</title>'

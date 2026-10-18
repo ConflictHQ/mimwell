@@ -3,7 +3,7 @@
   "$id": "conflict:schema/machine/v1",
   "title": "Living Blueprint machine (app/machine.json)",
   "description": "The single data spine behind /blueprint/: what exists, when it arrived, what it unlocked, and who it powers — and nothing about how it looks. The renderer owns every pixel; this file owns every claim. Honesty invariants beyond this schema live in scripts/check-machine.py (make machine-check). Pattern: docs/patterns/living-blueprint.md.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/machine.json"

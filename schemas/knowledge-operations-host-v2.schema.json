@@ -70,7 +70,8 @@
                   "proposal.commit",
                   "record.patch-propose",
                   "transfer.preview",
-                  "transfer.download"
+                  "transfer.download",
+                  "record.history"
                 ]
               }
             }

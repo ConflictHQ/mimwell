@@ -49,13 +49,28 @@ def targets(root: Path = ROOT) -> list[str]:
     ordered = [(entry["stage"], i, j, entry["target"])
                for i, decl in enumerate(_declarations(root))
                for j, entry in enumerate(decl.get("make", []))]
-    return [target for *_, target in sorted(ordered)]
+    result = [target for *_, target in sorted(ordered)]
+    config_path = Path(root) / "client.config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+    federation = config.get("federation") or {}
+    metabrain = config.get("metabrain") or {}
+    if federation.get("children") or metabrain.get("include_self"):
+        # Fold the freshly compiled local graph before generators that summarize
+        # it (staleness and manifest). Otherwise the graph is federated while
+        # its inventory and manifest still describe only the local brain.
+        brain_index = result.index("brain") if "brain" in result else len(result)
+        result.insert(brain_index + 1, "aggregate-brain")
+    return result
 
 
 def artifacts(root: Path = ROOT) -> list[str]:
     by_target = {entry["target"]: entry.get("artifacts", [])
                  for decl in _declarations(root) for entry in decl.get("make", [])}
-    return [path for target in targets(root) for path in by_target[target]]
+    # Aggregation updates all deterministic graph summaries it owns. Proposals
+    # must also be drift-gated so a changed federated graph cannot leave a stale
+    # equivalence queue behind.
+    by_target["aggregate-brain"] = ["app/brain.json", "app/brain-meta.json", "app/proposals.json"]
+    return list(dict.fromkeys(path for target in targets(root) for path in by_target[target]))
 
 
 def skipped_adapters(root: Path = ROOT) -> set[str]:

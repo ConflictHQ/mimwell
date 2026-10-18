@@ -2,6 +2,11 @@
 
 No fetches or source writes. Configuration selects adapters; ontology mappings
 must agree. Exclusions apply before source reads; selected invalid input fails.
+
+`github` projects the mirror scripts/github_sync.py writes (app/github.json) into
+Issue, PullRequest, Repository and Milestone records; `tracker_edges` links them.
+It replaces the legacy `issues` adapter (issues.json) and cannot be selected
+together with it: both would claim the same `issue:<owner>/<name>#<n>` ids.
 """
 from __future__ import annotations
 
@@ -15,7 +20,13 @@ import re
 from tracker_refresh import strict
 
 KINDS = {'docs': ('doc', 'Doc'), 'wiki': ('wiki-page', 'WikiPage'), 'issues': ('issue', 'Issue'),
-         'activity': ('activity-event', 'ActivityEvent')}
+         'activity': ('activity-event', 'ActivityEvent'), 'github': ('issue', 'Issue')}
+# The github adapter emits four compiled kinds; each needs its tracker mapping.
+GITHUB_KINDS = {'issue': 'Issue', 'pull-request': 'PullRequest', 'repository': 'Repository',
+                'milestone': 'Milestone'}
+GITHUB_MIRROR = 'app/github.json'
+GITHUB_FORMAT = 'github-mirror/v1'
+REPO_RE = re.compile(r'[^\s/#]+/[^\s/#]+')
 
 
 def _json(path):
@@ -188,6 +199,160 @@ def _issues(root, knowledge):
     return [nodes[key] for key in sorted(nodes)]
 
 
+def _record(row, field, kind):
+    value = row.get(field)
+    if not isinstance(value, kind):
+        raise ValueError(f'source adapters: github {field} must be {kind.__name__}')
+    return value
+
+
+def _optional(row, field, kind):
+    value = row.get(field)
+    if value is not None and not isinstance(value, kind):
+        raise ValueError(f'source adapters: github {field} must be {kind.__name__} or null')
+    return value
+
+
+def _github(root, knowledge):
+    """app/github.json -> Repository, Milestone, Issue and PullRequest nodes."""
+    if not _included(GITHUB_MIRROR, knowledge):
+        return []
+    path = _path(root, GITHUB_MIRROR)
+    if not path.exists():
+        if strict():
+            raise ValueError('source adapters: selected GitHub mirror unavailable')
+        return []
+    mirror = _json(path)
+    if not isinstance(mirror, dict) or mirror.get('format') != GITHUB_FORMAT:
+        raise ValueError(f'source adapters: {GITHUB_MIRROR} must declare format {GITHUB_FORMAT}')
+    repos = mirror.get('repos')
+    if not isinstance(repos, list):
+        raise ValueError('source adapters: github repos must be an array')
+    nodes = {}
+
+    def add(node):
+        if node['id'] in nodes and nodes[node['id']] != node:
+            raise ValueError(f"source adapters: conflicting duplicate identity {node['id']}")
+        nodes[node['id']] = node
+
+    for entry in repos:
+        if not isinstance(entry, dict):
+            raise ValueError('source adapters: github repository entry must be an object')
+        repo = _record(entry, 'repo', str)
+        if not REPO_RE.fullmatch(repo):
+            raise ValueError('source adapters: github repo needs an owner/name identity')
+        visibility = _optional(entry, 'visibility', str)
+        add({'id': f'repo:{repo}', 'kind': 'Repository', 'title': repo, 'source': GITHUB_MIRROR,
+             'durability': 'durable-logic', 'origin': 'extracted',
+             'data': {k: v for k, v in {'repo': repo, 'url': _optional(entry, 'url', str),
+                                        'visibility': visibility,
+                                        'archived': _optional(entry, 'archived', bool)}.items()
+                      if v is not None}})
+        for row in entry.get('milestones') or []:
+            number = _record(row, 'number', int)
+            node = {'id': f'milestone:{repo}#{number}', 'kind': 'Milestone',
+                    'title': _optional(row, 'title', str) or f'{repo} milestone {number}',
+                    'source': GITHUB_MIRROR, 'durability': 'point-in-time', 'origin': 'extracted',
+                    'data': {k: v for k, v in {'repo': repo, 'number': number, 'state': row.get('state'),
+                                               'dueOn': row.get('dueOn'), 'url': row.get('url'),
+                                               'visibility': visibility}.items() if v is not None}}
+            if row.get('state'):
+                node['status'] = row['state']
+            add(node)
+        for kind, prefix, compiled in (('issues', 'issue', 'Issue'), ('pulls', 'pr', 'PullRequest')):
+            rows = entry.get(kind) or []
+            if not isinstance(rows, list):
+                raise ValueError(f'source adapters: github {kind} must be an array')
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise ValueError(f'source adapters: github {kind} rows must be objects')
+                number = _record(row, 'number', int)
+                if number <= 0:
+                    raise ValueError('source adapters: github number must be positive')
+                labels = row.get('labels') or []
+                assignees = row.get('assignees') or []
+                projects = row.get('projects') or []
+                for name, values in (('labels', labels), ('assignees', assignees)):
+                    if not isinstance(values, list) or any(not isinstance(v, str) for v in values):
+                        raise ValueError(f'source adapters: github {name} must be an array of strings')
+                if not isinstance(projects, list) or any(not isinstance(p, dict) for p in projects):
+                    raise ValueError('source adapters: github projects must be an array of objects')
+                data = {'repo': repo, 'number': number, 'state': row.get('state'), 'url': row.get('url'),
+                        'author': row.get('author'), 'assignees': assignees or None,
+                        'milestone': row.get('milestone'), 'created': row.get('createdAt'),
+                        'updated': row.get('updatedAt'), 'closed': row.get('closedAt'),
+                        'projects': projects or None, 'visibility': visibility}
+                if kind == 'issues':
+                    data.update(stateReason=row.get('stateReason'), comments=row.get('comments'))
+                else:
+                    for field in ('closes', 'references'):
+                        refs = row.get(field) or []
+                        if not isinstance(refs, list) or any(not isinstance(r, str) for r in refs):
+                            raise ValueError(f'source adapters: github {field} must be an array of strings')
+                    data.update(draft=row.get('draft'), reviewDecision=row.get('reviewDecision'),
+                                checks=row.get('checks'), base=row.get('base'), head=row.get('head'),
+                                merged=row.get('mergedAt'), closes=row.get('closes') or None,
+                                references=row.get('references') or None)
+                node = {'id': f'{prefix}:{repo}#{number}', 'kind': compiled,
+                        'title': _optional(row, 'title', str) or f'{repo}#{number}',
+                        'source': GITHUB_MIRROR, 'durability': 'point-in-time', 'origin': 'extracted',
+                        'data': {k: v for k, v in data.items() if v is not None}}
+                # Boards are in configured order; the last listed one wins, as in
+                # gen-issues.py, so switching adapters keeps each issue's status.
+                board = next((p.get('status') for p in reversed(projects) if p.get('status')), None)
+                if kind == 'pulls' and row.get('draft') and row.get('state') == 'open':
+                    status = 'draft'
+                else:
+                    status = board or row.get('state')
+                if status:
+                    node['status'] = status
+                if labels:
+                    node['labels'] = labels
+                owner = row.get('author') if kind == 'pulls' else (assignees[0] if assignees else None)
+                if owner:
+                    node['owner'] = owner
+                add(node)
+    return [nodes[key] for key in sorted(nodes)]
+
+
+def tracker_edges(nodes):
+    """Edges among github-adapter records whose endpoints both exist:
+    issue/PR/milestone -> repository (in_repository), issue/PR -> milestone
+    (in_milestone), PR -> issue (closes), PR -> issue or PR (references)."""
+    ids = {n.get('id') for n in nodes if isinstance(n, dict)}
+    edges = []
+    for node in nodes:
+        if not isinstance(node, dict) or node.get('kind') not in ('Issue', 'PullRequest', 'Milestone'):
+            continue
+        data = node.get('data') if isinstance(node.get('data'), dict) else {}
+        repo = data.get('repo')
+        if not isinstance(repo, str) or node.get('source') != GITHUB_MIRROR:
+            continue
+        nid = node['id']
+        if f'repo:{repo}' in ids:
+            edges.append({'source': nid, 'target': f'repo:{repo}', 'rel': 'in_repository'})
+        if node['kind'] == 'Milestone':
+            continue
+        milestone = data.get('milestone')
+        if type(milestone) is int and f'milestone:{repo}#{milestone}' in ids:
+            edges.append({'source': nid, 'target': f'milestone:{repo}#{milestone}', 'rel': 'in_milestone'})
+        if node['kind'] != 'PullRequest':
+            continue
+        closes = set()
+        for ref in data.get('closes') or []:
+            if f'issue:{ref}' in ids:
+                closes.add(ref)
+                edges.append({'source': nid, 'target': f'issue:{ref}', 'rel': 'closes'})
+        for ref in data.get('references') or []:
+            if ref in closes:
+                continue
+            for target in (f'issue:{ref}', f'pr:{ref}'):
+                if target in ids and target != nid:
+                    edges.append({'source': nid, 'target': target, 'rel': 'references'})
+                    break
+    return edges
+
+
 def activity_nodes(data, source='activity-snapshot.json'):
     """Project a frozen producer snapshot; never invent positional identities.
 
@@ -257,6 +422,9 @@ def compile_selected(root, registry, *, frontmatter, first_prose):
         raise ValueError('source adapters: unsupported sourceAdapters selection')
     if len(set(selected)) != len(selected):
         raise ValueError('source adapters: duplicate adapter selection')
+    if 'issues' in selected and 'github' in selected:
+        raise ValueError('source adapters: select either issues or github, not both '
+                         '(both emit issue:<owner>/<name>#<n> records)')
     if not selected:
         return []
     knowledge = config.get('knowledge', {})
@@ -264,11 +432,15 @@ def compile_selected(root, registry, *, frontmatter, first_prose):
         raise ValueError('source adapters: invalid knowledge configuration')
     nodes = []
     for name in selected:
-        semantic, compiled = KINDS[name]
-        if registry is None or registry.kinds.get(semantic, {}).get('node') != compiled:
-            raise ValueError(f'source adapters: {name} requires its composed node mapping')
+        mappings = GITHUB_KINDS.items() if name == 'github' else [KINDS[name]]
+        for semantic, compiled in mappings:
+            if registry is None or registry.kinds.get(semantic, {}).get('node') != compiled:
+                raise ValueError(f'source adapters: {name} requires its composed node mapping '
+                                 f'({semantic} -> {compiled}; compose the tracker overlay)')
         if name == 'issues':
             nodes.extend(_issues(root, knowledge))
+        elif name == 'github':
+            nodes.extend(_github(root, knowledge))
         elif name == 'activity':
             nodes.extend(_activity(root, knowledge))
         else:

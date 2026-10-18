@@ -138,7 +138,7 @@ function authoringRepo(env) {
 // The set of source artifacts the editor agent may mutate (#38 audit clarification:
 // writes target SOURCES, then regen — the brain envelope itself is read-only). It
 // derives from the ontology, never a parallel list: a kind is editable only when
-// its artifact schema declares x-conflict.editable, it has a records collection,
+// its artifact schema declares x-mimwell.editable (or legacy x-conflict.editable), it has a records collection,
 // and its mutability tier is not `anchor`. Read per request from the compiled
 // app/kinds.json (scripts/gen-kinds.py), so an anchor kind is structurally absent
 // from the editor prompt, the tool schemas and the commit allowlist. Each entry
@@ -1484,7 +1484,7 @@ function ghHeaders(env) {
   return {
     authorization: `Bearer ${env.GITHUB_TOKEN}`,
     accept: "application/vnd.github+json",
-    "user-agent": "conflict-portal-editor",
+    "user-agent": "mimwell-portal-editor",
     "x-github-api-version": "2022-11-28",
   };
 }

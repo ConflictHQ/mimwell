@@ -105,6 +105,16 @@ def declared() -> tuple[str, list[str]]:
 def compose(base: str, overlays: list[str]) -> OrderedDict:
     layers = [(base, _load_overlay(base))] + [(o, _load_overlay(o)) for o in overlays]
 
+    positions = {name: index for index, name in enumerate(overlays)}
+    for name, layer in layers[1:]:
+        missing_requirements = sorted(
+            dependency for dependency in layer.get("requiresOverlays", [])
+            if dependency not in positions or positions[dependency] >= positions[name])
+        if missing_requirements:
+            raise CompositionError(
+                f"overlay {name!r} requires overlay(s) {missing_requirements}; "
+                "declare them before it")
+
     kinds: "OrderedDict[str, tuple[str, OrderedDict]]" = OrderedDict()
     edges: "OrderedDict[str, tuple[str, OrderedDict]]" = OrderedDict()
     recipes: OrderedDict = OrderedDict()

@@ -1,0 +1,2 @@
+# Optional postgres authority driver (docs/design/substrate-matrix.md), imported only when a postgres store opens.
+psycopg[binary]==3.3.6

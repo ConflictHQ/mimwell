@@ -3,7 +3,7 @@
   "$id": "conflict:schema/glossary/v1",
   "title": "Glossary (app/glossary.json)",
   "description": "Glossary of domain, product, and role terms rendered by /glossary/.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/glossary.json"
@@ -36,6 +36,7 @@
           },
           "aliases": {
             "type": "array",
+            "x-kb-display": "meta",
             "items": {
               "type": "string"
             }
@@ -45,6 +46,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "category": {
+            "type": "string",
+            "minLength": 1,
+            "x-kb-display": "labels",
+            "description": "Optional grouping: the glossary page lists and filters terms by category."
           }
         }
       }

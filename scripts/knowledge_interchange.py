@@ -14,7 +14,8 @@ import sqlite3
 
 import rfc8785
 
-ALIASES = ("conflict-kg/v1", "calliope-kg/v1")
+LEGACY_ALIASES = ("conflict-kg/v1", "calliope-kg/v1")
+ALIASES = ("mimwell-kg/v1", *LEGACY_ALIASES)
 FORMAT = "brain-exchange/v1"
 PORTABLE_FORMAT = "brain-exchange/v2"
 COMPILED = "compiled-brain/v1"
@@ -213,8 +214,8 @@ def inspect(package):
 def project(package, alias=ALIASES[0]):
     """Return a graph plus an unavoidable report of what that graph omits."""
     package = validate(package)
-    if alias not in ALIASES:
-        raise InterchangeError("unsupported output alias")
+    if alias != ALIASES[0]:
+        raise InterchangeError("legacy graph aliases are read-only; new projections use mimwell-kg/v1")
     value, kind = package["payload"], package["sourceFormat"]
     if kind == JOURNAL:
         raise InterchangeError("CLI journal projection requires its native replay adapter; archive/unpack preserves the bundle")

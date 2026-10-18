@@ -201,11 +201,10 @@ class DbBlobStore(BlobStore):
         return super().put(key, data, media_type)
 
     def _read(self, key):
-        row = self.dialect.execute("SELECT content FROM blob_objects WHERE blob_key=?", (key,)).fetchone()
-        return None if row is None else bytes(row[0])
+        return self.dialect.blob(key)
 
     def _write(self, key, data, media_type):
-        self.dialect.execute("INSERT INTO blob_objects (blob_key, content) VALUES (?,?)", (key, data))
+        self.dialect.add_blob(key, data)
 
 
 class S3BlobStore(BlobStore):

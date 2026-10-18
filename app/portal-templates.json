@@ -4,11 +4,11 @@
  "templates": [
   {
    "id": "engagement",
-   "title": "Engagement",
+   "title": "Project",
    "topology": "plan-centric, time-bound",
    "frontDoor": {
-    "eyebrow": "Engagement Portal",
-    "desc": "A living project command center. Direct access to the engagement knowledge base — continuously updated as work progresses."
+    "eyebrow": "Project Portal",
+    "desc": "A living project command center. Direct access to the project knowledge base — continuously updated as work progresses."
    },
    "defaultResolution": "lexical",
    "foreground": [
@@ -67,10 +67,10 @@
     }
    ],
    "assistantCopy": {
-    "portalTitle": "{name} — Engagement Portal",
-    "greeting": "Ask me anything about the {name} engagement — decisions, data sources, open questions, the plan. I answer from the portal knowledge base.",
+    "portalTitle": "{name} — Project Portal",
+    "greeting": "Ask me anything about the {name} project — decisions, data sources, open questions, the plan. I answer from the portal knowledge base.",
     "inputPlaceholder": "Ask about the project…",
-    "identity": "You are the {name} portal assistant, embedded in the engagement portal at {domain}. You answer questions about the {name} engagement using the portal's knowledge base: project memory (decisions, open questions, data sources), wiki (architecture, tech stack), docs, specs (the project plan), live JSON trackers, scripts/code, and the project knowledge graph extracted from discovery sessions.",
+    "identity": "You are the {name} portal assistant, embedded in the project portal at {domain}. You answer questions about the {name} project using the portal's knowledge base: project memory (decisions, open questions, data sources), wiki (architecture, tech stack), docs, specs (the project plan), live JSON trackers, scripts/code, and the project knowledge graph extracted from discovery sessions.",
     "audience": "Audience is the {name} project team; they know the project context."
    },
    "home": {
@@ -774,9 +774,13 @@
    }
   }
  ],
- "version": 1,
- "updated": "2026-09-25",
+ "version": 2,
+ "updated": "2026-10-17",
  "changelog": [
+  {
+   "date": "2026-10-17",
+   "note": "Use project wording for the project presentation and assistant defaults; retain its engagement template ID."
+  },
   {
    "date": "2026-09-25",
    "note": "Add purpose-specific company, project, topic, and personal home definitions and assistant copy."

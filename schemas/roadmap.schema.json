@@ -3,7 +3,7 @@
   "$id": "conflict:schema/roadmap/v1",
   "title": "Roadmap (app/roadmap.json)",
   "description": "Engagement roadmap rendered by /roadmap/. status values: done | in-progress | planned.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/roadmap.json"

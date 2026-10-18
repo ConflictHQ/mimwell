@@ -1,0 +1,3 @@
+-r ../../requirements.txt
+-r ../../requirements-protection.txt
+gunicorn==26.1.0

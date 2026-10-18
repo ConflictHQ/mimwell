@@ -3,7 +3,7 @@
   "$id": "conflict:schema/user-stories/v1",
   "title": "User stories (app/user-stories.json)",
   "description": "User stories rendered by /user-stories/. status: draft | ready | in-progress | done.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/user-stories.json"

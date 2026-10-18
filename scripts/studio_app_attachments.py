@@ -1,0 +1,145 @@
+"""Strict bounds and locator binding for optional Studio App data attachments.
+
+This validates metadata against the record's native blob locators. It does not
+fetch, execute, decrypt, install or authorize a blob; those remain host duties.
+"""
+
+import hashlib
+import zlib
+
+from blob_store import check_locator
+from sql_dialect import StoreError
+
+MAX_ATTACHMENTS = 8
+MAX_ATTACHMENT_BYTES = 16 * 1024 * 1024
+MAX_APP_ATTACHMENT_BYTES = 16 * 1024 * 1024
+MAX_EXPANDED_SNAPSHOT_BYTES = 64 * 1024 * 1024
+
+
+def validate_app_attachments(record):
+    data = record.get("content", {}).get("data", {})
+    attachments = data.get("attachments", [])
+    if not isinstance(attachments, list) or len(attachments) > MAX_ATTACHMENTS:
+        raise StoreError("Studio App attachments exceed the count limit")
+    locators = record.get("blobs", [])
+    if not isinstance(locators, list) or len(locators) > MAX_ATTACHMENTS:
+        raise StoreError("Studio App blob locators exceed the count limit")
+    checked = {}
+    locator_total = 0
+    for value in locators:
+        locator = check_locator(value)
+        if locator["key"] != "sha256/" + locator["sha256"]:
+            raise StoreError("Studio App attachment blob keys must be content addressed")
+        if locator["bytes"] > MAX_ATTACHMENT_BYTES:
+            raise StoreError("Studio App attachment exceeds the per-blob byte limit")
+        if locator["key"] in checked:
+            raise StoreError("Studio App blob locators must be unique")
+        locator_total += locator["bytes"]
+        if locator_total > MAX_APP_ATTACHMENT_BYTES:
+            raise StoreError("Studio App attachments exceed the total byte limit")
+        checked[locator["key"]] = locator
+
+    total = 0
+    expanded_total = 0
+    roles = set()
+    for attachment in attachments:
+        if not isinstance(attachment, dict) or not isinstance(attachment.get("blob"), dict):
+            raise StoreError("Studio App attachment must name a pinned blob locator")
+        locator = check_locator(attachment["blob"])
+        if locator["key"] != "sha256/" + locator["sha256"]:
+            raise StoreError("Studio App attachment blob keys must be content addressed")
+        if checked.get(locator["key"]) != locator:
+            raise StoreError("Studio App attachment must match a locator on its native record")
+        total += locator["bytes"]
+        if total > MAX_APP_ATTACHMENT_BYTES:
+            raise StoreError("Studio App attachments exceed the total byte limit")
+        role = attachment.get("role")
+        fmt = attachment.get("format")
+        expected = {"pglite-snapshot": "pglite-snapshot", "sql-fallback": "sql", "csv-fallback": "csv"}
+        if role not in expected or fmt != expected[role] or role in roles:
+            raise StoreError("Studio App attachment role/format is invalid or duplicated")
+        media_types = {"pglite-snapshot": {"application/octet-stream"},
+                       "sql-fallback": {"application/sql", "text/plain"},
+                       "csv-fallback": {"text/csv"}}
+        if locator["mediaType"] not in media_types[role]:
+            raise StoreError("Studio App attachment media type does not match its declared format")
+        roles.add(role)
+        if role == "pglite-snapshot":
+            if not all(type(attachment.get(key)) is int if key == "postgresMajor"
+                       else isinstance(attachment.get(key), str) and attachment[key]
+                       for key in ("postgresMajor", "pgliteVersion", "compression")):
+                raise StoreError("PGlite snapshot must pin PostgreSQL, PGlite and compression versions")
+            expanded = attachment.get("expandedBytes")
+            digest = attachment.get("expandedSha256")
+            if (type(expanded) is not int or not 1 <= expanded <= MAX_EXPANDED_SNAPSHOT_BYTES
+                    or not isinstance(digest, str) or len(digest) != 64
+                    or any(char not in "0123456789abcdef" for char in digest)):
+                raise StoreError("PGlite snapshot must pin bounded expanded bytes and digest")
+            if attachment["compression"] != "gzip":
+                raise StoreError("PGlite snapshot compression is unsupported")
+            expanded_total += expanded
+            if expanded_total > MAX_EXPANDED_SNAPSHOT_BYTES:
+                raise StoreError("Studio App expanded attachments exceed the byte limit")
+        elif any(key in attachment for key in ("postgresMajor", "pgliteVersion", "compression")):
+            raise StoreError("only a PGlite snapshot may declare runtime version metadata")
+    if "pglite-snapshot" in roles and not roles.intersection({"sql-fallback", "csv-fallback"}):
+        raise StoreError("PGlite snapshot requires a plain SQL or CSV fallback")
+    if {locator["key"] for locator in checked.values()} != {item["blob"]["key"] for item in attachments}:
+        raise StoreError("Studio App native blobs must be enumerated exactly by attachment metadata")
+    return total
+
+
+def verify_app_attachment_bytes(record, contents):
+    """Verify selected bytes and boundedly validate compressed snapshots before runtime use.
+
+    `contents` is a host-fetched mapping from exact content-addressed locator keys to
+    bytes. This function never fetches, writes, opens or executes an attachment.
+    """
+    validate_app_attachments(record)
+    if not isinstance(contents, dict):
+        raise StoreError("Studio App attachment bytes must be an explicit mapping")
+    locators = {item["key"]: item for item in record.get("blobs", [])}
+    if set(contents) != set(locators):
+        raise StoreError("Studio App attachment bytes do not match the exact locator set")
+    for key, locator in locators.items():
+        value = contents[key]
+        if not isinstance(value, bytes) or len(value) != locator["bytes"]:
+            raise StoreError("Studio App attachment bytes differ from their pinned size")
+        if hashlib.sha256(value).hexdigest() != locator["sha256"]:
+            raise StoreError("Studio App attachment bytes differ from their pinned digest")
+
+    for attachment in record.get("content", {}).get("data", {}).get("attachments", []):
+        if attachment.get("role") != "pglite-snapshot":
+            continue
+        locator = attachment["blob"]
+        compressed = contents[locator["key"]]
+        expected_bytes = attachment["expandedBytes"]
+        expected_digest = attachment["expandedSha256"]
+        decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        total = 0
+        digest = hashlib.sha256()
+
+        def account(part):
+            nonlocal total
+            total += len(part)
+            if total > expected_bytes or total > MAX_EXPANDED_SNAPSHOT_BYTES:
+                raise StoreError("PGlite snapshot exceeds its declared expanded byte limit")
+            digest.update(part)
+
+        try:
+            for offset in range(0, len(compressed), 64 * 1024):
+                pending = compressed[offset:offset + 64 * 1024]
+                while pending:
+                    piece = decoder.decompress(pending, expected_bytes - total + 1)
+                    account(piece)
+                    pending = decoder.unconsumed_tail
+                    if pending and total >= expected_bytes:
+                        raise StoreError("PGlite snapshot exceeds its declared expanded byte limit")
+            account(decoder.flush(expected_bytes - total + 1))
+        except zlib.error as exc:
+            raise StoreError("PGlite snapshot compression is invalid") from exc
+        if not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+            raise StoreError("PGlite snapshot compressed stream is incomplete or has trailing bytes")
+        if total != expected_bytes or digest.hexdigest() != expected_digest:
+            raise StoreError("PGlite snapshot expanded bytes differ from their pinned size or digest")
+    return {key: contents[key] for key in locators}

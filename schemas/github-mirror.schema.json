@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/github-mirror/v1",
+  "title": "GitHub mirror (app/github.json)",
+  "description": "Issues and pull requests of the configured repositories, written by scripts/github_sync.py (make github-sync) and projected by the `github` source adapter. Generated: never hand-edit. Records are sorted by number, repositories by name; no run timestamps, so an unchanged source rewrites identical bytes.",
+  "x-conflict": {
+    "version": "1",
+    "editable": false,
+    "source": "app/github.json",
+    "readonly_reason": "mirrored artifact: run make github-sync"
+  },
+  "type": "object",
+  "required": [
+    "format",
+    "repos"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "github-mirror/v1"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "org": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "name"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "issues",
+          "pulls"
+        ]
+      }
+    },
+    "repos": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    }
+  },
+  "$defs": {
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[^\\s/#]+/[^\\s/#]+#[1-9][0-9]*$"
+      }
+    },
+    "boardStatus": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "status"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "visibility",
+        "watermark",
+        "milestones",
+        "issues",
+        "pulls"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string",
+          "pattern": "^[^\\s/#]+/[^\\s/#]+$"
+        },
+        "url": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private",
+            "internal",
+            null
+          ]
+        },
+        "archived": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "watermark": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "milestones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "number"
+            ],
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "title": {
+                "type": "string"
+              },
+              "state": {
+                "$ref": "#/$defs/nullableString"
+              },
+              "dueOn": {
+                "$ref": "#/$defs/nullableString"
+              },
+              "url": {
+                "$ref": "#/$defs/nullableString"
+              }
+            }
+          }
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/issue"
+          }
+        },
+        "pulls": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pull"
+          }
+        }
+      }
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "title",
+        "state",
+        "updatedAt"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "state": {
+          "enum": [
+            "open",
+            "closed"
+          ]
+        },
+        "stateReason": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "author": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "labels": {
+          "$ref": "#/$defs/names"
+        },
+        "assignees": {
+          "$ref": "#/$defs/names"
+        },
+        "milestone": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "comments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "closedAt": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "projects": {
+          "$ref": "#/$defs/boardStatus"
+        }
+      }
+    },
+    "pull": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "title",
+        "state",
+        "updatedAt"
+      ],
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "state": {
+          "enum": [
+            "open",
+            "closed",
+            "merged"
+          ]
+        },
+        "draft": {
+          "type": "boolean"
+        },
+        "reviewDecision": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "checks": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "author": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "base": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "head": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "labels": {
+          "$ref": "#/$defs/names"
+        },
+        "assignees": {
+          "$ref": "#/$defs/names"
+        },
+        "milestone": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "closedAt": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "mergedAt": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "closes": {
+          "$ref": "#/$defs/refs"
+        },
+        "references": {
+          "$ref": "#/$defs/refs"
+        },
+        "projects": {
+          "$ref": "#/$defs/boardStatus"
+        }
+      }
+    }
+  }
+}

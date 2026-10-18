@@ -59,13 +59,210 @@ CREATE TABLE deliveries (consumer TEXT PRIMARY KEY, sequence INTEGER NOT NULL);
 """
 
 
-class SQLiteDialect:
+class AuthorityRows:
+    """The authority's storage operations, named. Every SQL dialect shares these statements.
+
+    knowledge_store.Authority reaches its tables only through these operations, so a store
+    that does not speak SQL implements the same set natively. Bodies are JSON text, sequences
+    integers; a single row comes back with its columns by name, absent rows as None.
+    """
+
+    def meta(self, key):
+        row = self.execute("SELECT value FROM metadata WHERE key=?", (key,)).fetchone()
+        return None if row is None else row[0]
+
+    def add_meta(self, key, value):
+        self.execute("INSERT INTO metadata VALUES (?,?)", (key, value))
+
+    def set_meta(self, key, value):
+        self.execute(self.upsert("metadata", ("key", "value"), "key"), (key, value))
+
+    def record(self, identity):
+        return self.execute("SELECT id, collection, revision, body, deleted FROM records WHERE id=?", (identity,)).fetchone()
+
+    def record_metadata(self, identity):
+        return self.execute("SELECT id, collection, revision, deleted FROM records WHERE id=?", (identity,)).fetchone()
+
+    def record_metadata_by_ids(self, identities):
+        if not identities:
+            return []
+        return self.execute(
+            f"SELECT id, collection, revision, deleted FROM records WHERE id IN ({self.placeholders(len(identities))})",
+            tuple(identities)).fetchall()
+
+    def live_body(self, identity):
+        row = self.execute("SELECT body FROM records WHERE id=? AND deleted=0", (identity,)).fetchone()
+        return None if row is None else row[0]
+
+    def live_bodies(self):
+        return [row[0] for row in self.execute("SELECT body FROM records WHERE deleted=0 ORDER BY id")]
+
+    def live_records(self, collections):
+        """(id, collection, revision, body) of the live records in `collections`, by id."""
+        return self.execute(
+            f"SELECT id, collection, revision, body FROM records WHERE deleted=0 AND collection IN "
+            f"({self.placeholders(len(collections))}) ORDER BY id", tuple(collections)).fetchall()
+
+    def live_ids(self, collections):
+        return {row[0] for row in self.execute(
+            f"SELECT id FROM records WHERE deleted=0 AND collection IN ({self.placeholders(len(collections))})",
+            tuple(collections))}
+
+    def live_volume(self, collections):
+        """(count, body bytes) of the live records in `collections`."""
+        row = self.execute(
+            f"SELECT COUNT(*), COALESCE(SUM({self.byte_length('body')}), 0) FROM records WHERE deleted=0 "
+            f"AND collection IN ({self.placeholders(len(collections))})", tuple(collections)).fetchone()
+        return row[0], row[1]
+
+    def live_volume_by_ids(self, identities):
+        if not identities:
+            return 0, 0
+        row = self.execute(
+            f"SELECT COUNT(*), COALESCE(SUM({self.byte_length('body')}), 0) FROM records WHERE deleted=0 "
+            f"AND id IN ({self.placeholders(len(identities))})", tuple(identities)).fetchone()
+        return row[0], row[1]
+
+    def live_records_by_ids(self, identities):
+        if not identities:
+            return []
+        return self.execute(
+            f"SELECT id, collection, revision, body FROM records WHERE deleted=0 "
+            f"AND id IN ({self.placeholders(len(identities))}) ORDER BY id", tuple(identities)).fetchall()
+
+    def live_rows(self):
+        """(id, revision, body) of every live record, by id."""
+        return [(row[0], row[1], row[2]) for row in self.execute(
+            "SELECT id, revision, body FROM records WHERE deleted=0 ORDER BY id")]
+
+    def add_record(self, identity, collection, revision, body):
+        self.execute("INSERT INTO records VALUES (?,?,?,?,0)", (identity, collection, revision, body))
+
+    def put_record(self, identity, collection, revision, body, deleted):
+        self.execute(self.upsert("records", ("id", "collection", "revision", "body", "deleted"), "id"),
+                     (identity, collection, revision, body, deleted))
+
+    def referencing_sources(self, identity):
+        """The other records whose relations name `identity`."""
+        return [row[0] for row in self.execute(
+            "SELECT DISTINCT source FROM edges WHERE target=? AND source!=?", (identity, identity))]
+
+    def edges(self):
+        return [(row[0], row[1], row[2]) for row in self.execute("SELECT source, target, rel FROM edges")]
+
+    def replace_edges(self, source, edges):
+        """`source`'s outgoing edges become `edges`, (target, rel, body) each."""
+        self.execute("DELETE FROM edges WHERE source=?", (source,))
+        for target, rel, body in edges:
+            self.execute("INSERT INTO edges VALUES (?,?,?,?)", (source, target, rel, body))
+
+    def journal_head(self):
+        """The last event's sequence, digest and `at` (head_at), or None for an empty journal."""
+        return self.execute(
+            f"SELECT sequence, digest, {self.json_path('body', 'at')} AS head_at FROM events "
+            "ORDER BY sequence DESC LIMIT 1").fetchone()
+
+    def event_body(self, sequence):
+        row = self.execute("SELECT body FROM events WHERE sequence=?", (sequence,)).fetchone()
+        return None if row is None else row[0]
+
+    def events(self):
+        """(sequence, body) of every event, in order."""
+        return [(row[0], row[1]) for row in self.execute("SELECT sequence, body FROM events ORDER BY sequence")]
+
+    def event_fields(self, paths):
+        """(sequence, digest, *values) of every event in order, a value per dotted body path (None when absent)."""
+        columns = ", ".join(self.json_path("body", path) for path in paths)
+        return [tuple(row) for row in self.execute(f"SELECT sequence, digest, {columns} FROM events ORDER BY sequence")]
+
+    def event_digests(self):
+        return [(row[0], row[1]) for row in self.execute("SELECT sequence,digest FROM events ORDER BY sequence")]
+
+    def append_event(self, sequence, previous, digest, body):
+        self.execute("INSERT INTO events (sequence,previous,digest,body) VALUES (?,?,?,?)",
+                     (sequence, previous, digest, body))
+
+    def retention_event(self, record):
+        """The body of the last create or retain event of `record`."""
+        record_path, mutation_path = (self.json_path("body", key) for key in ("request.record", "request.mutation"))
+        row = self.execute(
+            f"SELECT body FROM events WHERE {record_path}=? "
+            f"AND {mutation_path} IN ('create','retain') ORDER BY sequence DESC LIMIT 1", (record,)).fetchone()
+        return None if row is None else row[0]
+
+    def revision_event(self, record, revision):
+        """The body of the event that wrote `revision` of `record`."""
+        record_path, revision_path = (self.json_path("body", key) for key in ("request.record", "revision"))
+        row = self.execute(f"SELECT body FROM events WHERE {record_path}=? AND {revision_path}=?",
+                           (record, revision)).fetchone()
+        return None if row is None else row[0]
+
+    def receipt(self, actor, request_id):
+        """(intent, body) of the receipt for `actor`'s `request_id`."""
+        return self.execute("SELECT intent,body FROM receipts WHERE actor=? AND request_id=?",
+                            (actor, request_id)).fetchone()
+
+    def receipts_for(self, intent):
+        return [row[0] for row in self.execute("SELECT body FROM receipts WHERE intent=?", (intent,))]
+
+    def add_receipt(self, actor, request_id, intent, body):
+        self.execute("INSERT INTO receipts VALUES (?,?,?,?)", (actor, request_id, intent, body))
+
+    def proposal(self, identity):
+        row = self.execute("SELECT body FROM proposals WHERE id=?", (identity,)).fetchone()
+        return None if row is None else row[0]
+
+    def proposals(self):
+        return [(row[0], row[1]) for row in self.execute("SELECT id, body FROM proposals ORDER BY id")]
+
+    def add_proposal(self, identity, body):
+        self.execute("INSERT INTO proposals VALUES (?,?)", (identity, body))
+
+    def update_proposal(self, identity, body):
+        self.execute("UPDATE proposals SET body=? WHERE id=?", (body, identity))
+
+    def outbox_head(self):
+        return self.execute("SELECT MAX(sequence) FROM outbox").fetchone()[0]
+
+    def add_outbox(self, sequence, body):
+        self.execute("INSERT INTO outbox VALUES (?,?)", (sequence, body))
+
+    def delivery(self, consumer):
+        row = self.execute("SELECT sequence FROM deliveries WHERE consumer=?", (consumer,)).fetchone()
+        return None if row is None else row[0]
+
+    def deliveries(self):
+        return [(row[0], row[1]) for row in self.execute("SELECT consumer, sequence FROM deliveries")]
+
+    def acknowledge(self, consumer, sequence):
+        """Record `consumer` at `sequence`, never moving it backwards."""
+        self.execute(self.upsert("deliveries", ("consumer", "sequence"), "consumer", monotonic=("sequence",)),
+                     (consumer, sequence))
+
+    def table_rows(self, table, columns, ordering):
+        """Every row of `table` as {column: value}, ordered by the `ordering` columns."""
+        return [dict(zip(columns, row)) for row in self.execute(
+            f"SELECT {','.join(columns)} FROM {table} ORDER BY {','.join(ordering)}")]
+
+    def insert_row(self, table, row):
+        self.execute(f"INSERT INTO {table} ({','.join(row)}) VALUES ({self.placeholders(len(row))})",
+                     tuple(row.values()))
+
+    def blob(self, key):
+        row = self.execute("SELECT content FROM blob_objects WHERE blob_key=?", (key,)).fetchone()
+        return None if row is None else bytes(row[0])
+
+    def add_blob(self, key, data):
+        self.execute("INSERT INTO blob_objects (blob_key, content) VALUES (?,?)", (key, data))
+
+
+class SQLiteDialect(AuthorityRows):
     """One SQLite connection shared by an authority and a compiled projection."""
 
     driver = "sqlite"
     CAPABILITIES = frozenset({
         "authority", "projection", "transactions", "writer-exclusion", "savepoints",
-        "read-only-session", "json-path", "upsert", "sequence", "legacy-schema-version",
+        "read-only-session", "json-path", "upsert", "sequence", "legacy-schema-version", "db-blob", "in-db-vectors",
     })
     SCHEMA_VERSION_KEY = "schema_version"
 
@@ -290,7 +487,7 @@ def _parameters(sql, parameterized):
     return sql.replace("%", "%%").replace("?", "%s") if parameterized else sql
 
 
-class _ServerDialect:
+class _ServerDialect(AuthorityRows):
     """What the SQL server drivers share: a DSN target, `?` statements, SQL savepoints.
 
     Bodies stay text. The JSON paths the authority queries are generated columns
@@ -299,7 +496,7 @@ class _ServerDialect:
 
     CAPABILITIES = frozenset({
         "authority", "transactions", "writer-exclusion", "savepoints", "read-only-session",
-        "json-path", "upsert", "sequence",
+        "json-path", "upsert", "sequence", "db-blob", "in-db-vectors",
     })
     SCHEMA_VERSION_KEY = "schema_version"
     JSON_COLUMNS = {

@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+.dev.vars
+**/*.env
+_internal
+**/__pycache__
+**/node_modules
+**/target
+_site
+knowledge-base

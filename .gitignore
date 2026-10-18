@@ -8,7 +8,8 @@ __pycache__/
 _internal/
 .wrangler/
 runtime/brain-classifier/target/
-
-# mimwell.dev documentation site (MkDocs build output and local tooling)
-website/site/
-website/.venv/
+# Derived compiled-store files; rebuilt from app/brain.json by brain-sqlite.py.
+app/brain.db
+app/brain.db-wal
+app/brain.db-shm
+app/brain.d1.sql

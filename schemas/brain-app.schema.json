@@ -127,7 +127,7 @@
         "bundleBytes": {
           "type": "integer",
           "minimum": 1024,
-          "maximum": 2097152
+          "description": "Declared bundle budget; the host also enforces its configured capacity"
         },
         "requestsPerMinute": {
           "type": "integer",
@@ -160,6 +160,15 @@
           }
         }
       }
+    },
+    "assets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Static assets included in the portable app bundle"
     }
   }
 }

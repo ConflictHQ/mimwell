@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "conflict:schema/experience/v1",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1.0"
   },
   "$defs": {

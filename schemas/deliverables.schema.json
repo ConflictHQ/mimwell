@@ -3,7 +3,7 @@
   "$id": "conflict:schema/deliverables/v1",
   "title": "Deliverables (app/deliverables.json)",
   "description": "Engagement deliverables rendered by /deliverables/. status: delivered | in-progress | planned.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/deliverables.json"

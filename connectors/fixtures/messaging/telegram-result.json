@@ -1,0 +1,29 @@
+{
+  "name": "Synthetic chat title",
+  "type": "private_group",
+  "id": -1001234567890123,
+  "messages": [
+    {
+      "id": 9007199254740993,
+      "type": "message",
+      "date": "2026-10-17T10:00:00-06:00",
+      "date_unixtime": "1792252800",
+      "from": "Ana",
+      "from_id": "user9007199254740999",
+      "text": ["Hola ", {"type": "bold", "text": "🌎"}],
+      "reply_to_message_id": null,
+      "file": "files/photo_1.jpg",
+      "media_type": "image/jpeg"
+    },
+    {
+      "id": 9007199254740994,
+      "type": "message",
+      "date": "2026-10-17T10:01:00-06:00",
+      "date_unixtime": "1792252860",
+      "from": "Beto",
+      "from_id": "user9007199254741000",
+      "text": "Respuesta",
+      "reply_to_message_id": 9007199254740993
+    }
+  ]
+}

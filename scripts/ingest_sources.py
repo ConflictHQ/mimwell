@@ -173,8 +173,12 @@ def _ddl_columns(body: str) -> list[dict]:
         if "--" in rest:
             rest, comment = rest.split("--", 1)
             comment = comment.strip()
-        nullable = "NOT NULL" not in rest.upper()
-        is_pk = bool(re.search(r"\bPK\b", comment)) or "PRIMARY KEY" in rest.upper()
+        inline_pk = "PRIMARY KEY" in rest.upper()
+        # A declared primary key can never hold NULL (#442); a `-- PK` comment
+        # hint marks the key but is not a constraint, so it keeps its declared
+        # nullability.
+        nullable = "NOT NULL" not in rest.upper() and not inline_pk
+        is_pk = bool(re.search(r"\bPK\b", comment)) or inline_pk
         fields.append({
             "name": m.group("name"),
             "type": re.sub(r"\s+", "", m.group("type")).upper(),
@@ -184,6 +188,7 @@ def _ddl_columns(body: str) -> list[dict]:
     for f in fields:
         if f["name"].lower() in pk_from_constraint:
             f["is_pk"] = True
+            f["nullable"] = False
     return fields
 
 

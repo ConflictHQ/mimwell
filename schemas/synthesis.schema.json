@@ -74,7 +74,8 @@
               "section",
               "baseGeneratedSha256",
               "text",
-              "citations"
+                "citations",
+                "omissions"
             ],
             "properties": {
               "section": {
@@ -162,6 +163,11 @@
                   }
                 },
                 "minItems": 1
+              },
+              "omissions": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "uniqueItems": true
               }
             }
           },
@@ -189,6 +195,11 @@
             "$ref": "#/$defs/citation"
           },
           "minItems": 1
+        },
+        "omissions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
         },
         "basis": {
           "type": "object",

@@ -3,7 +3,7 @@
   "$id": "conflict:schema/stakeholders/v1",
   "title": "Stakeholders (app/stakeholders.json)",
   "description": "Stakeholders / team directory rendered by /stakeholders/.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "app/stakeholders.json"
@@ -59,6 +59,36 @@
                 }
               }
             }
+          },
+          "group": {
+            "type": "string",
+            "minLength": 1,
+            "x-kb-display": "labels",
+            "description": "Optional team or group; the stakeholders page filters by it."
+          },
+          "status": {
+            "type": "string",
+            "x-kb-display": "status",
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "description": "Whether the person is still involved. Absent means active."
+          },
+          "aliases": {
+            "type": "array",
+            "x-kb-display": "meta",
+            "items": {
+              "type": "string"
+            },
+            "description": "Other names the person goes by in sessions and documents."
+          },
+          "topics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Who-to-ask topics: what to ask this person about."
           }
         }
       }

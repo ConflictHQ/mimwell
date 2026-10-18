@@ -1,0 +1,627 @@
+{
+  "overlay": "apps",
+  "$comment": "Opt-in Studio app records. App and Component records are reviewed data descriptions; they never enroll, grant access, install, activate or execute an app. Attachments name bounded immutable blobs and carry no datasource credentials.",
+  "revision": "1.0.0",
+  "requiresOverlays": [
+    "data"
+  ],
+  "idConventions": {
+    "slug": [
+      "studio.app",
+      "studio.component",
+      "studio.app-query"
+    ]
+  },
+  "kinds": [
+    {
+      "id": "studio.app",
+      "title": "Studio App",
+      "class": "record",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "App",
+      "description": "A reviewed, portable data description for a Studio app; never an enrollment or executable package.",
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "const": "studio-app/v1"
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 32
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "sourceRevision": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "system",
+              "sourceId",
+              "sourceRevision"
+            ],
+            "additionalProperties": false
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sections": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                    },
+                    "component": {
+                      "type": "string",
+                      "pattern": "^studio\\.component:[a-z0-9][a-z0-9-]{0,62}$"
+                    },
+                    "componentRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "position": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "component",
+                    "componentRevision",
+                    "position"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "version",
+              "sections"
+            ],
+            "additionalProperties": false
+          },
+          "attachments": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/$defs/attachment"
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "definitionVersion",
+          "owner",
+          "provenance",
+          "layout"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "attachment": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "pglite-snapshot",
+                  "sql-fallback",
+                  "csv-fallback"
+                ]
+              },
+              "format": {
+                "enum": [
+                  "pglite-snapshot",
+                  "sql",
+                  "csv"
+                ]
+              },
+              "blob": {
+                "type": "object",
+                "properties": {
+                  "store": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "key": {
+                    "type": "string",
+                    "pattern": "^sha256/[0-9a-f]{64}$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16777216
+                  },
+                  "mediaType": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "store",
+                  "key",
+                  "sha256",
+                  "bytes",
+                  "mediaType"
+                ],
+                "additionalProperties": false
+              },
+              "capturedAt": {
+                "type": "string",
+                "format": "date-time",
+                "maxLength": 64
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "revision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "additionalProperties": false
+              },
+              "postgresMajor": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 99
+              },
+              "pgliteVersion": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+                "maxLength": 32
+              },
+              "compression": {
+                "enum": [
+                  "gzip",
+                  "zstd"
+                ]
+              },
+              "expandedBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 67108864
+              },
+              "expandedSha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "role",
+              "format",
+              "blob",
+              "capturedAt",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "id": "studio.component",
+      "title": "Studio Component",
+      "class": "record",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "Component",
+      "description": "A data-only, reusable Studio component definition with typed query bindings; contains no code or grants.",
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "const": "studio-component/v1"
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 32
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "sourceRevision": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "system",
+              "sourceId",
+              "sourceRevision"
+            ],
+            "additionalProperties": false
+          },
+          "definition": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "table",
+                  "chart",
+                  "text",
+                  "filter",
+                  "summary"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "options": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "pageSize": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200
+                      },
+                      "columns": {
+                        "type": "array",
+                        "maxItems": 64,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "field": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "maxLength": 128
+                            },
+                            "format": {
+                              "enum": [
+                                "text",
+                                "number",
+                                "date",
+                                "percent"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "field",
+                            "label",
+                            "format"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "pageSize",
+                      "columns"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "chartType": {
+                        "enum": [
+                          "bar",
+                          "line",
+                          "area"
+                        ]
+                      },
+                      "category": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                      },
+                      "series": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 24,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                        }
+                      }
+                    },
+                    "required": [
+                      "chartType",
+                      "category",
+                      "series"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "style": {
+                        "enum": [
+                          "body",
+                          "heading",
+                          "caption"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "style"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                      },
+                      "operator": {
+                        "enum": [
+                          "eq",
+                          "neq",
+                          "in",
+                          "gte",
+                          "lte"
+                        ]
+                      },
+                      "values": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "field",
+                      "operator",
+                      "values"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "format": {
+                        "enum": [
+                          "integer",
+                          "decimal",
+                          "percent",
+                          "currency"
+                        ]
+                      },
+                      "precision": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      }
+                    },
+                    "required": [
+                      "format",
+                      "precision"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "version",
+              "options"
+            ],
+            "additionalProperties": false
+          },
+          "queryBindings": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "pattern": "^studio\\.app-query:[a-z0-9][a-z0-9-]{0,62}$"
+                },
+                "revision": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "query",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "definitionVersion",
+          "owner",
+          "provenance",
+          "definition",
+          "queryBindings"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "studio.app-query",
+      "title": "Studio App Query",
+      "class": "record",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "AppQuery",
+      "description": "A typed query selection bound to a reviewed metric and declared dimensions; contains no SQL or connection details.",
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "const": "studio-app-query/v1"
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 32
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "sourceRevision": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "system",
+              "sourceId",
+              "sourceRevision"
+            ],
+            "additionalProperties": false
+          },
+          "metric": {
+            "type": "string",
+            "pattern": "^metric:[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "metricRevision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*:[a-z0-9][a-z0-9._-]*$"
+            }
+          },
+          "grain": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "definitionVersion",
+          "owner",
+          "provenance",
+          "metric",
+          "metricRevision",
+          "dimensions"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "has_app_component",
+      "description": "A Studio App is composed from a data-only Component.",
+      "domain": [
+        "studio.app"
+      ],
+      "range": [
+        "studio.component"
+      ]
+    },
+    {
+      "id": "component_uses_query",
+      "description": "A Component references a typed Studio App Query.",
+      "domain": [
+        "studio.component"
+      ],
+      "range": [
+        "studio.app-query"
+      ]
+    },
+    {
+      "id": "query_uses_metric",
+      "description": "A Studio App Query selects a reviewed governed Metric.",
+      "domain": [
+        "studio.app-query"
+      ],
+      "range": [
+        "metric"
+      ]
+    }
+  ]
+}

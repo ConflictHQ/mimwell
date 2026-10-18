@@ -1,0 +1,3 @@
+# Optional: the azure-blob blob driver. scripts/blob_store.py imports it only when an
+# azure-blob blobs store opens.
+azure-storage-blob==12.30.3

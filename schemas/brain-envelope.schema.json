@@ -3,7 +3,7 @@
   "$id": "conflict:schema/brain-envelope/v1",
   "title": "Brain envelope (compiled brain)",
   "description": "The top-level compiled-brain document (app/brain.json / D1 export). READ-ONLY: emitted by scripts/gen-brain.py (single repo) or scripts/aggregate-brains.py (metarepo). `meta` self-describes the format — meta.version is the authoritative schema version a stale brain is migrated against (scripts/migrate-brain.py, #25). meta is OPTIONAL so a brand-new or hand-aggregated brain without a header still validates; nodes/edges $ref the per-record schemas.",
-  "x-conflict": { "version": "1", "editable": false, "source": "app/brain.json", "readonly_reason": "compiled artifact — author the source, recompile the brain" },
+  "x-mimwell": { "version": "1", "editable": false, "source": "app/brain.json", "readonly_reason": "compiled artifact — author the source, recompile the brain" },
   "type": "object",
   "required": ["nodes", "edges"],
   "additionalProperties": false,

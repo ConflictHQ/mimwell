@@ -217,7 +217,10 @@ class Registry:
         envelope = json.loads((schemas / "brain-envelope.schema.json").read_text())
         envelope["properties"]["nodes"]["items"] = self.node_schema
         envelope["properties"]["edges"]["items"] = self.edge_schema
-        envelope["properties"]["meta"]["properties"]["version"]["const"] = envelope["x-conflict"]["version"]
+        marker = envelope.get("x-mimwell", envelope.get("x-conflict"))
+        if not isinstance(marker, dict) or "version" not in marker:
+            raise OntologyError("brain envelope schema requires x-mimwell or legacy x-conflict version")
+        envelope["properties"]["meta"]["properties"]["version"]["const"] = marker["version"]
         self.envelope_validator = Draft202012Validator(envelope, registry=resources)
 
     def binding(self):

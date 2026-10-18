@@ -3,7 +3,7 @@
   "$id": "conflict:schema/client.config/v1",
   "title": "client.config.json",
   "description": "The single seam for all client-specific portal values (see docs/primitives/client-config.md). Loaded + validated against this schema by scripts/config.py on import and by the portal-verify gate. Key surface owned by #17; this schema mirrors it key-for-key.",
-  "x-conflict": {
+  "x-mimwell": {
     "version": "1",
     "editable": true,
     "source": "client.config.json"
@@ -262,6 +262,62 @@
               }
             }
           }
+        }
+      }
+    },
+    "github": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "GitHub issue and pull-request mirror (scripts/github_sync.py -> app/github.json; `make github-sync`), projected by the `github` source adapter. Without this block the syncer reads the `issues` block. Private repositories are mirrored with their visibility on every record; serving them is the instance's access decision.",
+      "properties": {
+        "$comment": {
+          "type": "string"
+        },
+        "repos": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$"
+          }
+        },
+        "org": {
+          "type": "string",
+          "description": "Organization that owns the project boards; required when `projects` is set."
+        },
+        "projects": {
+          "type": "array",
+          "description": "Organization project boards (Projects v2) in priority order: every record keeps its status on each board, and the last listed board it is on gives its status, as in `make issues`.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "number",
+              "name"
+            ],
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "include": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "issues",
+              "pulls"
+            ]
+          },
+          "description": "Record types to mirror. Defaults to both."
         }
       }
     },
@@ -715,10 +771,11 @@
               "docs",
               "wiki",
               "issues",
-              "activity"
+              "activity",
+              "github"
             ]
           },
-          "description": "Explicit generic projections; matching documents/tracker/activity ontology overlays required. Activity reads only an explicitly frozen snapshot. Defaults to none. Does not grant read access."
+          "description": "Explicit generic projections; matching documents/tracker/activity ontology overlays required. Activity reads only an explicitly frozen snapshot. `github` projects app/github.json (issues, pull requests, repositories, milestones) and replaces `issues`; the two cannot be selected together. Defaults to none. Does not grant read access."
         }
       }
     },
@@ -1283,6 +1340,11 @@
           "minimum": 1,
           "maximum": 65535,
           "description": "Astrolift: the container port (default 8080)."
+        },
+        "app_slug": {
+          "type": "string",
+          "pattern": "^[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+          "description": "Astrolift: the app's name and slug in astrolift.toml, used verbatim (default <client.slug>-brain). A letter, then lowercase letters, digits and hyphens, 1 to 63 characters, not ending in a hyphen."
         }
       }
     },

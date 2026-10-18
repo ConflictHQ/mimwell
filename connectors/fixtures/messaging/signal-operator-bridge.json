@@ -1,0 +1,7 @@
+{
+  "format": "signal-operator-bridge/v1",
+  "messages": [
+    {"messageId":"bridge-msg-01","order":"1","operation":"upsert","actor":"bridge-label","replyTo":null,"eventTime":"2026-10-17T10:00:00-06:00","language":"es","text":"Mensaje bridged 🌎"},
+    {"order":"2","operation":"delete","actor":"bridge-label","replyTo":"bridge-msg-01","eventTime":"2026-10-17T10:01:00-06:00","text":null}
+  ]
+}
