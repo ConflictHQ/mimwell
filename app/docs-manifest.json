@@ -1,0 +1,13 @@
+{
+  "generated": "2026-10-20",
+  "sections": [
+    {
+      "id": "documents",
+      "label": "Documents",
+      "description": "Knowledge-base documents not yet filed into a category.",
+      "default": true,
+      "docs": [],
+      "count": 0
+    }
+  ]
+}

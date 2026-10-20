@@ -1,0 +1,10 @@
+{
+ "version": 1,
+ "generated_by": "scripts/ingest_sources.py",
+ "counts": {
+  "sources": 0,
+  "entities": 0,
+  "fields": 0
+ },
+ "sources": []
+}
