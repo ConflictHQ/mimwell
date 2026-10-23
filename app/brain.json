@@ -1,0 +1,22 @@
+{
+ "meta": {
+  "version": "1",
+  "generator": "gen-brain",
+  "counts": {
+   "nodes": 0,
+   "edges": 0
+  },
+  "ontology": {
+   "registryVersion": "1.0",
+   "ontologyVersion": "1.0.0",
+   "layers": {
+    "core": "1.0.1",
+    "engagement": "1.0.0",
+    "data": "1.0.0"
+   },
+   "sha256": "5dc16a48847d3f67e89e3e20d68e4af56350878aa4921cf3cf6c671a2031930c"
+  }
+ },
+ "nodes": [],
+ "edges": []
+}
