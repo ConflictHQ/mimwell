@@ -1,0 +1,181 @@
+{
+ "manifest": "brain-manifest/v1",
+ "generator": "gen-manifest",
+ "generated": "2026-10-23",
+ "identity": {
+  "id": "mimwell",
+  "name": "Mimwell",
+  "engagement": "Knowledge brain",
+  "domain": "localhost"
+ },
+ "scope": {
+  "level": "project",
+  "id": "public-example",
+  "parent": null,
+  "peers": []
+ },
+ "profile": {
+  "base": "core",
+  "overlays": [
+   "engagement",
+   "data"
+  ],
+  "declared": "data",
+  "schema_version": 1,
+  "contract_version": "1.0"
+ },
+ "engine": {
+  "brain_version": "1",
+  "schema_present": true,
+  "gates": 0,
+  "template_sync": null
+ },
+ "inventory": {
+  "nodes": 0,
+  "edges": 0,
+  "kinds_declared": 27,
+  "kinds_populated": 0,
+  "by_kind": {},
+  "unpopulated": [
+   "action-item",
+   "activity-event",
+   "artifact-node",
+   "catalog",
+   "collection",
+   "decision",
+   "deliverable",
+   "dependency",
+   "doc",
+   "glossary-term",
+   "issue",
+   "kg-entity",
+   "memory-note",
+   "metric",
+   "open-question",
+   "organization",
+   "person",
+   "raid-item",
+   "roadmap-item",
+   "session",
+   "source",
+   "source-entity",
+   "source-field",
+   "spec-node",
+   "stakeholder",
+   "user-story",
+   "wiki-page"
+  ]
+ },
+ "projections": [
+  {
+   "resolution": "exact",
+   "artifact": "app/brain.json",
+   "enabled": true,
+   "present": true,
+   "lag_commits": null
+  },
+  {
+   "resolution": "indexed",
+   "artifact": "app/brain.db",
+   "enabled": false,
+   "present": true,
+   "lag_commits": null
+  },
+  {
+   "resolution": "lexical",
+   "artifact": "app/knowledge-pack.json",
+   "enabled": true,
+   "present": true,
+   "lag_commits": null
+  },
+  {
+   "resolution": "relational",
+   "artifact": "app/knowledge_graph.json",
+   "enabled": true,
+   "present": true,
+   "lag_commits": 1
+  },
+  {
+   "resolution": "semantic",
+   "artifact": "app/brain.vec.json",
+   "enabled": false,
+   "present": false,
+   "lag_commits": null
+  },
+  {
+   "resolution": "temporal",
+   "artifact": "activity.json",
+   "enabled": true,
+   "present": true,
+   "lag_commits": 1
+  }
+ ],
+ "substrate": {
+  "tier": "files",
+  "store": "json",
+  "blobs": "git",
+  "vectors": "none",
+  "graduation": {
+   "needed": false,
+   "threshold_nodes": 20000,
+   "current_nodes": 0,
+   "authority": "files",
+   "to": null,
+   "reason": null,
+   "doc": "docs/practices/hosting-models.md",
+   "next_cell": null,
+   "action": null,
+   "d1": null
+  },
+  "deploy": {
+   "target": "cloudflare-worker",
+   "persistence": [
+    "none"
+   ],
+   "replicas": null
+  }
+ },
+ "policy": {
+  "access_gate": true,
+  "publishes": [],
+  "withholds": [
+   "action-item",
+   "activity-event",
+   "artifact-node",
+   "catalog",
+   "collection",
+   "decision",
+   "deliverable",
+   "dependency",
+   "doc",
+   "glossary-term",
+   "issue",
+   "kg-entity",
+   "memory-note",
+   "metric",
+   "open-question",
+   "organization",
+   "person",
+   "raid-item",
+   "roadmap-item",
+   "session",
+   "source",
+   "source-entity",
+   "source-field",
+   "spec-node",
+   "stakeholder",
+   "user-story",
+   "wiki-page"
+  ]
+ },
+ "surfaces": {
+  "portal": "localhost",
+  "chat": "/api/chat",
+  "store": "json",
+  "template": "engagement",
+  "features": []
+ },
+ "federation": {
+  "children": []
+ }
+}
