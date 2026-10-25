@@ -102,8 +102,9 @@ def declared() -> tuple[str, list[str]]:
     return prof.get("base", "core"), list(prof.get("overlays", ()) or ())
 
 
-def compose(base: str, overlays: list[str]) -> OrderedDict:
-    layers = [(base, _load_overlay(base))] + [(o, _load_overlay(o)) for o in overlays]
+def compose(base: str, overlays: list[str], *, _load_layer=None) -> OrderedDict:
+    loader = _load_overlay if _load_layer is None else _load_layer
+    layers = [(base, loader(base))] + [(o, loader(o)) for o in overlays]
 
     positions = {name: index for index, name in enumerate(overlays)}
     for name, layer in layers[1:]:

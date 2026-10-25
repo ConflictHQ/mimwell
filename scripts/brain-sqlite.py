@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
@@ -255,6 +256,86 @@ def _distinct(source, destination):
         raise ValueError('Projection source and destination must be different files')
 
 
+_NO_EXPECTED_AUTHORITY_PIN = object()
+
+
+def _plain_config_value(value):
+    """Copy frozen config mappings/tuples into the JSON shape expected by helpers."""
+    if isinstance(value, Mapping):
+        return {key: _plain_config_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain_config_value(item) for item in value]
+    return value
+
+
+def _selected_sqlite_authority_pin():
+    """Return the configured local SQLite authority file identity, if selected."""
+    try:
+        raw = settings.raw() if callable(getattr(settings, "raw", None)) else settings
+        data = _plain_config_value(raw)
+        if not isinstance(data, dict):
+            raise TypeError("settings must be a mapping")
+        brain = data.get("brain", {})
+        if not isinstance(brain, dict):
+            raise TypeError("brain settings must be a mapping")
+        # Keep compiled-projection-only installs independent of the optional
+        # native authority package. A malformed declared value still enters the
+        # canonical parser below and fails closed.
+        if "authority" not in brain:
+            return None
+        authority_settings = {"brain": brain}
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError('Selected SQLite authority route is unavailable') from exc
+
+    try:
+        from knowledge_store import (SQLiteAuthority, StoreError, adopted_authority,
+                                     authority_class, private_path, resolve_store_dsn)
+    except ImportError as exc:
+        raise ValueError('Selected SQLite authority route is unavailable') from exc
+
+    try:
+        selected = adopted_authority(authority_settings)
+        if selected is None:
+            return None
+        dsn = resolve_store_dsn(authority_settings, selected["store"])
+        if authority_class(dsn) is not SQLiteAuthority:
+            return None
+        path = private_path(Path(ROOT), dsn, SQLiteAuthority.dialect_class.driver)
+        store = SQLiteAuthority(path, expected_binding=selected["binding"], readonly=True)
+        try:
+            if store.contract.authority != selected["store"]:
+                raise StoreError("configured SQLite authority does not match its contract")
+            identity = store.authority_file_identity
+            resolved = Path(store.path).resolve(strict=True)
+            if identity is None or not resolved.is_file():
+                raise StoreError("configured SQLite authority has no stable file identity")
+            return (str(resolved), identity[0], identity[1])
+        finally:
+            store.close()
+    except (ImportError, AttributeError, OSError, StoreError, TypeError, ValueError, KeyError) as exc:
+        raise ValueError('Selected SQLite authority route is unavailable') from exc
+
+
+def _guard_projection_destination(destination, *, expected_pin=_NO_EXPECTED_AUTHORITY_PIN):
+    """Refuse projection output that names the current SQLite authority file."""
+    pin = _selected_sqlite_authority_pin()
+    if expected_pin is not _NO_EXPECTED_AUTHORITY_PIN and pin != expected_pin:
+        raise ValueError('Selected SQLite authority route changed during projection write')
+    if pin is None:
+        return pin
+    authority_path = pin[0]
+    destination_path = os.path.abspath(os.fspath(destination))
+    try:
+        aliases = os.path.realpath(destination_path) == authority_path
+        if not aliases and os.path.lexists(destination_path):
+            aliases = os.path.samefile(destination_path, authority_path)
+    except OSError as exc:
+        raise ValueError('Selected SQLite authority destination could not be checked') from exc
+    if aliases:
+        raise ValueError('Projection destination must not alias the selected SQLite authority')
+    return pin
+
+
 def _check_destination(path, database):
     if os.path.lexists(path) and (os.path.islink(path) or not stat.S_ISREG(os.stat(path).st_mode)):
         raise ValueError('Projection destination must be a regular file, not a symlink')
@@ -263,10 +344,12 @@ def _check_destination(path, database):
 
 
 @contextmanager
-def _staged(destination, *, database=False):
+def _staged(destination, *, database=False, destination_guard=None):
     """Publish a complete artifact with one rename; callers must quiesce writers."""
     destination = os.path.abspath(destination)
     _check_destination(destination, database)
+    if destination_guard is not None:
+        destination_guard()
     parent = os.path.dirname(destination)
     os.makedirs(parent, exist_ok=True)
     # Existing portal installs already exclude *.db; retain that boundary for
@@ -277,6 +360,8 @@ def _staged(destination, *, database=False):
         yield temporary
         with open(temporary, 'rb') as handle:
             os.fsync(handle.fileno())
+        if destination_guard is not None:
+            destination_guard()
         _check_destination(destination, database)
         if os.path.exists(destination):
             os.chmod(temporary, stat.S_IMODE(os.stat(destination).st_mode))
@@ -297,9 +382,11 @@ def _metadata(graph):
 
 def build(db: str = BRAIN_DB, src: str = BRAIN_JSON) -> str:
     """app/brain.json -> brain.db. Explicit empty graphs are valid; absent inputs refuse."""
+    authority_pin = _guard_projection_destination(db)
     graph = _sorted_graph(_load_json(src))
     _distinct(src, db)
-    with _staged(db, database=True) as temporary:
+    with _staged(db, database=True,
+                 destination_guard=lambda: _guard_projection_destination(db, expected_pin=authority_pin)) as temporary:
         _build_database(temporary, graph)
     return db
 
@@ -380,9 +467,11 @@ def _read_graph(db: str = BRAIN_DB) -> dict:
 
 def dump(db: str = BRAIN_DB, out: str = BRAIN_JSON) -> str:
     """brain.db -> app/brain.json (lossless, deterministic)."""
+    authority_pin = _guard_projection_destination(out)
     text = _serialize(_read_graph(db))
     _distinct(db, out)
-    with _staged(out) as temporary:
+    with _staged(out, destination_guard=lambda: _guard_projection_destination(
+            out, expected_pin=authority_pin)) as temporary:
         Path(temporary).write_text(text, encoding='utf-8')
     return out
 
@@ -497,9 +586,11 @@ def d1_export(out: str | None = None, src: str = BRAIN_JSON) -> str:
     layer on features.brain_d1 + brain.store; the emitter itself is config-free so
     it is testable without D1."""
     out = out or os.path.join(ROOT, "app", "brain.d1.sql")
+    authority_pin = _guard_projection_destination(out)
     text = _d1_export_sql(src)
     _distinct(src, out)
-    with _staged(out) as temporary:
+    with _staged(out, destination_guard=lambda: _guard_projection_destination(
+            out, expected_pin=authority_pin)) as temporary:
         Path(temporary).write_text(text, encoding='utf-8')
     return out
 

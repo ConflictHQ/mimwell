@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation-request/v7",
+  "title": "Host-registered local backup preview request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "authority", "operation", "arguments"],
+  "properties": {
+    "format": {"const": "knowledge-operation-request/v7"},
+    "authority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "operation": {"const": "backup.preview"},
+    "arguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["destination"],
+      "properties": {
+        "destination": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      }
+    }
+  }
+}

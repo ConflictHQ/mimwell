@@ -129,11 +129,12 @@ export function toOpenAIRequest(params) {
 export function createOpenAIClient({ apiKey, baseUrl, fetchImpl } = {}) {
   const base = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, "");
   const doFetch = fetchImpl || ((...args) => fetch(...args));
-  async function complete(params) {
+  async function complete(params, options = {}) {
     const resp = await doFetch(`${base}/chat/completions`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(toOpenAIRequest(params)),
+      ...(options.signal ? {signal: options.signal} : {}),
     });
     if (!resp.ok) {
       // Report the status and the API's own error message, never the request.
@@ -150,8 +151,8 @@ export function createOpenAIClient({ apiKey, baseUrl, fetchImpl } = {}) {
   }
   return {
     messages: {
-      stream(params) {
-        return { finalMessage: () => complete(params) };
+      stream(params, options = {}) {
+        return { finalMessage: () => complete(params, options) };
       },
     },
   };

@@ -7,18 +7,22 @@ administration belong to the trusted operator, not to a claim or model tool.
 from __future__ import annotations
 
 from collections import deque
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 import datetime as dt
 from functools import cached_property
 import hashlib
 import json
+import math
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+import re
 import secrets
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 
 from jsonschema import Draft202012Validator
 from knowledge_policy import (
@@ -26,7 +30,7 @@ from knowledge_policy import (
 )
 from ontology import Registry
 from blob_store import (
-    DbBlobStore, decode as decode_blob, encode as encode_blob, open_blob_store, placement, record_locators,
+    DbBlobStore, check_locator, decode as decode_blob, encode as encode_blob, open_blob_store, placement, record_locators,
     verify as verify_blob,
 )
 from sql_dialect import REVIEW_INDEX, MySQLDialect, PostgresDialect, SQLiteDialect, StoreError, unsupported
@@ -44,6 +48,43 @@ def encoded(value):
 
 def utcnow():
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds")
+
+
+def _validate_snapshot_capture_effect_details(value):
+    """Validate the closed, secret-free pins persisted for one protected capture."""
+    expected = {"format", "planSha256", "sourceBasisSha256", "registrationSha256",
+                "providerActorSha256", "profileSha256", "requirementsSha256", "retainedRoute"}
+    if not isinstance(value, dict) or set(value) != expected:
+        raise StoreError("Protected snapshot effect details are invalid")
+    if value.get("format") != "protected-snapshot-capture-effect/v1":
+        raise StoreError("Protected snapshot effect format is unsupported")
+    for key in ("planSha256", "sourceBasisSha256", "registrationSha256", "providerActorSha256",
+                "profileSha256", "requirementsSha256"):
+        if not isinstance(value.get(key), str) or re.fullmatch(r"[0-9a-f]{64}", value[key]) is None:
+            raise StoreError("Protected snapshot effect digest is invalid")
+    route = value.get("retainedRoute")
+    if (not isinstance(route, dict) or set(route) != {
+            "id", "kind", "destination", "parentDevice", "parentInode"}
+            or not isinstance(route.get("id"), str) or not 1 <= len(route["id"]) <= 128
+            or route.get("kind") not in ("snapshot", "backup")
+            or not isinstance(route.get("destination"), str)
+            or "\\" in route["destination"] or "\x00" in route["destination"]
+            or type(route.get("parentDevice")) is not int
+            or not 0 <= route["parentDevice"] < 2**64
+            or type(route.get("parentInode")) is not int
+            or not 0 < route["parentInode"] < 2**64):
+        raise StoreError("Protected snapshot retained route pin is invalid")
+    try:
+        destination_bytes = route["destination"].encode("utf-8", "strict")
+    except UnicodeError as exc:
+        raise StoreError("Protected snapshot retained destination is invalid") from exc
+    if len(destination_bytes) > 4096:
+        raise StoreError("Protected snapshot retained destination exceeds its byte bound")
+    destination = PurePosixPath(route["destination"])
+    if (destination.is_absolute() or not destination.parts or ".." in destination.parts
+            or str(destination) != route["destination"]):
+        raise StoreError("Protected snapshot retained destination is invalid")
+    return deepcopy(value)
 
 
 class LifecycleError(ValueError):
@@ -414,7 +455,13 @@ def blob_store_for(root, settings, contract):
     if not declared or driver == "db-blob":
         return None
     location = resolve_store_dsn(settings, contract.blob_store)
-    return open_blob_store(driver, contract.blob_store, root / location if driver == "fs" else location)
+    from brain_storage_admission import bind_host_blob_writer, load_registration
+    if driver == "fs":
+        # Refuse unsafe/orphaned admission state before constructing even a
+        # locally selected driver; an adopted route is never an inferred path.
+        load_registration(root)
+    writer = open_blob_store(driver, contract.blob_store, root / location if driver == "fs" else location)
+    return bind_host_blob_writer(root, contract, writer) if driver == "fs" else writer
 
 
 def vector_store_for(root, settings, contract, authority_driver, authority_location):
@@ -490,6 +537,55 @@ def changed_paths(before, after, path=""):
     return [] if before == after else [path]
 
 
+def _studio_embedded_views(payload_schema):
+    """Recognize the exact closed view arms in the selected Apps profile."""
+    if not isinstance(payload_schema, dict):
+        return ()
+    definitions = payload_schema.get("$defs", {})
+    properties = payload_schema.get("properties", {})
+    if not isinstance(definitions, dict) or not isinstance(properties, dict):
+        return ()
+    definition = properties.get("definition", {})
+    definition_properties = definition.get("properties", {}) if isinstance(definition, dict) else {}
+    option_schema = definition_properties.get("options", {}) if isinstance(definition_properties, dict) else {}
+    options = option_schema.get("oneOf", []) if isinstance(option_schema, dict) else []
+    embedded = definitions.get("studioEmbedded")
+    ref = {"$ref": "#/$defs/studioEmbedded"}
+    if (not isinstance(embedded, dict) or not isinstance(options, list) or len(options) != 7
+            or any(not isinstance(option, dict) for option in options)):
+        return ()
+    option_properties = [option.get("properties", {}) for option in options]
+    if any(not isinstance(item, dict) for item in option_properties):
+        return ()
+    if (option_properties[0].get("embedded") != ref
+            or option_properties[4].get("embedded") != ref
+            or option_properties[5].get("embedded") != ref
+            or option_properties[6].get("embedded") != ref
+            or any("embedded" in option_properties[index] for index in (1, 2, 3))):
+        return ()
+    chart_type = option_properties[5].get("chartType", {})
+    diagram_type = option_properties[6].get("diagramType", {})
+    type_schema = definition_properties.get("type", {})
+    display_types = type_schema.get("enum", []) if isinstance(type_schema, dict) else []
+    embedded_properties = embedded.get("properties", {})
+    view_schema = embedded_properties.get("view", {}) if isinstance(embedded_properties, dict) else {}
+    view_union = view_schema.get("oneOf", []) if isinstance(view_schema, dict) else []
+    view_kinds = {branch.get("properties", {}).get("kind", {}).get("const")
+                  for branch in view_union if isinstance(branch, dict)}
+    if (not isinstance(chart_type, dict)
+            or set(chart_type.get("enum", [])) != {"bar", "line", "area", "point", "pie"}
+            or not isinstance(diagram_type, dict) or diagram_type.get("const") != "flow"
+            or "diagram" not in display_types
+            or view_kinds != {"table", "kpi", "chart", "diagram"}):
+        return ()
+    return ("table", "kpi", "chart", "diagram")
+
+
+def _supports_studio_embedded(payload_schema):
+    """Recognize only the exact embedded extension in the selected Apps profile."""
+    return bool(_studio_embedded_views(payload_schema))
+
+
 class Contract:
     def __init__(self, bundle):
         self.bundle = deepcopy(bundle)
@@ -497,10 +593,17 @@ class Contract:
         schema_check(self.document, "knowledge-store")
         self.registry = Registry(self.bundle["ontology"])
         overlays = self.registry.declaration.get("composition", {}).get("overlays", [])
-        self.studio_apps_enabled = ("apps" in overlays and all(
+        self.studio_apps_enabled = (any(name in overlays for name in ("apps", "apps-v1.0.1")) and all(
             self.registry.kinds.get(identity, {}).get("node") == node
             for identity, node in (("studio.app", "App"), ("studio.component", "Component"),
                                    ("studio.app-query", "AppQuery"))))
+        component_payload = self.registry.kinds.get("studio.component", {}).get("payloadSchema", {})
+        self.studio_embedded_views = (_studio_embedded_views(component_payload)
+                                      if "apps-v1.0.1" in overlays else ())
+        self.studio_embedded_enabled = bool(
+            "apps-v1.0.1" in overlays and _supports_studio_embedded(component_payload))
+        self.studio_embedded_schema = (component_payload["$defs"]["studioEmbedded"]
+                                       if self.studio_embedded_enabled else None)
         self.policy = Policy(self.bundle["policy"], self.bundle["ontology"])
         self.binding = contract_binding(self.bundle)
         self.stores = unique(self.document["stores"])
@@ -575,6 +678,16 @@ class Contract:
 
     def validate_record(self, record):
         schema_check(record, "knowledge-record")
+        collection = self.collections.get(record["collection"])
+        if not collection or record["kind"] != collection["kind"]:
+            raise StoreError("record collection/kind mismatch")
+        if self.studio_apps_enabled and record.get("kind") == "studio.component":
+            from studio_app_bindings import validate_component_options
+            try:
+                validate_component_options(record, embedded_schema=self.studio_embedded_schema,
+                                           embedded_enabled=self.studio_embedded_enabled)
+            except ValueError as exc:
+                raise StoreError(str(exc)) from exc
         if "lifecycle" in record.get("content", {}).get("data", {}):
             lifecycle(record)
         record_kind = self.registry.kinds.get(record["kind"], {}).get("node")
@@ -604,7 +717,9 @@ class Contract:
             if not all(isinstance(content.get(key), str) and content[key].strip()
                        for key in ("title", "text", "owner")):
                 raise StoreError("a governed Metric requires a name, business definition and owner")
-        if record_kind == "Term":
+        # The semantic layer explicitly selects the business-terms resource.
+        # Core glossary Terms keep their generic representation, including sealed content.
+        if record_kind == "Term" and collection["resource"] == "business-terms":
             schema_check(record["content"].get("data", {}), "business-term")
             if not all(isinstance(record["content"].get(key), str) and record["content"][key].strip()
                        for key in ("title", "text", "owner")):
@@ -628,9 +743,6 @@ class Contract:
         for locator in record_locators(record):
             if locator["store"] != self.blob_store:
                 raise StoreError(f"blob locator names {locator['store']}, which is not the contract's blobs store")
-        collection = self.collections.get(record["collection"])
-        if not collection or record["kind"] != collection["kind"]:
-            raise StoreError("record collection/kind mismatch")
         node, edges = self.project(record)
         self.registry.validate_records([node], edges)
 
@@ -805,6 +917,299 @@ def _restorable(snapshot, driver, blob_store):
     return tables, blobs
 
 
+MAX_RESTORE_SNAPSHOT_BYTES = 64 * 1024 * 1024
+MAX_RESTORE_TABLE_ROWS = 250_000
+MAX_RESTORE_CELL_BYTES = 16 * 1024 * 1024
+MAX_RESTORE_TOTAL_CELL_BYTES = 512 * 1024 * 1024
+MAX_RESTORE_SQLITE_IMAGE_BYTES = 512 * 1024 * 1024
+
+
+def _bounded_restore_snapshot(snapshot):
+    """Reject oversized SQLite authority snapshots before restore validation or blob decoding."""
+    if (not isinstance(snapshot, dict) or set(snapshot) not in (
+            {"format", "schemaVersion", "tables", "sha256"},
+            {"format", "schemaVersion", "tables", "blobs", "sha256"})
+            or snapshot.get("format") != "knowledge-authority/v1"
+            or type(snapshot.get("schemaVersion")) is not int
+            or not 0 <= snapshot["schemaVersion"] <= 2**31 - 1
+            or not isinstance(snapshot.get("sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", snapshot["sha256"]) is None):
+        raise StoreError("authority backup is outside its supported bounds")
+    tables = snapshot.get("tables")
+    if not isinstance(tables, dict) or set(tables) != set(SNAPSHOT_COLUMNS):
+        raise StoreError("authority backup has an unsupported table set")
+    row_count = cell_bytes = cell_count = row_overhead = 0
+
+    def text_bytes(value):
+        if len(value) > MAX_RESTORE_CELL_BYTES:
+            raise StoreError("authority backup contains an oversized cell")
+        total = 0
+        for offset in range(0, len(value), 32_768):
+            total += len(value[offset:offset + 32_768].encode("utf-8"))
+            if total > MAX_RESTORE_CELL_BYTES:
+                raise StoreError("authority backup contains an oversized cell")
+        return total
+
+    for table, rows in tables.items():
+        if not isinstance(rows, list) or len(rows) > MAX_RESTORE_TABLE_ROWS:
+            raise StoreError("authority backup exceeds its table row bound")
+        row_count += len(rows)
+        if row_count > MAX_RESTORE_TABLE_ROWS:
+            raise StoreError("authority backup exceeds its aggregate row bound")
+        for row in rows:
+            if not isinstance(row, dict) or set(row) != set(SNAPSHOT_COLUMNS[table]):
+                raise StoreError("authority backup contains an unsupported row")
+            columns = SNAPSHOT_COLUMNS[table]
+            row_overhead += sum(len(column) + 3 for column in columns) + max(0, len(columns) - 1) + 2
+            for value in row.values():
+                if isinstance(value, str):
+                    size = text_bytes(value)
+                elif isinstance(value, bytes):
+                    size = len(value)
+                elif value is None:
+                    size = 8
+                elif type(value) is int and -(2**63) <= value < 2**63:
+                    size = min(20, len(str(value)))
+                elif type(value) is float and math.isfinite(value):
+                    size = 32
+                else:
+                    raise StoreError("authority backup contains an unsupported cell")
+                if size > MAX_RESTORE_CELL_BYTES:
+                    raise StoreError("authority backup contains an oversized cell")
+                cell_bytes += size
+                if cell_bytes > MAX_RESTORE_TOTAL_CELL_BYTES:
+                    raise StoreError("authority backup exceeds its aggregate cell bound")
+                cell_count += 1
+    blobs = snapshot.get("blobs")
+    locator_bytes = 0
+    content_json_bytes = 0
+    if blobs is not None:
+        if (not isinstance(blobs, dict) or set(blobs) not in (
+                {"completeness", "locators"}, {"completeness", "locators", "content"})
+                or not isinstance(blobs.get("completeness"), str)
+                or not isinstance(blobs.get("locators"), list)
+                or len(blobs["locators"]) > MAX_RESTORE_TABLE_ROWS):
+            raise StoreError("authority backup has an unsupported blob manifest")
+        locator_keys = set()
+        for locator in blobs["locators"]:
+            if (not isinstance(locator, dict)
+                    or set(locator) != {"store", "key", "sha256", "bytes", "mediaType"}
+                    or not isinstance(locator.get("store"), str) or not 0 < len(locator["store"]) <= 256
+                    or not isinstance(locator.get("mediaType"), str)
+                    or not 0 < len(locator["mediaType"]) <= 256
+                    or type(locator.get("bytes")) is not int
+                    or not 0 <= locator["bytes"] <= MAX_RESTORE_CELL_BYTES):
+                raise StoreError("authority backup contains an oversized blob locator")
+            check_locator(locator)
+            if locator["key"] in locator_keys:
+                raise StoreError("authority backup has duplicate blob locators")
+            locator_keys.add(locator["key"])
+            locator_bytes += sum(len(value) for value in locator.values() if isinstance(value, str)) + 64
+            if locator_bytes > MAX_RESTORE_TOTAL_CELL_BYTES:
+                raise StoreError("authority backup blob locators exceed their aggregate bound")
+        if blobs["completeness"] == "included":
+            content = blobs.get("content")
+            if (not isinstance(content, dict) or len(content) != len(locator_keys)
+                    or any(not isinstance(key, str) or len(key) > 1024 for key in content)
+                    or set(content) != locator_keys):
+                raise StoreError("authority backup has an unsupported included-blob set")
+            content_bytes = 0
+            for value in content.values():
+                if (not isinstance(value, str) or not value.isascii()
+                        or len(value) > 4 * ((MAX_RESTORE_CELL_BYTES + 2) // 3)):
+                    raise StoreError("authority backup contains oversized included blob content")
+                content_bytes += len(value)
+                if content_bytes > 4 * ((MAX_RESTORE_TOTAL_CELL_BYTES + 2) // 3):
+                    raise StoreError("authority backup included blobs exceed their aggregate bound")
+            content_json_bytes = content_bytes
+        elif blobs["completeness"] != "referenced" or "content" in blobs:
+            raise StoreError("authority backup has an unsupported blob completeness mode")
+    estimated_json_bytes = cell_bytes * 6 + cell_count * 8 + row_overhead + locator_bytes * 6 + content_json_bytes + 4096
+    if estimated_json_bytes > MAX_RESTORE_SNAPSHOT_BYTES:
+        raise StoreError("authority backup exceeds its byte bound")
+    try:
+        raw = encoded(snapshot).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError, RecursionError) as exc:
+        raise StoreError("authority backup is outside its supported bounds") from exc
+    if len(raw) > MAX_RESTORE_SNAPSHOT_BYTES:
+        raise StoreError("authority backup exceeds its byte bound")
+    return len(raw)
+
+
+def _populate_standby_authority(dialect, tables, blobs, snapshot, *, instance):
+    """Populate a writer with canonical standby rows; shared by disk and bounded-memory paths."""
+    for table, rows in tables.items():
+        for row in rows:
+            dialect.insert_row(table, row)
+    if blobs["completeness"] == "included":
+        for locator in blobs["locators"]:
+            dialect.add_blob(locator["key"], decode_blob(blobs["content"][locator["key"]]))
+    dialect.set_meta("status", "standby")
+    dialect.set_meta("instance", instance)
+    dialect.set_meta("restoredFrom", snapshot["sha256"])
+    dialect.set_schema_version(DB_VERSION)
+
+
+def _validate_restore_effect_intent(intent):
+    """Validate the bounded internal pin record persisted with an admitted restore reservation."""
+    fields = {"protocol", "phase", "operationId", "stageToken", "stagePath", "snapshotSha256",
+              "source", "destination", "retainedRoot", "registrationSha256", "hostConfigSha256",
+              "clientConfigSha256", "authorityBinding", "authorityStoreId", "authorityInstance",
+              "authorityCheckpoint", "actor", "actorMapping", "actorMappingSha256",
+              "authorizationGrant"}
+    if (not isinstance(intent, dict) or set(intent) != fields
+            or intent.get("protocol") != "admitted-restore-intent/v2"
+            or intent.get("phase") != "pre-stage"):
+        raise StoreError("Storage admission restore intent has an unsupported shape")
+
+    def digest(value):
+        return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+    def token(value):
+        return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{32}", value) is not None
+
+    def identity(value, keys):
+        return (isinstance(value, dict) and set(value) == set(keys)
+                and isinstance(value.get("path"), str) and 0 < len(value["path"]) <= 4096
+                and Path(value["path"]).is_absolute() and ".." not in Path(value["path"]).parts
+                and str(Path(value["path"])) == value["path"] and "\x00" not in value["path"]
+                and all(type(value[key]) is int and 0 <= value[key] < 2**64
+                        for key in keys if key != "path"))
+
+    if (not token(intent["operationId"]) or not token(intent["stageToken"])
+            or intent["authorizationGrant"] != "snapshot.restore"):
+        raise StoreError("Storage admission restore intent IDs are invalid")
+    if (not isinstance(intent["stagePath"], str) or len(intent["stagePath"]) > 4096
+            or not Path(intent["stagePath"]).is_absolute()
+            or ".." in Path(intent["stagePath"]).parts
+            or str(Path(intent["stagePath"])) != intent["stagePath"] or "\x00" in intent["stagePath"]
+            or not digest(intent["snapshotSha256"]) or not digest(intent["registrationSha256"])
+            or not digest(intent["hostConfigSha256"]) or not digest(intent["clientConfigSha256"])
+            or not isinstance(intent["authorityBinding"], str) or not intent["authorityBinding"]
+            or len(intent["authorityBinding"]) > 256
+            or not isinstance(intent["authorityStoreId"], str) or not intent["authorityStoreId"]
+            or len(intent["authorityStoreId"]) > 256 or not token(intent["authorityInstance"])):
+        raise StoreError("Storage admission restore intent digests are invalid")
+    source_keys = ("path", "device", "inode", "size", "mtimeNs", "ctimeNs")
+    destination_keys = ("path", "parentDevice", "parentInode", "parentMtimeNs", "parentCtimeNs")
+    root = intent["retainedRoot"]
+    if (not isinstance(root, dict) or set(root) != {"id", "kind", "path", "device", "inode"}
+            or not isinstance(root["id"], str)
+            or re.fullmatch(r"[a-z][a-z0-9-]{0,63}", root["id"]) is None
+            or root["kind"] not in ("snapshot", "backup")
+            or not isinstance(root["path"], str) or len(root["path"]) > 4096
+            or not Path(root["path"]).is_absolute() or ".." in Path(root["path"]).parts
+            or str(Path(root["path"])) != root["path"] or "\x00" in root["path"]
+            or any(type(root[key]) is not int or not 0 <= root[key] < 2**64
+                   for key in ("device", "inode"))):
+        raise StoreError("Storage admission restore retained root is invalid")
+    checkpoint = intent["authorityCheckpoint"]
+    if (not identity(intent["source"], source_keys) or not identity(intent["destination"], destination_keys)
+            or not isinstance(checkpoint, dict) or set(checkpoint) != {"sequence", "digest"}
+            or type(checkpoint["sequence"]) is not int or not 0 <= checkpoint["sequence"] < 2**63
+            or not digest(checkpoint["digest"])):
+        raise StoreError("Storage admission restore intent identities are invalid")
+    destination_path = Path(intent["destination"]["path"])
+    retained_root_path = Path(root["path"])
+    if (destination_path == retained_root_path
+            or not destination_path.parent.is_relative_to(retained_root_path)):
+        raise StoreError("Storage admission restore destination is outside its retained root")
+    expected_stage = destination_path.with_name(f".{destination_path.name}.restore-{intent['stageToken']}")
+    if (Path(intent["stagePath"]) != expected_stage
+            or not expected_stage.parent.is_relative_to(retained_root_path)):
+        raise StoreError("Storage admission restore stage path is not bound to its token")
+    actor, mapping = intent["actor"], intent["actorMapping"]
+    if (not isinstance(actor, str) or not actor or len(actor) > 256 or not isinstance(mapping, dict)
+            or len(mapping) > 256 or any(not isinstance(uid, str) or not re.fullmatch(r"[0-9]{1,10}", uid)
+                                         or not isinstance(principal, str) or not principal or len(principal) > 256
+                                         for uid, principal in mapping.items())
+            or actor not in mapping.values()
+            or not digest(intent["actorMappingSha256"])
+            or fingerprint(mapping) != intent["actorMappingSha256"]):
+        raise StoreError("Storage admission restore actor mapping is invalid")
+    try:
+        raw = encoded(intent).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError, RecursionError) as exc:
+        raise StoreError("Storage admission restore intent is not bounded JSON") from exc
+    if len(raw) > 16 * 1024:
+        raise StoreError("Storage admission restore intent exceeds its byte bound")
+    return deepcopy(intent)
+
+
+def prepare_sqlite_standby_image(snapshot, *, max_bytes=MAX_RESTORE_SQLITE_IMAGE_BYTES, blob_store=None,
+                                 instance=None):
+    """Build and serialize an exact bounded standby SQLite image without touching a file.
+
+    This is a preparation primitive for an admitted restore stage. It grants no authority
+    and does not publish or select the returned image.
+    """
+    import sqlite3
+    import secrets
+
+    if type(max_bytes) is not int or not 4096 <= max_bytes <= MAX_RESTORE_SQLITE_IMAGE_BYTES:
+        raise StoreError("standby SQLite image budget is outside its fixed bound")
+    _bounded_restore_snapshot(snapshot)
+    tables, blobs = _restorable(snapshot, SQLiteAuthority.dialect_class.driver, blob_store)
+    connection = sqlite3.connect(":memory:", isolation_level=None)
+    dialect = SQLiteDialect(connection)
+    try:
+        limits = (
+            ("SQLITE_LIMIT_LENGTH", MAX_RESTORE_CELL_BYTES),
+            ("SQLITE_LIMIT_SQL_LENGTH", MAX_RESTORE_SNAPSHOT_BYTES),
+            ("SQLITE_LIMIT_COLUMN", max(len(columns) for columns in SNAPSHOT_COLUMNS.values())),
+            ("SQLITE_LIMIT_ATTACHED", 0),
+        )
+        for name, value in limits:
+            category = getattr(sqlite3, name, None)
+            if (type(category) is not int or not hasattr(connection, "setlimit")
+                    or not hasattr(connection, "getlimit")):
+                raise StoreError("SQLite runtime cannot enforce standby restore limits")
+            connection.setlimit(category, value)
+            if connection.getlimit(category) > value:
+                raise StoreError("SQLite runtime did not apply a standby restore limit")
+        connection.execute("PRAGMA page_size=4096")
+        maximum_pages = max_bytes // 4096
+        if maximum_pages < 1 or connection.execute(
+                f"PRAGMA max_page_count={maximum_pages}").fetchone()[0] > maximum_pages:
+            raise StoreError("SQLite runtime cannot enforce the standby image page bound")
+        connection.execute("PRAGMA foreign_keys=ON")
+        dialect.begin(write=True)
+        dialect.apply_schema(_schema(SQLiteAuthority.dialect_class, db_blob=blobs["completeness"] == "included"))
+        selected_instance = instance or secrets.token_hex(16)
+        _populate_standby_authority(dialect, tables, blobs, snapshot, instance=selected_instance)
+        dialect.commit()
+        page_count = connection.execute("PRAGMA page_count").fetchone()[0]
+        page_size = connection.execute("PRAGMA page_size").fetchone()[0]
+        if (type(page_count) is not int or type(page_size) is not int or page_count < 0 or page_size <= 0
+                or page_count * page_size > max_bytes):
+            raise StoreError("Prepared standby database exceeds its bounded page image")
+        if not callable(getattr(connection, "serialize", None)):
+            raise StoreError("SQLite runtime cannot serialize a bounded standby image")
+        raw = connection.serialize()
+        if len(raw) > max_bytes:
+            raise StoreError("Serialized standby authority exceeds its exact byte reservation")
+        # Reopen the exact bytes in memory before returning them to a caller.
+        check = sqlite3.connect(":memory:", isolation_level=None)
+        try:
+            if not callable(getattr(check, "deserialize", None)):
+                raise StoreError("SQLite runtime cannot verify a serialized standby image")
+            check.deserialize(raw)
+            observed = dict(check.execute("SELECT key,value FROM metadata").fetchall())
+            if (observed.get("status") != "standby" or observed.get("instance") != selected_instance
+                    or observed.get("restoredFrom") != snapshot["sha256"]
+                    or observed.get("schema_version") != str(DB_VERSION)):
+                raise StoreError("Serialized standby authority failed its metadata verification")
+        finally:
+            check.close()
+        return raw, selected_instance
+    except BaseException:
+        if dialect.in_transaction:
+            dialect.rollback()
+        raise
+    finally:
+        dialect.close()
+
+
 def _stored_version(dialect):
     """(version, legacy): legacy when only a pre-seam SQLite PRAGMA user_version holds it.
 
@@ -815,6 +1220,68 @@ def _stored_version(dialect):
     if version is None and "legacy-schema-version" in dialect.capabilities():
         return dialect.legacy_schema_version(), True
     return version, False
+
+
+def _validate_authority_dialect(dialect, *, expected_binding=None, require_driver):
+    """Validate an already-open authority using the same contract as path opens.
+
+    This helper never initializes or migrates. Callers that admit an in-memory
+    connection must independently establish its origin and expected binding.
+    """
+    version, legacy = _stored_version(dialect)
+    if version != DB_VERSION:
+        raise _migration_required(version, legacy)
+    raw_bundle = dialect.meta("bundle")
+    if raw_bundle is None:
+        raise StoreError("missing authority metadata: bundle")
+    contract = Contract(json.loads(raw_bundle))
+    require_driver(contract)
+    if expected_binding is not None and expected_binding != contract.binding:
+        raise StoreError("authority contract differs from the adopted binding")
+    return contract
+
+
+def _read_authority_snapshot(dialect, contract, actor, *, at, max_records, max_body_bytes, read_state, read_meta):
+    """Shared bounded projection read for path and protected in-memory readers."""
+    for limit in (max_records, max_body_bytes):
+        if limit is not None and (type(limit) is not int or limit < 1):
+            raise StoreError("Invalid snapshot bound")
+    at = at or utcnow()
+    dialect.begin()
+    try:
+        state = read_state()  # Establish the read snapshot first.
+        raw_bundle = read_meta("bundle")
+        if (raw_bundle is None or _stored_version(dialect)[0] != DB_VERSION
+                or contract_binding(json.loads(raw_bundle)) != contract.binding):
+            raise StoreError("authority contract changed; reopen with its adopted binding")
+        readable = sorted(key for key in contract.collections if contract.can_read(key, actor, at))
+        rows = []
+        if readable:
+            if max_records is not None or max_body_bytes is not None:
+                count, size = dialect.live_volume(readable)
+                if (max_records is not None and count > max_records or
+                        max_body_bytes is not None and size > max_body_bytes):
+                    raise StoreError("Selected snapshot exceeds its bounds")
+            rows = dialect.live_records(readable)
+        records = [json.loads(row["body"]) for row in rows]
+        records = context_records(contract, records, at=at)
+        visible_ids = {record["id"] for record in records}
+        rows = [row for row in rows if row["id"] in visible_ids]
+        ids = {record["id"] for record in records}
+        for record in records:
+            record["relations"] = [edge for edge in record["relations"] if edge["target"] in ids]
+        head = dialect.journal_head()
+        if head is None:
+            raise StoreError("authority journal has no import checkpoint")
+        checkpoint = {"binding": contract.binding, "instance": read_meta("instance"),
+                      "state": state, "sequence": head["sequence"], "digest": head["digest"]}
+        graph = contract.graph(records)
+        graph["meta"]["lifecycle"] = {"policySha256": contract.policy.binding["sha256"]}
+        return {"graph": graph, "checkpoint": checkpoint, "asOf": head["head_at"],
+                "revisions": {row["id"]: row["revision"] for row in rows},
+                "resources": {row["id"]: contract.collections[row["collection"]]["resource"] for row in rows}}
+    finally:
+        dialect.rollback()
 
 
 def _migration_required(version, legacy):
@@ -846,18 +1313,32 @@ class Authority:
         self.path = self.dialect_class.location(path)
         if not self.dialect_class.exists(self.path):
             raise StoreError("authority does not exist; initialize or restore explicitly")
+        # Keep an in-memory inode pin for host admission checks. SQLite may change the
+        # file header when enabling WAL, so content metadata is not part of this route pin.
+        # Legacy stores retain their historical open behavior when a safe inode is unavailable.
+        self.authority_file_identity = None
+        before_identity = None
+        try:
+            before = os.stat(self.path, follow_symlinks=False)
+            if stat.S_ISREG(before.st_mode) and before.st_nlink == 1:
+                before_identity = (before.st_dev, before.st_ino)
+        except OSError:
+            pass
         if readonly:
             self.dialect_class.require("read-only-session")
         self.dialect = self.dialect_class.open(self.path, readonly=readonly)
         self.db = self.dialect.db
+        if before_identity is not None:
+            try:
+                after = os.stat(self.path, follow_symlinks=False)
+                after_identity = (after.st_dev, after.st_ino)
+                if stat.S_ISREG(after.st_mode) and after.st_nlink == 1 and after_identity == before_identity:
+                    self.authority_file_identity = after_identity
+            except OSError:
+                pass
         try:
-            version, legacy = _stored_version(self.dialect)
-            if version != DB_VERSION:
-                raise _migration_required(version, legacy)
-            self.contract = Contract(json.loads(self._meta("bundle")))
-            self._require_driver(self.contract)
-            if expected_binding is not None and expected_binding != self.contract.binding:
-                raise StoreError("authority contract differs from the adopted binding")
+            self.contract = _validate_authority_dialect(
+                self.dialect, expected_binding=expected_binding, require_driver=self._require_driver)
         except BaseException:
             self.dialect.close()
             raise
@@ -911,32 +1392,266 @@ class Authority:
         """
         if self.dialect.in_transaction:
             raise StoreError("An operation transaction is already active")
-        self.dialect.begin(write=write)
-        self._request_write = write
-        self._request_checks = []
-        self._request_graph = False
-        self._request_failed = False
-        try:
-            if write:
-                self._writer_ready()
-            yield
-            if write:
-                self._request_intact()
-                self._writer_ready()
-                if self._request_graph:
-                    # Once per request: the global rules the per-mutation checks leave out (#399).
-                    self.contract.graph(self._all_records())
-                self._record_schema_version()
-            self.dialect.commit()
-        except BaseException:
-            if self.dialect.in_transaction:
-                self.dialect.rollback()
-            raise
-        finally:
-            self._request_write = False
+        admission = self._storage_admission_effect("native.request") if write else nullcontext()
+        with admission:
+            self.dialect.begin(write=write)
+            self._request_write = write
             self._request_checks = []
             self._request_graph = False
             self._request_failed = False
+            try:
+                if write:
+                    self._writer_ready()
+                yield
+                if write:
+                    self._request_intact()
+                    self._writer_ready()
+                    if self._request_graph:
+                        # Once per request: the global rules the per-mutation checks leave out (#399).
+                        self.contract.graph(self._all_records())
+                    self._record_schema_version()
+                    self._storage_admission_precommit()
+                self.dialect.commit()
+            except BaseException:
+                if self.dialect.in_transaction:
+                    self.dialect.rollback()
+                raise
+            finally:
+                self._request_write = False
+                self._request_checks = []
+                self._request_graph = False
+                self._request_failed = False
+
+    def _storage_admission_effect(self, operation, *, reservation_id=None, restore_intent=None,
+                                  restore_context=None, snapshot_details=None):
+        """Wrap every adopted SQLite native write in the shared brain ledger."""
+        if getattr(self, "_storage_admission_active", False):
+            if (operation == "backup.snapshot.restore" or restore_intent is not None
+                    or restore_context is not None):
+                raise StoreError("Adopted restore cannot be nested inside another storage effect")
+            if operation == "backup.snapshot.capture" or snapshot_details is not None:
+                raise StoreError("Adopted snapshot capture cannot be nested inside another storage effect")
+            return nullcontext()
+        if operation == "backup.snapshot.restore" and reservation_id is not None:
+            raise StoreError("Adopted restore cannot reuse a caller-selected reservation")
+        if operation != "backup.snapshot.restore" and restore_context is not None:
+            raise StoreError("A restore context is valid only for the restore operation")
+        if operation == "backup.snapshot.capture":
+            snapshot_details = _validate_snapshot_capture_effect_details(snapshot_details)
+            if reservation_id is not None:
+                raise StoreError("Protected snapshot capture cannot reuse a caller reservation")
+        elif snapshot_details is not None:
+            raise StoreError("Snapshot details are valid only for protected snapshot capture")
+        path = Path(self.path).resolve()
+        from brain_storage_admission import configured_admission, load_registration
+        brain_root = None
+        for parent in (path.parent, *path.parents):
+            internal = parent / "_internal"
+            # Ask the registration loader whenever an internal state directory
+            # is present. It refuses orphaned ledger/lock markers even when the
+            # registration file itself has been removed or disappears during
+            # this lookup. Looking only for the registration pathname here
+            # would let direct native writes bypass that orphan check.
+            try:
+                os.stat(internal, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise StoreError("Storage admission state directory is unavailable or unsafe") from exc
+            registration = load_registration(parent)
+            if registration is not None:
+                brain_root = parent
+                break
+        if brain_root is None:
+            if operation == "backup.snapshot.restore":
+                raise StoreError("Adopted restore requires an explicit storage registration")
+            return nullcontext()
+        configured = configured_admission(brain_root, self)
+        if configured is None:
+            if operation == "backup.snapshot.restore":
+                raise StoreError("Adopted restore storage admission is unavailable")
+            raise StoreError("Storage admission registration changed during native write setup")
+        ledger, inventory_now = configured
+        if operation == "backup.snapshot.capture":
+            registration = ledger.registration
+            route = snapshot_details["retainedRoute"]
+            if (fingerprint(registration) != snapshot_details["registrationSha256"]
+                    or registration["protection"]["profile"] != "per-record"
+                    or registration["protection"]["requirementsSha256"]
+                    != snapshot_details["requirementsSha256"]
+                    or not any(entry["id"] == route["id"] and entry["kind"] == route["kind"]
+                               for entry in registration["retainedRoots"])):
+                raise StoreError("Protected snapshot source or route no longer matches registration")
+        if reservation_id is None:
+            details = {"authorityBinding": self.contract.binding, "operation": operation}
+            if operation == "backup.snapshot.capture":
+                details["snapshotCapture"] = snapshot_details
+            operation_key = os.urandom(32).hex()
+            if operation == "backup.snapshot.restore":
+                from brain_snapshot import AdmittedRestoreContext
+                if not isinstance(restore_context, AdmittedRestoreContext):
+                    raise StoreError("Adopted restore requires a trusted operator context")
+                restore_context.guard()
+                details["restoreIntent"] = _validate_restore_effect_intent(restore_intent)
+                intent = details["restoreIntent"]
+                context_pins = {
+                    "actor": restore_context.actor,
+                    "actorMapping": dict(restore_context.actor_mapping),
+                    "actorMappingSha256": restore_context.actor_mapping_sha256,
+                    "authorizationGrant": restore_context.restore_grant,
+                    "authorityBinding": restore_context.authority_binding,
+                    "authorityCheckpoint": {"sequence": restore_context.authority_checkpoint["sequence"],
+                                            "digest": restore_context.authority_checkpoint["digest"]},
+                    "authorityInstance": restore_context.authority_instance,
+                    "authorityStoreId": restore_context.authority_store_id,
+                    "clientConfigSha256": restore_context.client_config_sha256,
+                    "hostConfigSha256": restore_context.host_config_sha256,
+                    "registrationSha256": restore_context.registration_sha256,
+                    "retainedRoot": {"id": restore_context.retained_root_id,
+                                     "kind": restore_context.retained_root_kind,
+                                     "path": str(restore_context.retained_root_path),
+                                     "device": restore_context.retained_root_identity[0],
+                                     "inode": restore_context.retained_root_identity[1]},
+                }
+                if any(intent.get(key) != value for key, value in context_pins.items()):
+                    raise StoreError("Restore intent does not match its trusted operator context")
+                destination = intent["destination"]
+                if (destination["path"] != str(restore_context.destination_path)
+                        or (destination["parentDevice"], destination["parentInode"])
+                        != restore_context.destination_parent_identity):
+                    raise StoreError("Restore destination does not match its trusted operator context")
+                operation_key = intent["operationId"]
+            elif restore_intent is not None:
+                raise StoreError("A restore intent is valid only for the restore operation")
+            elif restore_context is not None:
+                raise StoreError("A restore context is valid only for the restore operation")
+            if len(encoded(details).encode("utf-8")) > 16 * 1024:
+                raise StoreError("Storage admission effect details exceed their byte bound")
+            effect = ledger.effect(operation_key=operation_key, details=details,
+                                   inventory_now=inventory_now,
+                                   _restore_intent=(operation == "backup.snapshot.restore"))
+        else:
+            if operation == "backup.snapshot.restore":
+                raise StoreError("Adopted restore cannot reuse a caller-selected reservation")
+            effect = ledger.use_reserved_effect(reservation_id, operation=operation,
+                                                inventory_now=inventory_now)
+
+        class Active:
+            def __enter__(inner):
+                self._storage_admission_active = True
+                try:
+                    reservation = effect.__enter__()
+                    self._storage_admission_reservation = (ledger, inventory_now, reservation["id"], reservation)
+                    return reservation
+                except BaseException:
+                    self._storage_admission_active = False
+                    raise
+            def __exit__(inner, exc_type, exc, tb):
+                try:
+                    return effect.__exit__(exc_type, exc, tb)
+                finally:
+                    self._storage_admission_active = False
+                    self._storage_admission_reservation = None
+        return Active()
+
+    def _storage_admission_bind_restore_stage(self, reservation, *, context, stage_identity):
+        """Persist the opened empty-stage identity before a restore writes any retained bytes."""
+        from brain_snapshot import AdmittedRestoreContext
+        if not isinstance(context, AdmittedRestoreContext) or context.restore_grant != "snapshot.restore":
+            raise StoreError("Restore stage binding requires its trusted operator context")
+        active = getattr(self, "_storage_admission_reservation", None)
+        if (active is None or not isinstance(reservation, dict)
+                or reservation.get("id") != active[2]
+                or reservation.get("restoreIntent") is None):
+            raise StoreError("Restore stage binding requires its active durable reservation")
+        context.guard()
+        intent = reservation["restoreIntent"]
+        pins = {
+            "actor": context.actor,
+            "actorMapping": dict(context.actor_mapping),
+            "actorMappingSha256": context.actor_mapping_sha256,
+            "authorizationGrant": context.restore_grant,
+            "authorityBinding": context.authority_binding,
+            "authorityCheckpoint": {"sequence": context.authority_checkpoint["sequence"],
+                                    "digest": context.authority_checkpoint["digest"]},
+            "authorityInstance": context.authority_instance,
+            "authorityStoreId": context.authority_store_id,
+            "clientConfigSha256": context.client_config_sha256,
+            "hostConfigSha256": context.host_config_sha256,
+            "registrationSha256": context.registration_sha256,
+            "retainedRoot": {"id": context.retained_root_id,
+                             "kind": context.retained_root_kind,
+                             "path": str(context.retained_root_path),
+                             "device": context.retained_root_identity[0],
+                             "inode": context.retained_root_identity[1]},
+        }
+        if (intent.get("phase") != "reserved" or intent.get("reservationId") != active[2]
+                or any(intent.get(key) != value for key, value in pins.items())):
+            raise StoreError("Restore stage reservation no longer matches its trusted context")
+        destination = intent.get("destination", {})
+        if (destination.get("path") != str(context.destination_path)
+                or (destination.get("parentDevice"), destination.get("parentInode"))
+                != context.destination_parent_identity):
+            raise StoreError("Restore destination no longer matches its trusted context")
+        persisted = active[0].bind_restore_stage(active[2], operation_id=intent["operationId"],
+                                                 stage_identity=stage_identity)
+        context.guard()
+        return persisted
+
+    def _storage_admission_precommit(self):
+        active = getattr(self, "_storage_admission_reservation", None)
+        if active is not None:
+            ledger, inventory_now, identity, _ = active
+            ledger.check_before_commit(identity, inventory_now=inventory_now)
+
+    def _storage_admission_require(self, additional_bytes):
+        """Preflight a nontransactional retained write without charging it."""
+        self._storage_admission_external_check(additional_bytes, consume=False)
+
+    def _storage_admission_consume(self, additional_bytes):
+        """Charge one bounded external write immediately before its side effect."""
+        return self._storage_admission_external_check(additional_bytes, consume=True)
+
+    def _storage_admission_complete_external(self, token, *, actual_bytes):
+        """Reconcile a precharged write after its bytes appear in inventory."""
+        if token is None:
+            return
+        active = getattr(self, "_storage_admission_reservation", None)
+        if active is not None:
+            active[0].complete_external_write(token, actual_bytes=actual_bytes, inventory_now=active[1])
+            return
+        from brain_storage_admission import active_effect
+        path = Path(self.path).resolve()
+        for parent in (path.parent, *path.parents):
+            effect = active_effect(parent)
+            if effect is not None:
+                if effect["authorityBinding"] != self.contract.binding:
+                    raise StoreError("Managed external write does not match the active brain authority")
+                effect["ledger"].complete_external_write(token, actual_bytes=actual_bytes,
+                                                          inventory_now=effect["inventory"])
+                return
+        raise StoreError("Managed external write completion has no active reservation")
+
+    def _storage_admission_external_check(self, additional_bytes, *, consume):
+        if type(additional_bytes) is not int or additional_bytes < 0:
+            raise StoreError("Storage admission byte bound is invalid")
+        active = getattr(self, "_storage_admission_reservation", None)
+        if active is not None:
+            return active[0].check_external_write(active[2], additional_bytes,
+                                                   inventory_now=active[1], consume=consume)
+        path = Path(self.path).resolve()
+        for parent in (path.parent, *path.parents):
+            registration = parent / "_internal/brain-storage-admission.json"
+            if registration.exists() or registration.is_symlink():
+                from brain_storage_admission import active_effect, load_registration
+                load_registration(parent, required=True)
+                effect = active_effect(parent)
+                if effect is None:
+                    raise StoreError("Managed external writes require an active storage admission reservation")
+                if effect["authorityBinding"] != self.contract.binding:
+                    raise StoreError("Managed external write does not match the active brain authority")
+                return effect["ledger"].check_external_write(effect["identity"], additional_bytes,
+                    inventory_now=effect["inventory"], consume=consume)
 
     def _request_intact(self):
         if getattr(self, "_request_failed", False):
@@ -954,29 +1669,32 @@ class Authority:
         dialect = self.dialect
         nested = dialect.in_transaction and getattr(self, '_request_write', False)
         savepoint = nested and "savepoints" in dialect.capabilities()
-        if savepoint:
-            dialect.savepoint("native_mutation")
-        elif nested:
-            self._request_intact()
-        else:
-            dialect.begin(write=True)
-        try:
-            self._writer_ready()
-            yield
-            self._record_schema_version()
+        admission = self._storage_admission_effect("native.transaction") if not nested else nullcontext()
+        with admission:
             if savepoint:
-                dialect.release("native_mutation")
-            elif not nested:
-                dialect.commit()
-        except BaseException:
-            if savepoint:
-                dialect.rollback_to("native_mutation")
-                dialect.release("native_mutation")
+                dialect.savepoint("native_mutation")
             elif nested:
-                self._request_failed = True
+                self._request_intact()
             else:
-                dialect.rollback()
-            raise
+                dialect.begin(write=True)
+            try:
+                self._writer_ready()
+                yield
+                self._record_schema_version()
+                if savepoint:
+                    dialect.release("native_mutation")
+                elif not nested:
+                    self._storage_admission_precommit()
+                    dialect.commit()
+            except BaseException:
+                if savepoint:
+                    dialect.rollback_to("native_mutation")
+                    dialect.release("native_mutation")
+                elif nested:
+                    self._request_failed = True
+                else:
+                    dialect.rollback()
+                raise
 
     @classmethod
     def initialize(cls, path, bundle, records=(), *, prior_history=None):
@@ -990,6 +1708,11 @@ class Authority:
         contract.graph(records)
         if contract.document["history"]["priorHistory"] == "included" and prior_history is None:
             raise StoreError("declared prior history must be supplied, not silently omitted")
+        # This is a whole-authority filesystem writer. Refuse it under an
+        # adopted brain until initialization has an admission-aware path. Do
+        # not turn remote DSNs into local paths when checking the host root.
+        if cls.dialect_class.driver in LOCAL_DRIVERS:
+            _refuse_adopted_storage_path(path, "authority initialization")
         dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=contract.cell["blobs"] == "db-blob"))
         try:
             for key, value in (("bundle", encoded(bundle)), ("status", "active"), ("instance", secrets.token_hex(16)),
@@ -1167,7 +1890,9 @@ class Authority:
             return
         from studio_app_bindings import require_current_bindings
         try:
-            require_current_bindings(record, self._readable_studio_binding_targets(record, actor, at))
+            require_current_bindings(record, self._readable_studio_binding_targets(record, actor, at),
+                embedded_schema=self.contract.studio_embedded_schema,
+                embedded_enabled=self.contract.studio_embedded_enabled)
         except ValueError as exc:
             raise StoreError(str(exc)) from exc
 
@@ -1297,45 +2022,9 @@ class Authority:
         checkpoint is internal host metadata; consumers receive its fingerprint,
         not the global journal sequence or the instance identifier.
         """
-        for limit in (max_records, max_body_bytes):
-            if limit is not None and (type(limit) is not int or limit < 1):
-                raise StoreError("Invalid snapshot bound")
-        at = at or utcnow()
-        self.dialect.begin()
-        try:
-            state = self._read_state()  # Establish the read snapshot first.
-            if (self.schema_version() != DB_VERSION
-                    or contract_binding(json.loads(self._meta("bundle"))) != self.contract.binding):
-                raise StoreError("authority contract changed; reopen with its adopted binding")
-            readable = sorted(key for key in self.contract.collections if self.contract.can_read(key, actor, at))
-            rows = []
-            if readable:
-                if max_records is not None or max_body_bytes is not None:
-                    count, size = self.dialect.live_volume(readable)
-                    if (max_records is not None and count > max_records or
-                            max_body_bytes is not None and size > max_body_bytes):
-                        raise StoreError("Selected snapshot exceeds its bounds")
-                rows = self.dialect.live_records(readable)
-            records = [json.loads(row["body"]) for row in rows]
-            records = context_records(self.contract, records, at=at)
-            visible_ids = {record["id"] for record in records}
-            rows = [row for row in rows if row["id"] in visible_ids]
-            ids = {record["id"] for record in records}
-            for record in records:
-                record["relations"] = [edge for edge in record["relations"] if edge["target"] in ids]
-            head = self.dialect.journal_head()
-            if head is None:
-                raise StoreError("authority journal has no import checkpoint")
-            checkpoint = {"binding": self.contract.binding, "instance": self._meta("instance"),
-                          "state": state, "sequence": head["sequence"], "digest": head["digest"]}
-            # asOf: when the journal head was written, the knowledge basis of this read.
-            graph = self.contract.graph(records)
-            graph["meta"]["lifecycle"] = {"policySha256": self.contract.policy.binding["sha256"]}
-            return {"graph": graph, "checkpoint": checkpoint, "asOf": head["head_at"],
-                    "revisions": {row["id"]: row["revision"] for row in rows},
-                    "resources": {row["id"]: self.contract.collections[row["collection"]]["resource"] for row in rows}}
-        finally:
-            self.dialect.rollback()
+        return _read_authority_snapshot(self.dialect, self.contract, actor, at=at,
+                                        max_records=max_records, max_body_bytes=max_body_bytes,
+                                        read_state=self._read_state, read_meta=self._meta)
 
     def search(self, text, actor, *, at=None):
         query = text.strip().casefold()
@@ -2048,6 +2737,45 @@ class Authority:
         snapshot["sha256"] = fingerprint(snapshot)
         return snapshot
 
+    def snapshot_serialized_upper_bound(self):
+        """Conservative pre-allocation upper bound for canonical JSON bytes.
+
+        This scans SQLite's fixed authority tables using scalar aggregates; it
+        does not fetch rows or blob contents into Python. The multiplier covers
+        worst-case JSON escaping of each stored byte, and per-cell/row overhead
+        covers keys, punctuation, numbers, and container structure. Database
+        blobs are separately charged for their base64 expansion. This is an
+        admission estimate, not a filesystem-space reservation; callers still
+        enforce the exact canonical representation size after snapshot creation.
+        """
+        if not isinstance(self.dialect, SQLiteDialect) or not self.dialect.in_transaction:
+            raise StoreError("Snapshot preflight requires an active SQLite read transaction")
+        estimate = 4096
+        for table, columns in SNAPSHOT_COLUMNS.items():
+            quoted = ",".join(f"COALESCE(SUM(length(CAST(\"{column}\" AS BLOB))),0)"
+                              for column in columns)
+            row = self.dialect.execute(
+                f'SELECT COUNT(*),{quoted} FROM "{table}"'
+            ).fetchone()
+            row_count = int(row[0])
+            cell_bytes = sum(int(value or 0) for value in row[1:])
+            estimate += cell_bytes * 6 + row_count * (len(columns) * 64 + 256)
+        if self.contract.blob_store is not None and self.contract.cell.get("blobs") == "db-blob":
+            row = self.dialect.execute(
+                "SELECT COUNT(*),COALESCE(SUM(length(content)),0) FROM blob_objects"
+            ).fetchone()
+            blob_count, blob_bytes = int(row[0]), int(row[1] or 0)
+            estimate += (blob_bytes * 2) + blob_count * 256
+        return estimate
+
+    def snapshot_in_read_transaction(self):
+        """Capture the exact full-fidelity snapshot without opening a nested transaction."""
+        if not isinstance(self.dialect, SQLiteDialect) or not self.dialect.in_transaction:
+            raise StoreError("Backup snapshot requires an active SQLite read transaction")
+        snapshot = self._snapshot()
+        self.validate_snapshot(snapshot)
+        return snapshot
+
     def _blob_manifest(self, contract, rows):
         """Blob completeness: `included` carries the bytes (db-blob keeps them in this database);
         `referenced` lists locators whose bytes stay in their blob store."""
@@ -2067,19 +2795,11 @@ class Authority:
         the snapshot. Referenced blobs are read back from `blob_store` and must match their
         locator digests before anything is written.
         """
+        _refuse_adopted_storage_path(path, "authority restore")
         tables, blobs = _restorable(snapshot, cls.dialect_class.driver, blob_store)
         dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=blobs["completeness"] == "included"))
         try:
-            for table, rows in tables.items():
-                for row in rows:
-                    dialect.insert_row(table, row)
-            if blobs["completeness"] == "included":
-                for locator in blobs["locators"]:
-                    dialect.add_blob(locator["key"], decode_blob(blobs["content"][locator["key"]]))
-            dialect.set_meta("status", "standby")
-            dialect.set_meta("instance", secrets.token_hex(16))
-            dialect.set_meta("restoredFrom", snapshot["sha256"])
-            dialect.set_schema_version(DB_VERSION)
+            _populate_standby_authority(dialect, tables, blobs, snapshot, instance=secrets.token_hex(16))
             dialect.commit()
         except BaseException:
             if dialect.in_transaction:
@@ -2118,6 +2838,17 @@ class Authority:
         events = snapshot["tables"]["events"]
         if not events:
             raise StoreError("backup is missing its import history")
+        # Proposals are part of the same native snapshot as the journal. Index their
+        # declared identities before replay so a lifecycle receipt can recover the
+        # proposal-time effect that produced its exact approved `after` record.
+        # The receipt's `at` remains the later commit time used for authorization.
+        proposal_rows = {}
+        for proposal_row in snapshot["tables"]["proposals"]:
+            proposal = json.loads(proposal_row["body"])
+            proposal_id = proposal_row["id"]
+            if proposal.get("id") != proposal_id or proposal_id in proposal_rows:
+                raise StoreError("Backup proposal identity is inconsistent")
+            proposal_rows[proposal_id] = proposal
         for sequence, row in enumerate(events, 1):
             body = json.loads(row["body"])
             if (
@@ -2215,17 +2946,42 @@ class Authority:
                 if mutation in ('strategy', 'confirm', 'archive', 'unarchive', 'supersede'):
                     if not body.get('before') or not after:
                         raise StoreError('lifecycle journal operation requires a live before and after record')
+                    effect_at = body['at']
+                    proposal_id = body.get('proposal')
+                    if proposal_id is not None:
+                        proposal = proposal_rows.get(proposal_id)
+                        if proposal is None:
+                            raise StoreError('Lifecycle journal proposal is missing from the retained authority')
+                        from proposal_disposition import commitment, validate_history
+                        status = validate_history(contract, proposal)
+                        if status != 'approved' or commitment(proposal, [body]) != 'committed':
+                            raise StoreError('Lifecycle journal proposal does not match its approved commit')
+                        review = proposal.get('review')
+                        if (
+                            not isinstance(review, dict)
+                            or set(review) != {"actor", "reason", "at"}
+                            or not isinstance(review["actor"], str)
+                            or not review["actor"].strip()
+                            or not isinstance(review["reason"], str)
+                            or not review["reason"].strip()
+                        ):
+                            raise StoreError('Lifecycle journal proposal lacks its retained independent review')
+                        if not (
+                            timestamp(proposal['at']) <= timestamp(review['at']) <= timestamp(body['at'])
+                        ):
+                            raise StoreError('Lifecycle proposal, review and commit times are inconsistent')
+                        effect_at = proposal['at']
                     resource = body['request']['resource']
                     if mutation == 'strategy':
-                        expected = apply_strategy(contract.policy, resource, body['before'], at=body['at'])['record']
+                        expected = apply_strategy(contract.policy, resource, body['before'], at=effect_at)['record']
                     elif mutation == 'confirm':
-                        expected = confirm_with_strategy(contract.policy, resource, body['before'], at=body['at'])
+                        expected = confirm_with_strategy(contract.policy, resource, body['before'], at=effect_at)
                     elif mutation == 'archive':
-                        expected = archive(body['before'], at=body['at'])
+                        expected = archive(body['before'], at=effect_at)
                     elif mutation == 'unarchive':
-                        expected = unarchive_with_strategy(contract.policy, resource, body['before'], at=body['at'])
+                        expected = unarchive_with_strategy(contract.policy, resource, body['before'], at=effect_at)
                     else:
-                        expected = mark_superseded(body['before'], body['request'].get('successor'), at=body['at'])
+                        expected = mark_superseded(body['before'], body['request'].get('successor'), at=effect_at)
                         successor = replay.get(body['request'].get('successor'))
                         successor_record = json.loads(successor['body']) if successor and not successor['deleted'] else None
                         if not successor_record or not any(edge['rel'] == 'supersedes' and edge['target'] == identity
@@ -2406,6 +3162,7 @@ class Authority:
     def freeze(self, successor, *, expected_snapshot, store=None):
         """Fence this source for the successor instance `successor`; cutover() and resume() also
         name the successor's store id, `store`, which the frozen source keeps as `successorStore`."""
+        _refuse_adopted_storage_path(self.path, "authority cutover")
         fence = _fence(successor, expected_snapshot, store)
         with self.transaction():
             if self._snapshot()["sha256"] != expected_snapshot:
@@ -2416,6 +3173,8 @@ class Authority:
 
     def activate_from(self, source):
         """Finish an interrupted cutover only after the exact source snapshot is frozen."""
+        _refuse_adopted_storage_path(self.path, "authority activation")
+        _refuse_adopted_storage_path(source.path, "authority activation")
         self.dialect.begin(write=True)
         try:
             if (
@@ -2464,6 +3223,10 @@ class Authority:
         migrates in its writer transaction; those are born past version 1, so the
         version-1 DDL (which MySQL would commit implicitly) never runs on them.
         """
+        # Whole-authority migration has no qualified storage-admission path.
+        # The shared guard also refuses orphaned ledger/lock state and unsafe
+        # or changed registrations before the driver can open the authority.
+        _refuse_adopted_storage_path(path, "Schema migration")
         if not cls.dialect_class.exists(path):
             raise StoreError("migration source does not exist")
         dialect = cls.dialect_class.open(path)
@@ -2516,6 +3279,25 @@ def _check_store(store):
         raise StoreError("cutover requires the successor's store id")
 
 
+def _refuse_adopted_storage_path(path, operation):
+    """Fail closed for whole-authority writers until quota-aware paths are qualified."""
+    from brain_storage_admission import load_registration
+    try:
+        # Resolve every existing parent (including symlinks) while allowing a
+        # not-yet-created destination suffix. The storage driver follows parent
+        # symlinks, so lexical ancestors alone do not identify its write root.
+        target = Path(path).resolve(strict=False)
+    except (OSError, RuntimeError, TypeError, ValueError):
+        raise StoreError(f"{operation} target path is unavailable or unsafe") from None
+    for parent in (target.parent, *target.parent.parents):
+        try:
+            (parent / "_internal").lstat()
+        except FileNotFoundError:
+            continue
+        if load_registration(parent) is not None:
+            raise StoreError(f"{operation} is unavailable for an adopted storage-admission brain")
+
+
 def cutover(source, adapter, target, *, store, fault=None, blob_store=None):
     """Graduate `source` (any authority, or a files authority) into a new `adapter` store at `target`.
 
@@ -2525,6 +3307,8 @@ def cutover(source, adapter, target, *, store, fault=None, blob_store=None):
     the target. A fault after the restore or after the freeze leaves a standby target that
     `resume()` completes.
     """
+    _refuse_adopted_storage_path(source.path, "authority cutover")
+    _refuse_adopted_storage_path(target, "authority cutover")
     _check_store(store)
     if source._meta("status") != "active":
         raise StoreError(f"cutover needs an active source; this authority is {source._meta('status')}")
@@ -2549,9 +3333,237 @@ def resume(source, successor, *, store):
     Before the freeze, the source is frozen for the successor only if it still holds exactly
     the snapshot the successor was restored from; after it, the successor is activated.
     """
+    _refuse_adopted_storage_path(source.path, "authority cutover recovery")
+    _refuse_adopted_storage_path(successor.path, "authority cutover recovery")
     if source._meta("status") == "active":
         source.freeze(successor._meta("instance"), expected_snapshot=successor._meta("restoredFrom"), store=store)
     successor.activate_from(source)
+
+
+class SQLiteReadOnlyView:
+    """Narrow host-only reader over a validated in-memory SQLite authority.
+
+    Construct with :meth:`from_root_files`, after the trusted host has completed
+    its normal ProtectionHost.open and source/recipient/purpose checks. RootFiles
+    itself is only a memory container; it is not evidence that those checks ran.
+    This view never exposes the connection or Authority's mutation/admin methods.
+    """
+
+    MAX_RECORDS = 10_000
+    MAX_BODY_BYTES = 16 * 1024 * 1024
+    SQL_DEADLINE_SECONDS = 5.0
+    SQLITE_VALUE_LIMIT = MAX_BODY_BYTES + 1024 * 1024
+    SQLITE_SQL_LIMIT = 64 * 1024
+    _CONSTRUCTION_TOKEN = object()
+
+    def __init__(self, dialect, contract, actor, *, _token=None):
+        if _token is not self._CONSTRUCTION_TOKEN:
+            raise StoreError("Use the host-only from_root_files constructor")
+        self.__dialect = dialect
+        self.__contract = contract
+        self.__actor = actor
+        self.__closed = False
+
+    @classmethod
+    def from_root_files(cls, root_files, database_path, *, expected_binding, actor):
+        """Open one host-selected DB from a RootFiles memory view.
+
+        `expected_binding` must come from independent host selection, never from
+        the RootFiles body or request. The caller remains responsible for having
+        opened that exact protected representation with ProtectionHost and for
+        rechecking its current source, recipient, purpose and native identity.
+        """
+        if not isinstance(expected_binding, str) or not expected_binding:
+            raise StoreError("An independently selected native binding is required")
+        if not isinstance(actor, str) or not actor or len(actor) > 256:
+            raise StoreError("A host-mapped native actor is required")
+        deadline = time.monotonic() + cls.SQL_DEADLINE_SECONDS
+        from brain_protection import ProtectionError, RootFiles
+
+        if not isinstance(root_files, RootFiles):
+            raise StoreError("A host-selected RootFiles view is required")
+        if time.monotonic() >= deadline:
+            raise StoreError("Native SQLite admission exceeded its deadline")
+        try:
+            connection = root_files.sqlite(database_path, deadline=deadline)
+        except ProtectionError as exc:
+            if exc.args == ("sqlite-admission-deadline",):
+                raise StoreError("Native SQLite admission exceeded its SQL deadline") from None
+            raise
+        if time.monotonic() >= deadline:
+            try:
+                connection.close()
+            except BaseException:
+                pass
+            raise StoreError("Native SQLite admission exceeded its deadline")
+        return cls._from_connection(
+            connection, expected_binding=expected_binding, actor=actor, deadline=deadline)
+
+    @classmethod
+    def _from_connection(cls, connection, *, expected_binding, actor, deadline=None):
+        """Consume and validate a new private connection; internal use only."""
+        dialect = None
+        progress_installed = False
+        if deadline is None:
+            deadline = time.monotonic() + cls.SQL_DEADLINE_SECONDS
+
+        def check_deadline():
+            if time.monotonic() >= deadline:
+                raise StoreError("Native SQLite admission exceeded its SQL deadline")
+
+        def close_failed_connection():
+            if progress_installed:
+                try:
+                    connection.set_progress_handler(None, 0)
+                except BaseException:
+                    pass
+            if dialect is not None:
+                try:
+                    dialect.close()
+                except BaseException:
+                    pass
+            else:
+                try:
+                    connection.close()
+                except BaseException:
+                    pass
+
+        try:
+            import sqlite3
+
+            if not isinstance(expected_binding, str) or not expected_binding:
+                raise StoreError("An independently selected native binding is required")
+            if not isinstance(actor, str) or not actor or len(actor) > 256:
+                raise StoreError("A host-mapped native actor is required")
+            if not isinstance(connection, sqlite3.Connection):
+                raise StoreError("SQLite connection required")
+            check_deadline()
+            connection.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
+            progress_installed = True
+            if connection.in_transaction:
+                raise StoreError("An active SQLite transaction cannot be admitted")
+            databases = connection.execute("PRAGMA database_list").fetchall()
+            check_deadline()
+            if (len(databases) != 1 or databases[0][1] != "main" or databases[0][2] != ""):
+                raise StoreError("Only a private in-memory main database is supported")
+            # The connection comes from RootFiles.sqlite, but reassert every
+            # connection-level property before parsing native metadata.
+            connection.execute("PRAGMA temp_store=MEMORY")
+            check_deadline()
+            if connection.execute("PRAGMA temp_store").fetchone()[0] != 2:
+                check_deadline()
+                raise StoreError("SQLite memory-only temporary storage is required")
+            check_deadline()
+            compile_options = connection.execute("PRAGMA compile_options").fetchall()
+            check_deadline()
+            if ("TEMP_STORE=0",) in compile_options:
+                raise StoreError("SQLite memory-only temporary storage is unavailable")
+            connection.execute("PRAGMA query_only=ON")
+            check_deadline()
+            if connection.execute("PRAGMA query_only").fetchone()[0] != 1:
+                check_deadline()
+                raise StoreError("SQLite query-only mode is required")
+            check_deadline()
+            connection.execute("PRAGMA foreign_keys=ON")
+            check_deadline()
+            if connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
+                check_deadline()
+                raise StoreError("SQLite foreign-key checks are required")
+            enable_extensions = getattr(connection, "enable_load_extension", None)
+            if not callable(enable_extensions):
+                raise StoreError("SQLite extension loading cannot be disabled")
+            enable_extensions(False)
+            limits = (
+                (sqlite3.SQLITE_LIMIT_LENGTH, cls.SQLITE_VALUE_LIMIT),
+                (sqlite3.SQLITE_LIMIT_SQL_LENGTH, cls.SQLITE_SQL_LIMIT),
+                (sqlite3.SQLITE_LIMIT_COLUMN, 512),
+                (sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 1000),
+                (sqlite3.SQLITE_LIMIT_COMPOUND_SELECT, 100),
+                (sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 999),
+                (sqlite3.SQLITE_LIMIT_ATTACHED, 0),
+            )
+            set_limit = getattr(connection, "setlimit", None)
+            get_limit = getattr(connection, "getlimit", None)
+            if not callable(set_limit) or not callable(get_limit):
+                raise StoreError("SQLite connection limits are unavailable")
+            for category, limit in limits:
+                check_deadline()
+                set_limit(category, limit)
+                if get_limit(category) > limit:
+                    raise StoreError("SQLite connection limit could not be enforced")
+                check_deadline()
+            if connection.in_transaction:
+                raise StoreError("SQLite connection unexpectedly entered a transaction")
+            check_deadline()
+            dialect = SQLiteDialect(connection)
+            contract = _validate_authority_dialect(
+                dialect, expected_binding=expected_binding, require_driver=SQLiteAuthority._require_driver)
+            check_deadline()
+            connection.set_progress_handler(None, 0)
+            progress_installed = False
+            return cls(dialect, contract, actor, _token=cls._CONSTRUCTION_TOKEN)
+        except StoreError:
+            close_failed_connection()
+            raise
+        except (sqlite3.Error, ValueError):
+            timed_out = time.monotonic() >= deadline
+            close_failed_connection()
+            if timed_out:
+                raise StoreError("Native SQLite admission exceeded its SQL deadline") from None
+            raise StoreError("Invalid native SQLite authority") from None
+        except BaseException:
+            close_failed_connection()
+            raise
+
+    def _ensure_open(self):
+        if self.__closed:
+            raise StoreError("Native read view is closed")
+
+    def _meta(self, key):
+        value = self.__dialect.meta(key)
+        if value is None:
+            raise StoreError(f"missing authority metadata: {key}")
+        return value
+
+    def _read_state(self):
+        state = self._meta("status")
+        if state == "frozen":
+            raise StoreError("source authority is frozen; read from its declared successor")
+        return state
+
+    def read_snapshot(self):
+        """Return the policy-filtered graph projection, never canonical bodies."""
+        import sqlite3
+
+        self._ensure_open()
+        at = utcnow()
+        deadline = time.monotonic() + self.SQL_DEADLINE_SECONDS
+        connection = self.__dialect.db
+        connection.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
+        try:
+            result = _read_authority_snapshot(
+                self.__dialect, self.__contract, self.__actor, at=at,
+                max_records=self.MAX_RECORDS, max_body_bytes=self.MAX_BODY_BYTES,
+                read_state=self._read_state, read_meta=self._meta)
+            if time.monotonic() >= deadline:
+                raise StoreError("Native snapshot exceeded its read deadline")
+            return result
+        except sqlite3.Error as exc:
+            raise StoreError("Native snapshot read failed") from exc
+        finally:
+            connection.set_progress_handler(None, 0)
+
+    def close(self):
+        if not self.__closed:
+            self.__closed = True
+            self.__dialect.close()
+
+    def __enter__(self):
+        self._ensure_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):
+        self.close()
 
 
 class SQLiteAuthority(Authority):
@@ -2662,6 +3674,7 @@ class FileReference:
     @classmethod
     def restore(cls, path, snapshot, *, blob_store=None):
         """Write a standby files authority from a snapshot of any driver (see Authority.restore)."""
+        _refuse_adopted_storage_path(path, "authority restore")
         tables, _ = _restorable(snapshot, cls.driver, blob_store)
         metadata = {row["key"]: row["value"] for row in tables["metadata"]}
         metadata.update(status="standby", instance=secrets.token_hex(16), restoredFrom=snapshot["sha256"])
@@ -2681,6 +3694,7 @@ class FileReference:
 
     def freeze(self, successor, *, expected_snapshot, store=None):
         """Fence this source for `successor`, as Authority.freeze."""
+        _refuse_adopted_storage_path(self.path, "authority cutover")
         fence = _fence(successor, expected_snapshot, store)
         with self._locked():
             current = json.loads(self.path.read_text())
@@ -2693,6 +3707,8 @@ class FileReference:
 
     def activate_from(self, source):
         """Finish a cutover into this file only after the exact source snapshot is frozen."""
+        _refuse_adopted_storage_path(self.path, "authority activation")
+        _refuse_adopted_storage_path(source.path, "authority activation")
         with self._locked():
             self._load(json.loads(self.path.read_text()))
             if (

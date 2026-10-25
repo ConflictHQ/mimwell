@@ -30,6 +30,13 @@ answering for up to an hour; past that, or with no set yet, verification is
 unavailable rather than open.
 
 Errors never carry the token or its claims.
+
+The optional contract-1 read-principal consumer is disabled unless the host
+explicitly supplies `typed_principals_enabled=True` and its expected org GUID.
+It accepts only signed canonical GUID claims for org/team/workload/app and
+returns read principals separately from email. The configured org is exact;
+the existing 8192-byte token ceiling bounds parsing locally. This consumer does
+not change issuer behavior, native identity mappings, or writer grants.
 """
 from __future__ import annotations
 
@@ -73,6 +80,8 @@ class Caller:
     subject: str
     email: str
     expires: int
+    access_principals: tuple[str, ...] = ()
+    contract: str | None = None
 
 
 def _b64url(segment):
@@ -183,10 +192,21 @@ def parse_jwks(raw):
     return keys
 
 
+_GUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
+# The existing encoded-token ceiling bounds this local parser work. This is not
+# an issuer guarantee or a cross-service claim-size contract.
+MAX_TYPED_TEAM_ENTRIES = MAX_TOKEN_BYTES // 38
+
+
+def _canonical_guid(value):
+    return isinstance(value, str) and _GUID.fullmatch(value) is not None
+
+
 class TokenVerifier:
     """Verify brain read tokens for one brain (`audience`) of one install (`issuer`)."""
 
-    def __init__(self, *, jwks_url, issuer, audience, fetch=fetch_jwks, clock=time.time):
+    def __init__(self, *, jwks_url, issuer, audience, fetch=fetch_jwks, clock=time.time,
+                 typed_principals_enabled=False, expected_org_guid=None):
         if not isinstance(issuer, str) or not issuer.strip():
             raise ValueError("BRAIN_MCP_ISSUER must name the install that issues brain tokens")
         if not isinstance(audience, str) or not audience.strip():
@@ -196,6 +216,14 @@ class TokenVerifier:
         self.audience = audience
         self._fetch = fetch
         self._clock = clock
+        if not isinstance(typed_principals_enabled, bool):
+            raise ValueError("typed principal opt-in must be boolean")
+        if typed_principals_enabled and not _canonical_guid(expected_org_guid):
+            raise ValueError("typed principals require a canonical expected organization GUID")
+        if not typed_principals_enabled and expected_org_guid is not None:
+            raise ValueError("expected organization GUID requires typed principal opt-in")
+        self.typed_principals_enabled = typed_principals_enabled
+        self.expected_org_guid = expected_org_guid
         self._lock = Lock()
         self._keys = None
         self._fetched_at = None
@@ -284,4 +312,45 @@ class TokenVerifier:
         if not isinstance(subject, str) or not subject.strip():
             raise TokenError("token names no subject")
         email = claims.get("email")
-        return Caller(subject=subject, email=email.strip() if isinstance(email, str) else "", expires=int(expires))
+        return self._verified_caller(claims, subject, email, int(expires))
+
+    def _verified_caller(self, claims, subject, email, expires):
+        typed_claims = {"contract", "sub_kind", "org", "teams", "agent", "app"}
+        explicit = typed_claims.intersection(claims)
+        if not explicit:
+            return Caller(subject=subject, email=email.strip() if isinstance(email, str) else "", expires=expires)
+        if claims.get("contract") != "1":
+            raise TokenError("unsupported explicit token contract")
+        if not self.typed_principals_enabled:
+            raise TokenError("typed token contract is not enabled for this brain")
+        if explicit != {"contract", "sub_kind", "org", "teams"} | ({"agent"} if claims.get("sub_kind") == "agent" else set()) | ({"app"} if claims.get("sub_kind") == "app" else set()):
+            raise TokenError("malformed typed token contract")
+        if claims.get("sub_kind") not in ("user", "agent", "app"):
+            raise TokenError("unknown typed token subject kind")
+        if claims.get("org") != self.expected_org_guid or not _canonical_guid(claims.get("org")):
+            raise TokenError("typed token organization does not match this brain")
+        teams = claims.get("teams")
+        if (not isinstance(teams, list) or len(teams) > MAX_TYPED_TEAM_ENTRIES
+                or any(not _canonical_guid(team) for team in teams)
+                or len(set(teams)) != len(teams)):
+            raise TokenError("malformed typed token teams")
+        kind = claims["sub_kind"]
+        typed = [f"team:{team}" for team in teams]
+        if kind == "user":
+            if not isinstance(email, str) or not email.strip() or "agent" in claims or "app" in claims:
+                raise TokenError("malformed typed user token")
+        elif kind == "agent":
+            if (not _canonical_guid(claims.get("agent")) or "app" in claims
+                    or subject != f"agent:{claims.get('agent')}"):
+                raise TokenError("malformed typed agent token")
+            typed.append(f"agent:{claims['agent']}")
+        else:
+            if (not _canonical_guid(claims.get("app")) or "agent" in claims
+                    or subject != f"app:{claims.get('app')}"):
+                raise TokenError("malformed typed app token")
+            typed.append(f"app:{claims['app']}")
+        # Non-person principals are read-only here. Do not let an optional email
+        # claim turn an app/workload token into a native proposal actor.
+        trusted_email = email.strip() if kind == "user" and isinstance(email, str) else ""
+        return Caller(subject=subject, email=trusted_email, expires=expires,
+                      access_principals=tuple(typed), contract="1")

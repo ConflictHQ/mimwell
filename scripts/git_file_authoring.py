@@ -247,20 +247,22 @@ def _load_pins(root: Path, entry: dict) -> dict:
         raise StoreError("Git writer refuses incomplete or borrowed object stores")
     if _git(repo, "for-each-ref", "--format=%(refname)", "refs/replace"):
         raise StoreError("Git writer refuses replacement refs")
-    for pattern in (r"^include\.", r"^includeIf\.", r"^core\.worktree$", r"^extensions\.worktreeConfig$"):
-        included = subprocess.run(["git", "--no-replace-objects", "--git-dir", str(repo), "config", "--local",
-                                   "--get-regexp", pattern], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                  env=_git_environment(), timeout=5, check=False)
-        if included.returncode == 0:
-            raise StoreError("Git writer refuses included or worktree configuration")
-        if included.returncode != 1:
-            raise StoreError("Git writer repository configuration is invalid")
-    remotes = subprocess.run(["git", "--no-replace-objects", "--git-dir", str(repo), "config", "--local",
-                              "--get-regexp", "^remote\\."], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    # Git normalizes section/variable keys to lowercase. Use lowercase
+    # alternatives: its key-regexp normalization only folds the first/last
+    # pieces of a compound pattern, not each alternative independently.
+    blocked = subprocess.run(["git", "--no-replace-objects", "--git-dir", str(repo), "config", "--local",
+                              "--null", "--name-only", "--get-regexp",
+                              r"^(include\.|includeif\.|core\.worktree$|extensions\.worktreeconfig$|remote\.)"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              env=_git_environment(), timeout=5, check=False)
-    if remotes.returncode == 0:
+    if blocked.returncode == 0:
+        keys = blocked.stdout.split(b"\0")
+        if not keys[-1] == b"" or not any(keys):
+            raise StoreError("Git writer repository configuration is invalid")
+        if any(not key.startswith(b"remote.") for key in keys if key):
+            raise StoreError("Git writer refuses included or worktree configuration")
         raise StoreError("Git writer refuses a repository configured with remote services")
-    if remotes.returncode != 1:
+    if blocked.returncode != 1:
         raise StoreError("Git writer repository configuration is invalid")
     source_commit = _git(repo, "rev-parse", "--verify", entry["sourceRef"]).decode().strip()
     return {"repo": repo, "config": config, "schema": schema, "schemaBytes": schema_bytes,
@@ -590,10 +592,24 @@ def capabilities(entry: dict, actor: str) -> list[str]:
 
 
 def run_operation(root: Path, entry: dict, operation: str, args: dict, *, actor: str,
-                  actors: dict, clock, guard):
+                  actors: dict, clock, guard, record_mode=None):
+    if record_mode == "registered-json-record/v2":
+        if operation not in ("file.inspect", "file.propose") or entry["writer"] != "json-commit":
+            raise StoreError("Unsupported JSON value mode")
+    elif record_mode is not None and (record_mode != "registered-json-record/v1" or
+                                    operation not in ("file.inspect", "file.propose") or
+                                    entry["writer"] != "json-commit"):
+        raise StoreError("Unsupported registered record mode")
     pin = _load_pins(root, entry)
     if operation == "file.inspect":
         blob, raw = _tree_entry(pin, pin["sourceCommit"])
+        if record_mode == "registered-json-record/v2":
+            from knowledge_file_json_values import preview_field_wires, value_profile
+            return (preview_field_wires(pin, raw, args) if "fieldWires" in args
+                    else value_profile(pin, raw, args["recordIndex"]))
+        if record_mode is not None:
+            from knowledge_file_record_patch import record_profile
+            return record_profile(pin, raw, args["recordIndex"])
         document = _document(pin, raw)
         result = {"path": pin["path"], "writer": entry["writer"],
                 "sourceCommit": pin["sourceCommit"], "blobSha256": hashlib.sha256(raw).hexdigest(),
@@ -626,37 +642,49 @@ def run_operation(root: Path, entry: dict, operation: str, args: dict, *, actor:
         request_id = args["requestId"]
         if not isinstance(request_id, str) or not _ID.fullmatch(request_id):
             raise StoreError("File requestId must be a UUID")
-        if operation == "file.propose-binary":
-            if entry["writer"] != "binary-commit" or not isinstance(args["contentBase64"], str):
-                raise StoreError("Binary proposal does not match the registered writer")
-            encoded_content = args["contentBase64"]
-            if len(encoded_content) > 699052:
-                raise StoreError("Encoded binary asset exceeds its limit")
-            try:
-                document_bytes = base64.b64decode(encoded_content, validate=True)
-            except (binascii.Error, ValueError) as exc:
-                raise StoreError("Binary asset must use canonical Base64") from exc
-            if base64.b64encode(document_bytes).decode("ascii") != encoded_content:
-                raise StoreError("Binary asset must use canonical Base64")
+        if record_mode == "registered-json-record/v2":
+            from knowledge_operation_json_values import validate_value_arguments
+            validate_value_arguments(operation, args)
+            request_content = {"recordValueCorrection": {key: args[key] for key in (
+                "requestId", "expectedSelectionSha256", "recordIndex", "expectedRecordSha256", "fieldWires")}}
+        elif record_mode is not None:
+            # Hash ORIGINAL typed request, not a candidate recomputed from a later head.
+            from knowledge_operation_file_records import validate_record_arguments
+            validate_record_arguments(operation, args)
+            request_content = {"recordCorrection": {key: args[key] for key in (
+                "requestId", "expectedSelectionSha256", "recordIndex", "expectedRecordSha256", "fields")}}
         else:
-            document_wire = args["documentWire"]
-            if not isinstance(document_wire, str):
-                raise StoreError("Proposed file content must be text")
-            try:
-                document_bytes = document_wire.encode("utf-8", "strict")
-            except UnicodeEncodeError as exc:
-                raise StoreError("Proposed file content is not valid UTF-8") from exc
+            if operation == "file.propose-binary":
+                if entry["writer"] != "binary-commit" or not isinstance(args["contentBase64"], str):
+                    raise StoreError("Binary proposal does not match the registered writer")
+                encoded_content = args["contentBase64"]
+                if len(encoded_content) > 699052:
+                    raise StoreError("Encoded binary asset exceeds its limit")
+                try:
+                    document_bytes = base64.b64decode(encoded_content, validate=True)
+                except (binascii.Error, ValueError) as exc:
+                    raise StoreError("Binary asset must use canonical Base64") from exc
+                if base64.b64encode(document_bytes).decode("ascii") != encoded_content:
+                    raise StoreError("Binary asset must use canonical Base64")
+            else:
+                document_wire = args["documentWire"]
+                if not isinstance(document_wire, str):
+                    raise StoreError("Proposed file content must be text")
+                try:
+                    document_bytes = document_wire.encode("utf-8", "strict")
+                except UnicodeEncodeError as exc:
+                    raise StoreError("Proposed file content is not valid UTF-8") from exc
+                if entry["writer"] == "binary-commit":
+                    raise StoreError("Binary assets require the binary proposal operation")
+            if len(document_bytes) > pin["entry"]["maxBytes"]:
+                raise StoreError("Proposed file content exceeds its limit")
             if entry["writer"] == "binary-commit":
-                raise StoreError("Binary assets require the binary proposal operation")
-        if len(document_bytes) > pin["entry"]["maxBytes"]:
-            raise StoreError("Proposed file content exceeds its limit")
-        if entry["writer"] == "binary-commit":
-            proposed_document = document_bytes
-        else:
-            proposed_document = (document_wire if pin["entry"]["writer"] == "markdown-commit"
-                                 else _parse_document(document_bytes))
-        request_content = ({"contentSha256": hashlib.sha256(document_bytes).hexdigest()}
-                           if entry["writer"] == "binary-commit" else {"documentWire": document_wire})
+                proposed_document = document_bytes
+            else:
+                proposed_document = (document_wire if pin["entry"]["writer"] == "markdown-commit"
+                                     else _parse_document(document_bytes))
+            request_content = ({"contentSha256": hashlib.sha256(document_bytes).hexdigest()}
+                               if entry["writer"] == "binary-commit" else {"documentWire": document_wire})
         request_digest = fingerprint({"expectedRevision": args["expectedRevision"], "reason": args["reason"],
                                       **request_content, "actorSha256": _actor_hash(actor)})
         existing = _ref_value(pin, _ref("proposals", request_id))
@@ -673,6 +701,14 @@ def run_operation(root: Path, entry: dict, operation: str, args: dict, *, actor:
             raise StoreError("File source changed; inspect and draft again")
         if not isinstance(args["reason"], str) or not args["reason"].strip() or len(args["reason"]) > 2000:
             raise StoreError("A bounded file change reason is required")
+        if record_mode == "registered-json-record/v2":
+            from knowledge_file_json_values import apply_field_wires
+            proposed_document = apply_field_wires(pin, current_raw, args["recordIndex"],
+                                                 args["expectedRecordSha256"], args["fieldWires"])
+        elif record_mode is not None:
+            from knowledge_file_record_patch import apply_record_fields
+            proposed_document = apply_record_fields(pin, current_raw, args["recordIndex"],
+                                                    args["expectedRecordSha256"], args["fields"])
         value, raw = _write_document(pin, current_document, proposed_document, clock(), args["reason"])
         content_sha = hashlib.sha256(raw).hexdigest()
         new_blob = _git(pin["repo"], "hash-object", "-w", "--stdin", input_bytes=raw).decode().strip()

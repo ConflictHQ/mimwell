@@ -24,6 +24,9 @@ from intake_extraction import bounded_metadata
 from intake_timing import timed_segment
 from knowledge_policy import fingerprint
 from local_classifier import document, pinned
+from owned_process import (
+    OwnedProcessError, require_waitid, wait_unreaped_leader, kill_process_group,
+)
 
 
 class MediaError(ValueError):
@@ -121,6 +124,10 @@ def execute(binary, files, argv, *, library_directories, timeout, output_cap, re
     """
     if os.name != 'posix':
         raise MediaError('Media process boundary requires POSIX')
+    try:
+        require_waitid()
+    except OwnedProcessError as exc:
+        raise MediaError(str(exc)) from exc
     with tempfile.TemporaryDirectory(prefix='brain-media-') as temp:
         executable = Path(temp) / 'engine'
         executable.write_bytes(binary)
@@ -138,9 +145,9 @@ def execute(binary, files, argv, *, library_directories, timeout, output_cap, re
         with selectors.DefaultSelector() as selector:
             process = subprocess.Popen([str(executable), *argv], stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=temp, env=env, start_new_session=True)
-            output, errors = bytearray(), bytearray()
-            deadline = time.monotonic() + timeout
             try:
+                output, errors = bytearray(), bytearray()
+                deadline = time.monotonic() + timeout
                 selector.register(process.stdout, selectors.EVENT_READ, (output, output_cap))
                 selector.register(process.stderr, selectors.EVENT_READ, (errors, 65_536))
                 while selector.get_map():
@@ -157,19 +164,25 @@ def execute(binary, files, argv, *, library_directories, timeout, output_cap, re
                         if len(target) > cap:
                             raise MediaError('Media process output budget exceeded')
                 remaining = deadline - time.monotonic()
-                if remaining <= 0 or process.wait(timeout=remaining) != 0 or reject_diagnostics and errors:
+                if remaining <= 0:
+                    raise MediaError('Media process deadline exceeded')
+                observed = wait_unreaped_leader(process, remaining, 'Media process deadline exceeded')
+                if observed.si_code != os.CLD_EXITED or observed.si_status != 0 or reject_diagnostics and errors:
                     raise MediaError('Media process failed')
                 return bytes(output)
-            except subprocess.TimeoutExpired as exc:
-                raise MediaError('Media process deadline exceeded') from exc
+            except OwnedProcessError as exc:
+                raise MediaError(str(exc)) from exc
             finally:
                 try:
-                    os.killpg(process.pid, 9)
-                except ProcessLookupError:
-                    pass
-                process.wait()
-                process.stdout.close()
-                process.stderr.close()
+                    # The leader stays waitable through the final group signal.
+                    kill_process_group(process)
+                except OwnedProcessError as exc:
+                    raise MediaError('Media process cleanup failed') from exc
+                finally:
+                    try:
+                        process.stdout.close()
+                    finally:
+                        process.stderr.close()
 
 
 def wav_bytes(pcm):

@@ -25,6 +25,7 @@ import importlib
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 import tempfile
 from urllib.parse import urlsplit
 
@@ -125,14 +126,43 @@ class BlobStore:
     def __init__(self, store_id):
         self.store_id = store_id
 
-    def put(self, key, data, media_type):
-        value = locator(self.store_id, check_key(key), bytes(data), media_type)
+        self._host_writer_route = None
+
+    def _guard_host_write(self):
+        if self._host_writer_route is not None:
+            self._host_writer_route.validate()
+
+    def put(self, key, data, media_type, *, _before_publish=None):
+        if _before_publish is not None and not callable(_before_publish):
+            raise StoreError("Blob publication guard must be host-owned and callable")
+        data = bytes(data)
+        value = locator(self.store_id, check_key(key), data, media_type)
+        self._guard_host_write()
         existing = self._read(key)
         if existing is None:
-            self._write(key, bytes(data), media_type)
-        elif existing != bytes(data):
+            charge = (self._host_writer_route.charge_blob(key, data)
+                      if self._host_writer_route is not None else None)
+            before_publish = _before_publish
+            if self._host_writer_route is not None and self.driver == "fs":
+                def before_publish(staged):
+                    if _before_publish is not None:
+                        _before_publish(staged)
+                    self._guard_host_write()
+            if before_publish is None:
+                self._write(key, data, media_type)
+            else:
+                self._write_guarded(key, data, media_type, before_publish)
+            if self._host_writer_route is not None:
+                self._host_writer_route.complete_blob(charge)
+        elif existing != data:
             raise StoreError(f"blob key already holds different content: {key}")
+        elif _before_publish is not None:
+            _before_publish(existing)
         return value
+
+    def _write_guarded(self, key, data, media_type, before_publish):
+        # No driver may silently discard a requested authoritative boundary.
+        raise StoreError("Blob driver has no qualified guarded publication boundary")
 
     def get(self, locator):
         check_locator(locator)
@@ -162,6 +192,7 @@ class FsBlobStore(BlobStore):
         return path.read_bytes() if path.is_file() else None
 
     def _write(self, key, data, media_type):
+        self._guard_host_write()
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, temporary = tempfile.mkstemp(prefix=".blob-", dir=path.parent)
@@ -170,6 +201,37 @@ class FsBlobStore(BlobStore):
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
+            self._guard_host_write()
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+
+    def _write_guarded(self, key, data, media_type, before_publish):
+        """Validate the exact owned ciphertext temporary before immutable publication."""
+        self._guard_host_write()
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix=".blob-", dir=path.parent)
+        try:
+            with os.fdopen(fd, "w+b") as stream:
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+                opened = os.fstat(stream.fileno())
+                named = os.stat(temporary, follow_symlinks=False)
+                if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.geteuid()
+                        or opened.st_mode & 0o077 or opened.st_nlink != 1
+                        or opened.st_size != len(data)
+                        or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)):
+                    raise StoreError("Owned blob temporary changed before publication")
+                stream.seek(0)
+                staged = stream.read(len(data) + 1)
+                if staged != data:
+                    raise StoreError("Staged blob differs from its exact content pin")
+                before_publish(staged)
+            self._guard_host_write()
             os.replace(temporary, path)
         finally:
             if os.path.exists(temporary):
@@ -195,15 +257,16 @@ class DbBlobStore(BlobStore):
         key, content, options = cls.TYPES[driver]
         return f"CREATE TABLE blob_objects (blob_key {key} PRIMARY KEY, content {content} NOT NULL){options}"
 
-    def put(self, key, data, media_type):
+    def put(self, key, data, media_type, *, _before_publish=None):
         if len(data) > self.max_bytes:
             raise StoreError(f"db-blob holds at most {self.max_bytes} bytes per blob; {key} is {len(data)}")
-        return super().put(key, data, media_type)
+        return super().put(key, data, media_type, _before_publish=_before_publish)
 
     def _read(self, key):
         return self.dialect.blob(key)
 
     def _write(self, key, data, media_type):
+        self._guard_host_write()
         self.dialect.add_blob(key, data)
 
 

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/binary-asset/v1",
+  "title": "Bounded binary source metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mediaType",
+    "bytes",
+    "sha256"
+  ],
+  "properties": {
+    "mediaType": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 127
+    },
+    "bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 524288
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

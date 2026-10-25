@@ -1,0 +1,611 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation-request/v6",
+  "title": "Selected local Git file and publication-group request",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.history"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "limit"
+          ],
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedRevision",
+            "requestId",
+            "reason",
+            "documentWire"
+          ],
+          "properties": {
+            "expectedRevision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "documentWire": {
+              "type": "string",
+              "maxLength": 262144
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.proposal-inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.review"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal",
+            "expectedProposalSha256",
+            "reason"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedProposalSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.publish"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal",
+            "expectedProposalSha256"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedProposalSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.propose-binary"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedRevision",
+            "requestId",
+            "reason",
+            "contentBase64"
+          ],
+          "properties": {
+            "expectedRevision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "contentBase64": {
+              "type": "string",
+              "maxLength": 699052,
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedGroupRevision",
+            "expectedAuthorizationSha256",
+            "requestId",
+            "reason",
+            "documentWire"
+          ],
+          "properties": {
+            "expectedGroupRevision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "documentWire": {
+              "type": "string",
+              "maxLength": 65536
+            },
+            "expectedAuthorizationSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.propose-binary"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedGroupRevision",
+            "expectedAuthorizationSha256",
+            "requestId",
+            "reason",
+            "contentBase64"
+          ],
+          "properties": {
+            "expectedGroupRevision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "contentBase64": {
+              "type": "string",
+              "maxLength": 699052,
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+            },
+            "expectedAuthorizationSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.proposal-inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.review"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal",
+            "expectedProposalSha256",
+            "reason"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedProposalSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.destination-publish"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal",
+            "expectedProposalSha256",
+            "destination"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "expectedProposalSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "destination": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v6"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.group.status"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "proposal"
+          ],
+          "properties": {
+            "proposal": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import fcntl
 import base64
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -58,10 +59,29 @@ class SessionStore:
         self.max_sessions = max_sessions
         self.max_actor_sessions = max_actor_sessions
         self.ttl_seconds = ttl_seconds
+        self.admission_effect = None
+        self._host_writer_route = None
+        # A trusted embedding host may seal payload-bearing fields before the
+        # atomic session-file write and reopen them after the bounded read.
+        # The default stays unset for existing plaintext SessionStore users.
+        self.protection_codec = None
+        # The embedding host may revalidate exact sealed bytes immediately
+        # before publication. Generic SessionStore users keep their old codec.
+        self.protection_precommit = None
         if any(type(value) is not int or value <= 0 for value in
                (max_total_bytes, max_sessions, max_actor_sessions, ttl_seconds)):
             raise ValueError("Invalid Studio App session limits")
         self._prepare_directory()
+
+    @classmethod
+    def for_host(cls, root):
+        """Bind the actual host-selected root, never infer a brain from a pathname."""
+        from brain_storage_admission import HostWriterRoute, load_registration
+        root = Path(root).resolve(strict=True)
+        load_registration(root)  # refuse unsafe/orphan state before directory effects
+        sessions = cls(root / "_internal/studio-app-sessions")
+        sessions._host_writer_route = HostWriterRoute(root, sessions)
+        return sessions
 
     def _prepare_directory(self):
         parent = self.directory.parent
@@ -216,12 +236,60 @@ class SessionStore:
         value = json.loads(raw)
         if not isinstance(value, dict) or value.get("format") != "studio-app-session/v1":
             raise StoreError("Studio App session is malformed")
+        if callable(self.protection_codec):
+            value = self.protection_codec("open", value, path.stem)
+            if not isinstance(value, dict) or value.get("format") != "studio-app-session/v1":
+                raise StoreError("Studio App protected session is malformed")
         return value
 
-    def _write(self, path, value, dirfd=None):
-        raw = encode(value)
+    def _serialized(self, path, value):
+        persisted = (self.protection_codec("seal", deepcopy(value), path.stem)
+                     if callable(self.protection_codec) else value)
+        raw = encode(persisted)
         if len(raw) > MAX_SESSION_BYTES:
             raise StoreError("Studio App session exceeds its limit")
+        return raw
+
+    def _retained_total_for_write(self, dirfd):
+        total = 0
+        with os.scandir(dirfd) as entries:
+            all_names = [entry.name for entry in entries]
+        if any(name.startswith(".session-") for name in all_names):
+            raise StoreError("Studio App session temporary requires owner reconciliation")
+        names = [name for name in all_names if re.fullmatch(r"[0-9a-f]{64}\.json", name)]
+        if len(names) > self.max_sessions:
+            raise StoreError("Studio App session host exceeds its configured capacity")
+        for name in names:
+            try:
+                info = os.stat(name, dir_fd=dirfd, follow_symlinks=False)
+            except OSError as exc:
+                raise StoreError("Studio App session inventory changed") from exc
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                    or info.st_mode & 0o077 or info.st_nlink != 1):
+                raise StoreError("Studio App session inventory is unsafe")
+            total += info.st_size
+            if total > self.max_total_bytes:
+                raise StoreError("Studio App session host exceeds its configured capacity")
+        return total
+
+    def _staged_for_publication(self, stream, temporary, dirfd, raw):
+        """Verify the exact owned fsynced temporary, without resealing payloads."""
+        self._validate_directory_fd(dirfd)
+        before = self._validate_fd(stream.fileno(), temporary, dirfd, max_bytes=MAX_SESSION_BYTES)
+        if stat.S_IMODE(before.st_mode) != 0o600 or before.st_size != len(raw):
+            raise StoreError("Studio App staged session size changed")
+        stream.seek(0)
+        staged = stream.read(len(raw) + 1)
+        after = self._validate_fd(stream.fileno(), temporary, dirfd, max_bytes=MAX_SESSION_BYTES)
+        fields = ("st_dev", "st_ino", "st_mode", "st_uid", "st_nlink",
+                  "st_size", "st_mtime_ns", "st_ctime_ns")
+        if (tuple(getattr(before, field) for field in fields)
+                != tuple(getattr(after, field) for field in fields) or staged != raw):
+            raise StoreError("Studio App staged session differs from its exact content pin")
+        return staged
+
+    def _write(self, path, value, dirfd=None):
+        raw = self._serialized(path, value)
         own_dirfd = dirfd is None
         dirfd = self._open_directory() if own_dirfd else dirfd
         temporary = ".session-" + secrets.token_hex(16)
@@ -234,14 +302,62 @@ class SessionStore:
                     or existing.st_uid != os.geteuid() or existing.st_mode & 0o077
                     or existing.st_nlink != 1):
                 raise StoreError("Studio App session target is unsafe")
-            descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW |
-                                 getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=dirfd)
-            with os.fdopen(descriptor, "wb") as stream:
-                stream.write(raw)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, path.name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
-            os.fsync(dirfd)
+            # The old session remains present while the replacement temp file
+            # is written. Charge that exact overlap before creating the temp.
+            # On create, this is the retained total plus the new serialized file.
+            if self._retained_total_for_write(dirfd) + len(raw) > self.max_total_bytes:
+                raise StoreError("Studio App session storage limit reached")
+            delta = max(0, len(raw) - (existing.st_size if existing is not None else 0))
+            previous_value = self._read(path, dirfd=dirfd) if existing is not None else None
+            route_value = value
+            payload = value.get("payload")
+            has_route = isinstance(payload, dict) and any(key in payload for key in ("alias", "destination"))
+            if callable(self.admission_effect) and not has_route:
+                if previous_value is not None:
+                    route_value = previous_value
+
+            from contextlib import nullcontext
+            admission = (self.admission_effect(route_value, current=value, previous=previous_value,
+                                               delta=delta, temporary_bytes=len(raw),
+                                               session_id=path.stem)
+                         if callable(self.admission_effect) else nullcontext(None))
+            with admission as reservation:
+                if self._host_writer_route is not None:
+                    self._host_writer_route.session_write(len(raw), path.stem)
+                if isinstance(reservation, dict) and len(raw) > reservation.get("reservedBytes", -1):
+                    raise StoreError("Studio App session exceeds the reserved retained-content allowance")
+                publication_guard = self.protection_precommit
+                if isinstance(reservation, dict) and "_sessionPublicationGuard" in reservation:
+                    publication_guard = reservation["_sessionPublicationGuard"]
+                    if not callable(publication_guard):
+                        raise StoreError("Studio App session publication guard is unavailable")
+                if callable(publication_guard):
+                    descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_NOFOLLOW |
+                                         getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=dirfd)
+                    with os.fdopen(descriptor, "w+b", buffering=0) as stream:
+                        stream.write(raw)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                        staged = self._staged_for_publication(stream, temporary, dirfd, raw)
+                        publication_guard(json.loads(staged), path.stem)
+                        if self._host_writer_route is not None:
+                            self._host_writer_route.validate()
+                        # Keep the original FD owned through the final named-file
+                        # check and rename; a callback never authorizes a substitute.
+                        self._staged_for_publication(stream, temporary, dirfd, raw)
+                        os.replace(temporary, path.name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
+                else:
+                    # Generic legacy/default-None writers keep their old IO path.
+                    descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW |
+                                         getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=dirfd)
+                    with os.fdopen(descriptor, "wb") as stream:
+                        stream.write(raw)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    if self._host_writer_route is not None:
+                        self._host_writer_route.validate()
+                    os.replace(temporary, path.name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
+                os.fsync(dirfd)
         finally:
             try:
                 os.unlink(temporary, dir_fd=dirfd)
@@ -260,13 +376,24 @@ class SessionStore:
             value = self._read(path, dirfd=dirfd)
             now = self.clock()
             if value.get("state") == "active" and value.get("expires", 0) <= now:
+                # Expiry stops client I/O, not owner-retained evidence. Check
+                # unsafe/orphaned adoption before changing or writing state.
+                retained = self._is_adopted_session_root() or value.get("storageAdmission")
                 value["state"] = "expired"
-                value["payload"] = {"summary": "expired; proposals or immutable blobs already written may remain"}
+                if not retained:
+                    value["payload"] = {"summary": "expired; proposals or immutable blobs already written may remain"}
                 value["retireAfter"] = value["expires"] + SESSION_TOMBSTONE_SECONDS
                 self._write(path, value, dirfd=dirfd)
             if value.get("state") in ("expired", "aborted"):
                 retire_after = value.get("retireAfter", value.get("expires", 0) + SESSION_TOMBSTONE_SECONDS)
                 if type(retire_after) in (int, float) and retire_after <= now:
+                    # TTL is not authority to remove retained state from an
+                    # adopted brain, even when an older/read-only session has
+                    # no per-session admission marker. Keep it for explicit
+                    # owner reconciliation; do not infer a grant from session
+                    # contents.
+                    if value.get("storageAdmission") or self._is_adopted_session_root():
+                        raise StoreError("Adopted Studio App session retention requires owner reconciliation")
                     os.unlink(name, dir_fd=dirfd)
                     continue
             size = os.stat(name, dir_fd=dirfd, follow_symlinks=False).st_size
@@ -276,23 +403,30 @@ class SessionStore:
             raise StoreError("Studio App session host exceeds its configured capacity")
         return rows, total
 
+    def _is_adopted_session_root(self):
+        internal = self.directory.parent
+        if internal.name != "_internal":
+            return False
+        try:
+            from brain_storage_admission import load_registration
+            return load_registration(internal.parent) is not None
+        except StoreError as exc:
+            # An unsafe or orphaned registration must not turn into permission
+            # for automatic TTL deletion.
+            raise StoreError("Adopted Studio App session state is unavailable") from exc
+
     def create(self, actor, payload):
         if not isinstance(actor, str) or not actor.strip() or len(actor) > 256:
             raise StoreError("Studio App host identity is unavailable")
         value = {"format": "studio-app-session/v1", "actor": actor,
                  "created": self.clock(), "expires": self.clock() + self.ttl_seconds,
                  "state": "active", "payload": payload}
-        raw = encode(value)
-        if len(raw) > MAX_SESSION_BYTES:
-            raise StoreError("Studio App session exceeds its limit")
         with self._locked() as lock:
-            rows, total = self._inventory(lock.dirfd)
+            rows, _total = self._inventory(lock.dirfd)
             active_actor = sum(1 for _, row, _ in rows if row.get("actor") == actor
                                and row.get("state") == "active" and row.get("expires", 0) > self.clock())
             if len(rows) >= self.max_sessions or active_actor >= self.max_actor_sessions:
                 raise StoreError("Studio App session count limit reached")
-            if total + len(raw) > self.max_total_bytes:
-                raise StoreError("Studio App session storage limit reached")
             handle = secrets.token_hex(32)
             self._write(self._path(handle), value, dirfd=lock.dirfd)
         return handle
@@ -336,13 +470,7 @@ class SessionStore:
                     or identity_check is not None and identity_check() != actor
                     or guard is not None and (not callable(guard) or not guard(replacement))):
                 raise StoreError("Studio App session authorization or expiry changed during update")
-            raw = encode(replacement)
-            if len(raw) > MAX_SESSION_BYTES:
-                raise StoreError("Studio App session exceeds its limit")
-            rows, total = self._inventory(lock.dirfd)
-            old_size = next((size for item, _, size in rows if item == path.name), 0)
-            if total - old_size + len(raw) > self.max_total_bytes:
-                raise StoreError("Studio App session storage limit reached")
+            self._inventory(lock.dirfd)
             self._write(path, replacement, dirfd=lock.dirfd)
             return replacement
 
@@ -372,7 +500,7 @@ class SessionStore:
                 raise StoreError("Studio App session is malformed")
             if payload.get("effectIntent"):
                 raise StoreError("Studio App prior native outcome is unknown; reconcile before retry")
-            _, current_total = self._inventory(lock.dirfd)
+            self._inventory(lock.dirfd)
             intent_key = {"value": None}
 
             def mark_intent(key, details):
@@ -390,10 +518,6 @@ class SessionStore:
                 payload["effectIntent"] = {**details, "key": key, "state": "outcome-unknown",
                     "effect": "native proposal or immutable blob write may have occurred",
                     "recovery": "inspect the exact native request in the registered destination before retry"}
-                raw = encode(value)
-                if len(raw) > MAX_SESSION_BYTES or current_total + len(raw) > self.max_total_bytes:
-                    payload.pop("effectIntent", None)
-                    raise StoreError("Studio App session capacity cannot reserve the pending effect")
                 self._write(path, value, dirfd=lock.dirfd)
                 intent_key["value"] = key
 
@@ -411,12 +535,7 @@ class SessionStore:
                 if not isinstance(completed, list) or len(completed) >= 256:
                     raise StoreError("Studio App effect history exceeds its limit")
                 completed.append(intent_key["value"])
-            raw = encode(replacement)
-            if len(raw) > MAX_SESSION_BYTES:
-                raise StoreError("Studio App session exceeds its limit")
-            _, total = self._inventory(lock.dirfd)
-            if total + len(raw) > self.max_total_bytes:
-                raise StoreError("Studio App session storage limit reached")
+            self._inventory(lock.dirfd)
             self._validate_directory_fd(lock.dirfd)
             self._write(path, replacement, dirfd=lock.dirfd)
             self._validate_directory_fd(lock.dirfd)
@@ -426,14 +545,21 @@ class SessionStore:
         response = {"handle": handle, "state": "aborted"}
         compact_response(response)
         def mark(value):
+            # Abort grants no deletion authority. A marked lease still needs
+            # the canonical root check; unsafe/orphaned adoption must refuse.
+            retained = self._is_adopted_session_root() or value.get("storageAdmission")
             value["state"] = "aborted"
-            value["payload"] = {"summary": "aborted; previously written proposals or blobs may remain"}
+            if not retained:
+                value["payload"] = {"summary": "aborted; previously written proposals or blobs may remain"}
             value["retireAfter"] = self.clock() + SESSION_TOMBSTONE_SECONDS
             return value
         self.update(handle, actor, mark)
         return response
 
-    def begin_upload(self, handle, actor, attachment_id, *, size, sha256, guard=None, identity_check=None):
+    def begin_upload(self, handle, actor, attachment_id, *, size, sha256, admission_reservation=None,
+                     admission_session_reservation=None,
+                     protected_chunks=False,
+                     guard=None, identity_check=None):
         if (not isinstance(attachment_id, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,31}", attachment_id)
                 or type(size) is not int or not 0 <= size <= MAX_UPLOAD_BYTES
                 or not isinstance(sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", sha256)):
@@ -451,7 +577,15 @@ class SessionStore:
             if len(uploads) >= 8 or total + size > MAX_UPLOAD_BYTES:
                 raise StoreError("Studio App attachment total exceeds its limit")
             uploads[attachment_id] = {"size": size, "sha256": sha256, "nextChunk": 0,
-                                      "bytes": 0, "chunks": [], "complete": False}
+                                      "bytes": 0, "chunks": [], "complete": False,
+                                      **({"protectedChunks": True} if protected_chunks else {}),
+                                      **({"admissionReservation": admission_reservation}
+                                         if admission_reservation is not None else {})}
+            if admission_session_reservation is not None:
+                prior = value.get("storageAdmission", {}).get("sessionReservation")
+                if prior is not None and prior != admission_session_reservation:
+                    raise StoreError("Studio App session reservation cannot be replaced")
+                value["storageAdmission"] = {"sessionReservation": admission_session_reservation}
             return value
         self.update(handle, actor, add, guard=guard, identity_check=identity_check)
         return response
@@ -495,16 +629,26 @@ class SessionStore:
             if not isinstance(upload, dict):
                 raise StoreError("Studio App attachment upload is unavailable")
             try:
-                raw = (base64.b64decode(upload["content"], validate=True) if upload.get("complete")
-                       else b"".join(base64.b64decode(chunk, validate=True) for chunk in upload["chunks"]))
+                if upload.get("protectedChunks"):
+                    raw = b"".join(base64.b64decode(chunk, validate=True)
+                                   for chunk in upload.get("chunks", []))
+                else:
+                    raw = (base64.b64decode(upload["content"], validate=True) if upload.get("complete")
+                           else b"".join(base64.b64decode(chunk, validate=True) for chunk in upload["chunks"]))
             except (ValueError, TypeError) as exc:
                 raise StoreError("Studio App attachment upload is corrupt") from exc
             if (len(raw) != upload["size"] or hashlib.sha256(raw).hexdigest() != upload["sha256"]):
                 raise StoreError("Studio App attachment bytes differ from their declaration")
             if not upload.get("complete"):
                 upload["complete"] = True
-                upload["content"] = base64.b64encode(raw).decode("ascii")
-                del upload["chunks"]
+                if upload.get("protectedChunks"):
+                    # Keep only independently authenticated ciphertext chunks
+                    # on disk. The returned plaintext exists only in this
+                    # bounded call and is never copied into the session file.
+                    upload["contentBytes"] = len(raw)
+                else:
+                    upload["content"] = base64.b64encode(raw).decode("ascii")
+                    del upload["chunks"]
             result.update({"bytes": raw, "sha256": upload["sha256"]})
             return value
         self.update(handle, actor, finish, guard=guard, identity_check=identity_check)

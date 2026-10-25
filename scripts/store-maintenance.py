@@ -17,6 +17,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="operation", required=True)
     for name in ("store.inspect", "cache.maintain", "migration.report"):
         commands.add_parser(name)
+    commands.add_parser("storage.inspect", help="bounded read-only logical retained-content observation (host v2)")
     capture = commands.add_parser("snapshot.capture")
     capture.add_argument("--output", type=Path, required=True,
                          help="new snapshot directory under an operator-private parent")
@@ -32,9 +33,12 @@ def main(argv=None):
 
         request_args = {key: str(getattr(args, key)) for key in ("output", "snapshot")
                         if hasattr(args, key)}
-        result = execute(args.root, args.host_config,
-                         {"format": "store-maintenance-request/v1", "operation": args.operation,
-                          "arguments": request_args}, authorize=identity)
+        if args.operation == "storage.inspect":
+            request = {"format": "store-maintenance-request/v2", "operation": args.operation}
+        else:
+            request = {"format": "store-maintenance-request/v1", "operation": args.operation,
+                       "arguments": request_args}
+        result = execute(args.root, args.host_config, request, authorize=identity)
         sys.stdout.buffer.write(result)
         return 0
     except (MaintenanceError, OSError, StoreError, sqlite3.Error, ValueError, KeyError, TypeError) as exc:

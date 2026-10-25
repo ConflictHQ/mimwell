@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "store-maintenance-request-v2.schema.json",
+  "title": "Store maintenance CLI request v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "operation"
+  ],
+  "properties": {
+    "format": {
+      "const": "store-maintenance-request/v2"
+    },
+    "operation": {
+      "const": "storage.inspect"
+    }
+  }
+}

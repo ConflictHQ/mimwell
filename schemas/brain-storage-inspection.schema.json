@@ -1,0 +1,572 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brain-storage-inspection.schema.json",
+  "title": "Bounded retained-content inspection response",
+  "description": "Reports one bounded logical inventory observation. aggregateCapacity remains unavailable until all writers and protection paths are qualified.",
+  "oneOf": [
+    {
+      "title": "Completed bounded inventory",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "state",
+        "evaluatedAt",
+        "available",
+        "measurementComplete",
+        "limitBytes",
+        "measuredBytes",
+        "reservedBytes",
+        "classes",
+        "basisSha256",
+        "protection",
+        "unavailableReasons",
+        "aggregateCapacity",
+        "accounting",
+        "reservationStates"
+      ],
+      "properties": {
+        "format": {
+          "const": "brain.storage.inspect/v1"
+        },
+        "state": {
+          "const": "completed"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "available": {
+          "const": true
+        },
+        "measurementComplete": {
+          "const": true
+        },
+        "limitBytes": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "measuredBytes": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reservedBytes": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classes": {
+          "type": "object",
+          "maxProperties": 1024,
+          "propertyNames": {
+            "maxLength": 256
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "basisSha256": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accounting": {
+          "const": "logical-retained-content-bytes/v1"
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coverage",
+            "complete"
+          ],
+          "properties": {
+            "selectedProfile": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "requirementsSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "coverage": {
+              "const": "unqualified"
+            },
+            "complete": {
+              "const": false
+            }
+          }
+        },
+        "reservationStates": {
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unavailableReasons": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "aggregateCapacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "reason"
+          ],
+          "properties": {
+            "available": {
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Unavailable before adoption",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "state",
+        "evaluatedAt",
+        "available",
+        "measurementComplete",
+        "limitBytes",
+        "measuredBytes",
+        "reservedBytes",
+        "classes",
+        "basisSha256",
+        "protection",
+        "unavailableReasons",
+        "aggregateCapacity"
+      ],
+      "properties": {
+        "format": {
+          "const": "brain.storage.inspect/v1"
+        },
+        "state": {
+          "const": "unavailable"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "available": {
+          "const": false
+        },
+        "measurementComplete": {
+          "const": false
+        },
+        "limitBytes": {
+          "type": "null"
+        },
+        "measuredBytes": {
+          "type": "null"
+        },
+        "reservedBytes": {
+          "type": "null"
+        },
+        "classes": {
+          "type": "object",
+          "maxProperties": 0
+        },
+        "basisSha256": {
+          "type": "null"
+        },
+        "accounting": {
+          "const": "logical-retained-content-bytes/v1"
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coverage",
+            "complete"
+          ],
+          "properties": {
+            "coverage": {
+              "const": "unqualified"
+            },
+            "complete": {
+              "const": false
+            }
+          }
+        },
+        "reservationStates": {
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unavailableReasons": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "aggregateCapacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "reason"
+          ],
+          "properties": {
+            "available": {
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "accounting"
+            ]
+          },
+          {
+            "required": [
+              "reservationStates"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Unavailable adopted inventory",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "state",
+        "evaluatedAt",
+        "available",
+        "measurementComplete",
+        "limitBytes",
+        "measuredBytes",
+        "reservedBytes",
+        "classes",
+        "basisSha256",
+        "protection",
+        "unavailableReasons",
+        "aggregateCapacity",
+        "accounting",
+        "reservationStates"
+      ],
+      "properties": {
+        "format": {
+          "const": "brain.storage.inspect/v1"
+        },
+        "state": {
+          "const": "unavailable"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "available": {
+          "const": false
+        },
+        "measurementComplete": {
+          "const": false
+        },
+        "limitBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measuredBytes": {
+          "type": "null"
+        },
+        "reservedBytes": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classes": {
+          "type": "object",
+          "maxProperties": 0
+        },
+        "basisSha256": {
+          "type": "null"
+        },
+        "accounting": {
+          "const": "logical-retained-content-bytes/v1"
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coverage",
+            "complete"
+          ],
+          "properties": {
+            "selectedProfile": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "requirementsSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "coverage": {
+              "const": "unqualified"
+            },
+            "complete": {
+              "const": false
+            }
+          }
+        },
+        "reservationStates": {
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unavailableReasons": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "aggregateCapacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "reason"
+          ],
+          "properties": {
+            "available": {
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Unavailable admission snapshot",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "state",
+        "evaluatedAt",
+        "available",
+        "measurementComplete",
+        "limitBytes",
+        "measuredBytes",
+        "reservedBytes",
+        "classes",
+        "basisSha256",
+        "protection",
+        "unavailableReasons",
+        "aggregateCapacity"
+      ],
+      "properties": {
+        "format": {
+          "const": "brain.storage.inspect/v1"
+        },
+        "state": {
+          "const": "unavailable"
+        },
+        "evaluatedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "available": {
+          "const": false
+        },
+        "measurementComplete": {
+          "const": false
+        },
+        "limitBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measuredBytes": {
+          "type": "null"
+        },
+        "reservedBytes": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classes": {
+          "type": "object",
+          "maxProperties": 0
+        },
+        "basisSha256": {
+          "type": "null"
+        },
+        "accounting": {
+          "const": "logical-retained-content-bytes/v1"
+        },
+        "protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "coverage",
+            "complete"
+          ],
+          "properties": {
+            "selectedProfile": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "requirementsSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "coverage": {
+              "const": "unqualified"
+            },
+            "complete": {
+              "const": false
+            }
+          }
+        },
+        "reservationStates": {
+          "type": "object",
+          "maxProperties": 32,
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "unavailableReasons": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "aggregateCapacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "reason"
+          ],
+          "properties": {
+            "available": {
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "accounting"
+            ]
+          },
+          {
+            "required": [
+              "reservationStates"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

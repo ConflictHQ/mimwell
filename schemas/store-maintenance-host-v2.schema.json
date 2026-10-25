@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "store-maintenance-host-v2.schema.json",
+  "title": "Protected store maintenance host v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "principalsByUid",
+    "grants",
+    "operatingHost",
+    "snapshotPlan"
+  ],
+  "properties": {
+    "format": {
+      "const": "store-maintenance-host/v2"
+    },
+    "principalsByUid": {
+      "type": "object",
+      "maxProperties": 1000,
+      "propertyNames": {
+        "pattern": "^[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "grants": {
+      "type": "object",
+      "maxProperties": 1000,
+      "additionalProperties": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "store.inspect",
+            "cache.maintain",
+            "snapshot.capture",
+            "snapshot.restore",
+            "migration.report",
+            "storage.inspect"
+          ]
+        }
+      }
+    },
+    "operatingHost": {
+      "$ref": "#/$defs/pinnedPrivateFile"
+    },
+    "snapshotPlan": {
+      "$ref": "#/$defs/pinnedPrivateFile"
+    },
+    "cacheHost": {
+      "$ref": "#/$defs/pinnedPrivateFile"
+    }
+  },
+  "$defs": {
+    "pinnedPrivateFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^_internal/[^/].*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

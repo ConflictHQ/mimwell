@@ -17,6 +17,33 @@ from sql_dialect import driver_errors
 import vector_role
 
 
+_ADMISSION_UNSUPPORTED_ADMIN_ROUTES = frozenset({"init", "restore", "cutover", "resume", "migrate"})
+
+
+def _refuse_adopted_admin_route(root, command):
+    """Fail closed where an administrative writer has no storage-admission path.
+
+    Use only the explicitly selected brain root. ``load_registration`` distinguishes
+    an absent registration from an invalid, changed, or unsafe one; the latter must
+    never be mistaken for an unadopted legacy brain.
+    """
+    if command not in _ADMISSION_UNSUPPORTED_ADMIN_ROUTES:
+        return
+    try:
+        from brain_storage_admission import load_registration
+    except ModuleNotFoundError as exc:
+        if exc.name != "brain_storage_admission":
+            raise
+        raise StoreError("Storage admission state cannot be validated") from exc
+
+    # The loader distinguishes a genuinely unadopted root from a missing,
+    # malformed, or orphaned registration/ledger state. Do not short-circuit
+    # merely because the registration JSON file is absent.
+    if load_registration(root) is None:
+        return
+    raise StoreError(f"{command} is unavailable for an adopted storage-admission brain")
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
@@ -117,6 +144,12 @@ def main(argv=None):
         ):
             raise StoreError("administrative operation requires a configured host operator")
 
+        # This check must precede opening the selected authority: SQLite open may
+        # create/update WAL state, and these routes do not yet reserve all retained
+        # destination bytes. Repeat immediately before each administrative effect
+        # so registration installed or replaced during argument processing refuses.
+        _refuse_adopted_admin_route(args.root, command)
+
         def located(dsn):
             """(adapter, driver, location) of a resolved store dsn; a local driver's location is a private path."""
             adapter = authority_class(dsn)
@@ -133,6 +166,7 @@ def main(argv=None):
                 raise StoreError("initial contract differs from the adopted binding")
             if initial.authority != config["store"]:
                 raise StoreError("brain.authority.store is not the contract's authority store")
+            _refuse_adopted_admin_route(args.root, command)
             store = adapter.initialize(
                 path, source["bundle"], source["records"], prior_history=source.get("priorHistory")
             )
@@ -143,6 +177,7 @@ def main(argv=None):
             if Contract(json.loads(metadata["bundle"])).binding != config["binding"]:
                 raise StoreError("backup contract differs from the adopted binding")
             blobs = blob_store_for(args.root, settings, Contract(json.loads(metadata["bundle"])))
+            _refuse_adopted_admin_route(args.root, command)
             store = adapter.restore(path, snapshot, blob_store=blobs)
             result = {"restored": True, "status": "standby"}
         else:
@@ -157,6 +192,7 @@ def main(argv=None):
                     (args.root / "client.config.json").write_text(json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
                     result["binding"] = store.contract.binding
             else:
+                _refuse_adopted_admin_route(args.root, command)
                 store = adapter(path, expected_binding=config["binding"])
                 if store.contract.authority != config["store"]:
                     raise StoreError("brain.authority.store is not the contract's authority store")
@@ -207,6 +243,7 @@ def main(argv=None):
                     result["receipt"] = write_receipt(args.root, values[0])
                 elif command == "cutover":
                     successor, _, location = located(resolve_store_dsn(settings, args.to))
+                    _refuse_adopted_admin_route(args.root, command)
                     target = cutover(store, successor, location, store=args.to,
                                      blob_store=blob_store_for(args.root, settings, store.contract))
                     result = {
@@ -218,7 +255,9 @@ def main(argv=None):
                     }
                 elif command == "resume":
                     successor, _, location = located(resolve_store_dsn(settings, args.to))
+                    _refuse_adopted_admin_route(args.root, command)
                     target = successor(location, expected_binding=config["binding"])
+                    _refuse_adopted_admin_route(args.root, command)
                     resume(store, target, store=args.to)
                     result = {"source": "frozen", "successor": args.to, "status": "active"}
                 elif command in ("reindex", "nearest"):

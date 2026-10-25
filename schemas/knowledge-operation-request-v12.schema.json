@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mimwell:schema/knowledge-operation-request/v12",
+  "title": "Schema-bound native domain-data correction through the existing writer",
+  "oneOf": [
+    {
+      "title": "Native current-record correction proposal",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v12"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "authority.inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "title": "Native current-record correction proposal",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v12"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "record.patch-propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record",
+            "expectedRevision",
+            "requestId",
+            "patch",
+            "reason",
+            "evidence",
+            "expectedDataSchemaSha256"
+          ],
+          "properties": {
+            "record": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "expectedRevision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "requestId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "patch": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 65536
+                },
+                "addRelations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "rel",
+                      "target"
+                    ],
+                    "properties": {
+                      "rel": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "target": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    }
+                  }
+                },
+                "removeRelations": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "rel",
+                      "target"
+                    ],
+                    "properties": {
+                      "rel": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "target": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    }
+                  }
+                },
+                "dataPatchWire": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 131072,
+                  "description": "Exact finite UTF-8 JSON object with set and remove; merges only /content/data. Canonical schema, field authority, governance and review remain required."
+                }
+              }
+            },
+            "evidence": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 128,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            },
+            "expectedDataSchemaSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Current adopted native data schema",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v12"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "collection.semantic-inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "collection"
+          ],
+          "properties": {
+            "collection": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    }
+  ]
+}

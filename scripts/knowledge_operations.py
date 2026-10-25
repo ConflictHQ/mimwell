@@ -70,6 +70,12 @@ FILE_GROUP_ARGUMENTS = {
     "file.group.destination-publish": ("proposal", "expectedProposalSha256", "destination"),
     "file.group.status": ("proposal",),
 }
+BACKUP_ARGUMENTS = {
+    "backup.preview": ("destination",),
+    "backup.write": ("destination", "requestId", "expectedPreviewSha256"),
+    "backup.inspect": ("destination", "requestId"),
+    "backup.reconcile": ("destination", "requestId", "expectedIntentSha256"),
+}
 FILE_OPERATIONS = frozenset(FILE_ARGUMENTS)
 WRITES = frozenset(
     ("record.patch-propose", "proposal.propose", "proposal.review", "proposal.dispose", "proposal.commit")
@@ -96,6 +102,28 @@ def private_path(root, relative, *, allow_missing=False):
     return root / path
 
 
+def private_store_path(root, dsn):
+    """Map a local store DSN to its existing private ``_internal`` path.
+
+    Store DSNs may use the documented relative form (for example,
+    ``_internal/authority.db``). Absolute paths remain supported only when
+    they are lexically under this operations root. Both forms pass through the
+    same owner/mode/no-symlink checks; this helper does not resolve symlinks.
+    """
+    if not isinstance(dsn, str) or not dsn or "\x00" in dsn:
+        raise StoreError("Local store DSN must be a path under the operations root")
+    root = Path(root)
+    path = Path(dsn)
+    if path.is_absolute():
+        try:
+            relative = path.relative_to(root.absolute()).as_posix()
+        except ValueError as exc:
+            raise StoreError("Absolute local store DSN must stay under the operations root") from exc
+    else:
+        relative = dsn
+    return private_path(root, relative)
+
+
 def load_host(root, relative):
     if root.is_symlink() or not root.is_dir():
         raise StoreError("Operations root must be a real directory")
@@ -107,36 +135,67 @@ def load_host(root, relative):
     host = decode(raw)
     if not isinstance(host, dict):
         raise StoreError("Invalid operations host")
-    file_host = host.get("format") in ("knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8")
-    host_fields = (("format", "principalsByUid", "authorities", "fileAuthorities", "publicationGroups")
+    file_host = host.get("format") in ("knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10")
+    host_fields = (("format", "principalsByUid", "authorities", "fileAuthorities", "publicationGroups", "backupDestinations")
+                   if host.get("format") in ("knowledge-operations-host/v9", "knowledge-operations-host/v10") else
+                   ("format", "principalsByUid", "authorities", "fileAuthorities", "publicationGroups")
                    if host.get("format") == "knowledge-operations-host/v8" else
                    ("format", "principalsByUid", "authorities", "fileAuthorities") if file_host else
                    ("format", "principalsByUid", "authorities"))
     fields(host, host_fields)
     if (
-        host["format"] not in tuple("knowledge-operations-host/v" + str(version) for version in range(1, 9))
+        host["format"] not in tuple("knowledge-operations-host/v" + str(version) for version in range(1, 11))
         or not isinstance(host["principalsByUid"], dict)
         or not isinstance(host["authorities"], dict)
         or len(host["authorities"]) > 64
         or file_host and
-           (not isinstance(host["fileAuthorities"], dict) or not 1 <= len(host["fileAuthorities"]) <= 64)
+           (not isinstance(host["fileAuthorities"], dict) or
+            not (0 <= len(host["fileAuthorities"]) <= 64 if host["format"] in ("knowledge-operations-host/v9", "knowledge-operations-host/v10")
+                 else 1 <= len(host["fileAuthorities"]) <= 64))
         or not host["authorities"] and not host.get("fileAuthorities")
-        or host["format"] == "knowledge-operations-host/v8" and not isinstance(host.get("publicationGroups"), dict)
+        or host["format"] in ("knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10") and not isinstance(host.get("publicationGroups"), dict)
+        or host["format"] in ("knowledge-operations-host/v9", "knowledge-operations-host/v10") and not isinstance(host.get("backupDestinations"), dict)
     ):
         raise StoreError("Invalid operations host")
     if set(host["authorities"]) & set(host.get("fileAuthorities", {})):
         raise StoreError("Native and file authority identities must be distinct")
-    if host["format"] == "knowledge-operations-host/v8" and (
+    if host["format"] in ("knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10") and (
             len(host["publicationGroups"]) > 16 or
             set(host["publicationGroups"]) & (set(host["authorities"]) | set(host["fileAuthorities"]))):
         raise StoreError("File publication group identities are invalid")
+    if host["format"] in ("knowledge-operations-host/v9", "knowledge-operations-host/v10"):
+        destinations = host["backupDestinations"]
+        if (len(destinations) > 16 or
+                set(destinations) & (set(host["authorities"]) | set(host["fileAuthorities"]) |
+                                     set(host["publicationGroups"]))):
+            raise StoreError("Backup destination identities are invalid")
+        seen_stores = set()
+        for destination_id, destination in destinations.items():
+            if (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", destination_id) or
+                    not isinstance(destination, dict) or
+                    set(destination) != ({"authority", "store", "root", "maxPhysicalSourceFootprintBytes", "maxSnapshotBytes"}
+                                         if host["format"] == "knowledge-operations-host/v10" else
+                                         {"authority", "store", "root", "maxPhysicalSourceFootprintBytes"}) or
+                    not isinstance(destination["authority"], str) or
+                    destination["authority"] not in host["authorities"] or
+                    not isinstance(destination["store"], str) or
+                    not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", destination["store"]) or
+                    destination["store"] in seen_stores or
+                    destination["root"] != "_internal/backups/" + destination_id or
+                    type(destination["maxPhysicalSourceFootprintBytes"]) is not int or
+                    not 1 <= destination["maxPhysicalSourceFootprintBytes"] <= 64 * 1024 * 1024 or
+                    host["format"] == "knowledge-operations-host/v10" and
+                    (type(destination["maxSnapshotBytes"]) is not int or
+                     not 1 <= destination["maxSnapshotBytes"] <= 64 * 1024 * 1024)):
+                raise StoreError("Invalid registered local backup destination")
+            seen_stores.add(destination["store"])
     for uid, actor in host["principalsByUid"].items():
         if not re.fullmatch(r"[0-9]+", uid) or not isinstance(actor, str) or not actor.strip():
             raise StoreError("Invalid local principal mapping")
     for identity, entry in host["authorities"].items():
-        options = ("sources", "consumers", "intake") if host["format"] in ("knowledge-operations-host/v4", "knowledge-operations-host/v5", "knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8") else ("sources", "consumers")
+        options = ("sources", "consumers", "intake") if host["format"] in ("knowledge-operations-host/v4", "knowledge-operations-host/v5", "knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10") else ("sources", "consumers")
         optional = tuple(key for key in options if key in entry)
-        remote = host['format'] in ('knowledge-operations-host/v5', 'knowledge-operations-host/v6', 'knowledge-operations-host/v7', 'knowledge-operations-host/v8') and 'connection' in entry
+        remote = host['format'] in ('knowledge-operations-host/v5', 'knowledge-operations-host/v6', 'knowledge-operations-host/v7', 'knowledge-operations-host/v8', 'knowledge-operations-host/v9', 'knowledge-operations-host/v10') and 'connection' in entry
         fields(entry, ("connection" if remote else "path", "binding", "grants", *optional))
         if remote:
             from operation_backend import validate_connection
@@ -164,7 +223,10 @@ def load_host(root, relative):
                     ARGUMENTS if host["format"] == "knowledge-operations-host/v1" else
                     ARGUMENTS | TRANSFER_ARGUMENTS if host["format"] == "knowledge-operations-host/v2" else
                     ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS if host["format"] == "knowledge-operations-host/v3" else
-                    ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS
+                    ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS |
+                    (BACKUP_ARGUMENTS if host["format"] == "knowledge-operations-host/v10" else
+                     {"backup.preview": BACKUP_ARGUMENTS["backup.preview"]}
+                     if host["format"] == "knowledge-operations-host/v9" else {})
                 ) for verb in verbs)
                 or len(verbs) != len(set(verbs))
             ):
@@ -179,10 +241,10 @@ def load_host(root, relative):
             elif host["format"] == "knowledge-operations-host/v7" and entry.get("writer") == "markdown-commit":
                 file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "contentProfile",
                                "contentProfileSha256", "configSha256", "maxBytes", "grants")
-            elif host["format"] == "knowledge-operations-host/v8" and entry.get("writer") == "markdown-commit":
+            elif host["format"] in ("knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10") and entry.get("writer") == "markdown-commit":
                 file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "contentProfile",
                                "contentProfileSha256", "configSha256", "maxBytes", "grants")
-            elif host["format"] == "knowledge-operations-host/v8" and entry.get("writer") == "binary-commit":
+            elif host["format"] in ("knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10") and entry.get("writer") == "binary-commit":
                 file_fields = ("writer", "repository", "sourceRef", "reviewPrefix", "path", "contentProfile",
                                "contentProfileSha256", "mediaType", "configSha256", "maxBytes", "grants")
             else:
@@ -196,7 +258,7 @@ def load_host(root, relative):
                         or len(verbs) != len(set(verbs))
                         or any(not isinstance(verb, str) or verb not in file_verbs for verb in verbs)):
                     raise StoreError("Invalid file authority grant")
-        if host["format"] == "knowledge-operations-host/v8":
+        if host["format"] in ("knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10"):
             groups = host["publicationGroups"]
             if len(groups) > 16 or set(groups) & (set(host["authorities"]) | set(host["fileAuthorities"])):
                 raise StoreError("Invalid file publication group identity")
@@ -229,22 +291,63 @@ def load_host(root, relative):
 
 
 def validate_request(request):
+    """Reject invalid shapes with ValueError-family errors before any writer.
+
+    The CLI renders a generic refusal and HTTP renders an empty 400 response;
+    specific shared-validator exception subclasses are not wire contracts.
+    """
     fields(request, ("format", "authority", "operation", "arguments"))
+    if request["format"] == "knowledge-operation-request/v12":
+        if not isinstance(request["authority"], str) or not 1 <= len(request["authority"]) <= 2000:
+            raise StoreError("An exact native authority alias is required")
+        from knowledge_operation_native_data import validate_arguments
+        validate_arguments(request["operation"], request["arguments"])
+        return
+    if request["format"] == "knowledge-operation-request/v11":
+        if not isinstance(request["authority"], str) or not 1 <= len(request["authority"]) <= 2000:
+            raise StoreError("An exact registered JSON authority alias is required")
+        from knowledge_operation_json_values import validate_value_arguments
+        validate_value_arguments(request["operation"], request["arguments"])
+        return
     if (
-        request["format"] not in tuple("knowledge-operation-request/v" + str(version) for version in range(1, 7))
+        request["format"] not in tuple("knowledge-operation-request/v" + str(version) for version in range(1, 11))
         or not isinstance(request["authority"], str)
         or not isinstance(request["operation"], str)
-        or request["operation"] not in (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS | FILE_ARGUMENTS | FILE_GROUP_ARGUMENTS)
+        or request["operation"] not in (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS | FILE_ARGUMENTS | FILE_GROUP_ARGUMENTS | BACKUP_ARGUMENTS)
     ):
         raise StoreError("Unsupported knowledge operation")
     operation, args = request["operation"], request["arguments"]
     file_v6 = set(FILE_GROUP_ARGUMENTS) | {"file.propose-binary"}
-    version = ("v6" if operation in file_v6 or operation in FILE_ARGUMENTS and request["format"] == "knowledge-operation-request/v6"
+    version = ("v10" if operation in ("authority.inspect", "file.inspect", "file.propose") and request["format"] == "knowledge-operation-request/v10" else
+               "v9" if operation in ("record.patch-propose", "authority.inspect") and request["format"] == "knowledge-operation-request/v9" else
+               "v8" if operation in ("backup.write", "backup.inspect", "backup.reconcile") else
+               "v7" if operation == "backup.preview" else
+               "v6" if operation in file_v6 or operation in FILE_ARGUMENTS and request["format"] == "knowledge-operation-request/v6"
                else "v5" if operation in FILE_ARGUMENTS else "v4" if operation in INTAKE_ARGUMENTS
                else "v3" if operation in REVIEW_ARGUMENTS else "v2" if operation in TRANSFER_ARGUMENTS else "v1")
     if request["format"] != "knowledge-operation-request/" + version:
         raise StoreError("Operation request version does not match the selected operation")
-    fields(args, (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS | FILE_ARGUMENTS | FILE_GROUP_ARGUMENTS)[operation])
+    if version == "v10":
+        from knowledge_operation_file_records import validate_record_arguments
+        validate_record_arguments(operation, args)
+        return
+    fields(args, ("record", "expectedRevision", "requestId", "patch", "reason", "evidence")
+           if version == "v9" and operation == "record.patch-propose" else
+           (ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS | FILE_ARGUMENTS | FILE_GROUP_ARGUMENTS | BACKUP_ARGUMENTS)[operation])
+    if operation in BACKUP_ARGUMENTS and (
+        not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", request["authority"])
+        or not isinstance(args["destination"], str)
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", args["destination"])
+    ):
+        raise StoreError("Invalid backup destination selection")
+    if operation in ("backup.write", "backup.inspect", "backup.reconcile") and (
+        not isinstance(args["requestId"], str) or
+        not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", args["requestId"]) or
+        operation in ("backup.write", "backup.reconcile") and
+        (not isinstance(args.get("expectedPreviewSha256", args.get("expectedIntentSha256")), str) or
+         not re.fullmatch(r"[0-9a-f]{64}", args.get("expectedPreviewSha256", args.get("expectedIntentSha256"))))
+    ):
+        raise StoreError("Invalid backup request identity or exact basis")
     if operation in INTAKE_ARGUMENTS:
         from knowledge_operation_intake import validate_arguments
 
@@ -343,7 +446,18 @@ def validate_request(request):
             continue
         if not isinstance(args[key], str) or not re.fullmatch(r"[0-9a-f]{64}", args[key]):
             raise StoreError("Exact operation basis required")
-    if operation == "record.patch-propose":
+    if operation == "record.patch-propose" and version == "v9":
+        from knowledge_operation_record_patch import validate_patch
+
+        validate_patch(args["patch"])
+        for key, limit in (("record", 2000), ("requestId", 2000), ("expectedRevision", 256)):
+            if not isinstance(args[key], str) or not args[key].strip() or len(args[key]) > limit:
+                raise StoreError("Invalid record patch basis")
+        if (not isinstance(args["evidence"], list) or not 1 <= len(args["evidence"]) <= 128
+                or any(not isinstance(value, str) or not value.strip() or len(value) > 2000
+                       for value in args["evidence"])):
+            raise StoreError("Record patch requires bounded evidence references")
+    if operation == "record.patch-propose" and version != "v9":
         for key, limit in (
             ("record", 2000),
             ("requestId", 2000),
@@ -368,9 +482,12 @@ def validate_request(request):
         raise StoreError("Unsupported disposition")
 
 
-def execute(store, operation, args, *, actor, at):
+def execute(store, operation, args, *, actor, at, _native_data=False):
     """Dispatch to native APIs; these returns are never rebuilt as new receipts."""
     if operation == "collection.semantic-inspect":
+        if _native_data:
+            from knowledge_operation_native_data import inspect_data_schema
+            return inspect_data_schema(store, args["collection"], actor=actor, at=at)
         from knowledge_operation_semantics import inspect_collection
 
         return inspect_collection(store, args["collection"], actor=actor, at=at)
@@ -393,7 +510,15 @@ def execute(store, operation, args, *, actor, at):
         ):
             raise StoreError("Record unavailable or changed; inspect before editing")
         value = current["record"]
-        value["content"].update(title=args["title"], text=args["text"])
+        if _native_data:
+            from knowledge_operation_native_data import corrected_record
+            value = corrected_record(store, value, args, actor=actor, at=at)
+        elif "patch" in args:
+            from knowledge_operation_record_patch import patched_record
+
+            value = patched_record(value, args["patch"])
+        else:
+            value["content"].update(title=args["title"], text=args["text"])
         resource = store.contract.collections[value["collection"]]["resource"]
         mutation = {
             "id": args["requestId"],
@@ -405,6 +530,13 @@ def execute(store, operation, args, *, actor, at):
             "evidence": args["evidence"],
             "sourceResource": None,
         }
+        if _native_data:
+            result = store.propose(mutation, value, actor, at=at)
+            from knowledge_operation_native_data import schema_profile
+            _, current_schema = schema_profile(store, value["collection"], actor=actor, at=at)
+            if current_schema["sha256"] != args["expectedDataSchemaSha256"]:
+                raise StoreError("Native data schema changed during proposal")
+            return result
         return store.propose(mutation, value, actor, at=at)
     if operation == "proposal.propose":
         return store.propose(args["request"], args["record"], actor, at=at)
@@ -582,6 +714,30 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
     validate_request(request)
     root = Path(root).absolute()
     host = load_host(root, host_config)
+    if request["format"] == "knowledge-operation-request/v11":
+        selected_file = host.get("fileAuthorities", {}).get(request["authority"])
+        if selected_file is None:
+            raise StoreError("JSON value mode requires an actual registered file authority")
+        from knowledge_operation_json_values import run_value_authority
+        return run_value_authority(root, host_config, host, selected_file, request, actor=actor,
+                                   clock=clock, authorize=authorize, max_response_bytes=max_response_bytes)
+    if request["format"] == "knowledge-operation-request/v10":
+        selected_file = host.get("fileAuthorities", {}).get(request["authority"])
+        if selected_file is None:
+            raise StoreError("Registered JSON record mode requires an actual file authority")
+        from knowledge_operation_file_records import run_record_authority
+        return run_record_authority(root, host_config, host, selected_file, request, actor=actor,
+                                    clock=clock, authorize=authorize, max_response_bytes=max_response_bytes)
+    if request["format"] == "knowledge-operation-request/v12" and (
+        request["authority"] in host.get("fileAuthorities", {})
+        or request["authority"] in host.get("publicationGroups", {})
+    ):
+        raise StoreError("Native data mode requires an actual native authority")
+    if request["format"] == "knowledge-operation-request/v9" and (
+        request["authority"] in host.get("fileAuthorities", {})
+        or request["authority"] in host.get("publicationGroups", {})
+    ):
+        raise StoreError("V9 discovery/corrections are native-authority operations")
     file_group = host.get("publicationGroups", {}).get(request["authority"])
     if file_group is not None:
         return _run_file_group_authority(root, host_config, host, file_group, request, actor=actor,
@@ -594,10 +750,36 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
     operation, args = request["operation"], request["arguments"]
     if selected is None or operation not in selected["grants"].get(actor, []):
         raise StoreError("Operation unavailable")
+    if operation in BACKUP_ARGUMENTS:
+        if operation == "backup.preview" and host["format"] not in ("knowledge-operations-host/v9", "knowledge-operations-host/v10"):
+            raise StoreError("Backup preview requires a v9 or v10 host registration")
+        if operation != "backup.preview" and host["format"] != "knowledge-operations-host/v10":
+            raise StoreError("Backup writer operations require a v10 host registration")
+        destination = host["backupDestinations"].get(args["destination"])
+        if destination is None or destination["authority"] != request["authority"]:
+            raise StoreError("Backup destination is unavailable")
+        from knowledge_operation_backup import run_preview
+
+        if operation != "backup.preview":
+            from knowledge_operation_backup_writer import run_writer_operation
+
+            return run_writer_operation(root, host_config, host, selected, destination, request,
+                                        actor=actor, clock=clock, authorize=authorize,
+                                        max_response_bytes=max_response_bytes)
+
+        return run_preview(root, host_config, host, selected, destination, request, actor=actor, clock=clock,
+                           authorize=authorize, max_response_bytes=max_response_bytes)
     from operation_backend import select_backend, supports
     adapter, target, driver, store_id, backend_current = select_backend(root, selected)
     if not supports(driver, operation):
         raise StoreError('Operation is not packaged for this native adapter')
+    if request["format"] == "knowledge-operation-request/v9" and operation == "record.patch-propose" and driver != "sqlite":
+        raise StoreError("Structured relationship corrections require the selected SQLite pilot")
+    if request["format"] == "knowledge-operation-request/v12":
+        if operation != "authority.inspect" and driver != "sqlite":
+            raise StoreError("Native data corrections require the selected SQLite pilot")
+        if operation == "record.patch-propose" and "collection.semantic-inspect" not in selected["grants"].get(actor, []):
+            raise StoreError("Current native schema inspection is unavailable")
     initial = timestamp(clock())
 
     def guard(not_before=initial):
@@ -672,6 +854,8 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
                 from knowledge_operation_sources import list_sources
 
                 return list_sources(root, selected, store, args, actor=actor, at=at, guard=guard)
+            if request["format"] == "knowledge-operation-request/v12":
+                return execute(store, operation, args, actor=actor, at=at, _native_data=True)
             return execute(store, operation, args, actor=actor, at=at)
 
         with store.request_transaction(write=write), (
@@ -706,6 +890,20 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
                     "nativePolicy": "required-per-operation",
                     "executionAuthorized": False,
                 }
+            if operation == "authority.inspect" and request["format"] == "knowledge-operation-request/v9":
+                response["hostCapabilities"]["sourceSelectionSha256"] = fingerprint({"authority": request["authority"], "registration": selected})
+                response["hostCapabilities"]["recordPatchVersions"] = (
+                    (["v1", "v9"] if driver == "sqlite" else ["v1"])
+                    if "record.patch-propose" in response["hostCapabilities"]["operations"] else []
+                )
+            if operation == "authority.inspect" and request["format"] == "knowledge-operation-request/v12":
+                caps = response["hostCapabilities"]
+                caps["sourceSelectionSha256"] = fingerprint({"authority": request["authority"], "registration": selected})
+                caps["recordPatchVersions"] = (
+                    ["v1", "v9", "v12"] if driver == "sqlite" and all(
+                        verb in caps["operations"] for verb in ("record.get", "record.patch-propose", "collection.semantic-inspect")
+                    ) else ["v1"]
+                )
             raw = encode(response)
             if len(raw) > max_response_bytes:
                 raise StoreError("Operation response exceeds its limit")

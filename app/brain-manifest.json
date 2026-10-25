@@ -1,7 +1,7 @@
 {
  "manifest": "brain-manifest/v1",
  "generator": "gen-manifest",
- "generated": "2026-10-23",
+ "generated": "2026-10-25",
  "identity": {
   "id": "mimwell",
   "name": "Mimwell",
@@ -72,7 +72,7 @@
    "artifact": "app/brain.json",
    "enabled": true,
    "present": true,
-   "lag_commits": null
+   "lag_commits": 0
   },
   {
    "resolution": "indexed",
@@ -86,7 +86,7 @@
    "artifact": "app/knowledge-pack.json",
    "enabled": true,
    "present": true,
-   "lag_commits": null
+   "lag_commits": 0
   },
   {
    "resolution": "relational",

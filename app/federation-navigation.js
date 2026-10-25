@@ -10,7 +10,7 @@
     return item;
   };
 
-  function mount(host, settings) {
+  function mount(host, settings, observers={}) {
     host.replaceChildren();
     if (!settings || settings.protocolVersion !== '1.0' || !Array.isArray(settings.roots) ||
         !settings.roots.length || settings.roots.length > 32 || !settings.roots.every(identity) ||
@@ -109,6 +109,9 @@
       if (graph.unavailable.length) fragment.append(node('p', 'Some requested roots are unavailable.', 'ks-note'));
       fragment.append(node('p', 'Membership, ownership and peer relationships are distinct. These results do not grant record access.', 'ks-note'));
       content.replaceChildren(fragment);
+      // An observation callback is not enrollment or permission to query/write.
+      if(typeof observers.selection==='function')observers.selection({participant:selected||null,
+        authorization:graph.authorization,partial:partial.length>0});
     }
     async function load() {
       const current = ++sequence;
@@ -117,6 +120,7 @@
       const signal = controller.signal;
       const timeout = setTimeout(() => { if (current === sequence) controller.abort(); }, 12000);
       content.replaceChildren();
+      if(typeof observers.clear==='function')observers.clear();
       status.textContent = 'Loading visible brains…';
       host.setAttribute('aria-busy', 'true');
       try {
@@ -130,6 +134,7 @@
       } catch {
         if (current !== sequence) return;
         content.replaceChildren();
+        if(typeof observers.clear==='function')observers.clear();
         status.textContent = 'Navigation unavailable. Refresh to try again.';
       } finally {
         clearTimeout(timeout);
@@ -141,6 +146,8 @@
     global.addEventListener('hashchange', load);
     global.addEventListener('kb-view-change', load);
     load();
+    return {clear(){++sequence;if(controller)controller.abort();content.replaceChildren();if(typeof observers.clear==='function')observers.clear();},
+      destroy(){++sequence;if(controller)controller.abort();global.removeEventListener('hashchange',load);global.removeEventListener('kb-view-change',load);content.replaceChildren();if(typeof observers.clear==='function')observers.clear();}};
   }
   global.KBFederationNavigation = {mount};
 })(window);

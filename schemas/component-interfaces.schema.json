@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "conflict:schema/component-interfaces/v2",
+  "$id": "conflict:schema/component-interfaces/v3",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -398,7 +398,7 @@
         ]
       },
       "minItems": 1,
-      "maxItems": 128
+      "maxItems": 2048
     },
     "consumerRequests": {
       "type": "array",
@@ -510,5 +510,14 @@
   "required": [
     "protocolVersion",
     "entries"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"protocolVersion": {"const": "1.0"}},
+        "required": ["protocolVersion"]
+      },
+      "then": {"properties": {"entries": {"maxItems": 192}}}
+    }
   ]
 }

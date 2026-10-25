@@ -16,6 +16,9 @@ from knowledge_operations import private_path
 
 MAX_DECLARATION_BYTES = 4096
 STATUS_PATH = "/.well-known/mimwell.json"
+CONTRACT_VERSION = "1"
+TOOLS_CONTRACT_VERSION = "1"
+CITATION_CONTRACT_VERSION = "mimwell-mcp-citation-result/v1"
 READ_CAPABILITIES = ("search_records", "read_record", "list_definitions", "resolve_metric", "run_metric")
 
 
@@ -89,12 +92,13 @@ def load(root, relative):
     return validate(decode(raw))
 
 
-def document(engine, declaration=None, *, records=None):
+def document(engine, declaration=None, *, records=None, structured_citations=False,
+             native_citations_v2=False):
     value = validate(declaration) if declaration is not None else {}
     # Version strings come from a release manifest, never arbitrary manifest data.
     version = engine if isinstance(engine, str) and re.fullmatch(r"[0-9][A-Za-z0-9.+-]{0,63}", engine) else None
     substrate = value.get("substrate") or {}
-    return {"contract": "1", "engine": version, "edition": value.get("edition"),
+    result = {"contract": CONTRACT_VERSION, "engine": version, "edition": value.get("edition"),
             "compiled_at": value.get("compiled_at"), "revision": value.get("revision"),
             "records": records, "records_basis": "anonymous-projection" if records is not None else "unknown",
             "substrate": {axis: substrate.get(axis) for axis in
@@ -102,3 +106,14 @@ def document(engine, declaration=None, *, records=None):
             "last_ingest": value.get("last_ingest"),
             "metadata_source": "operator-declared" if declaration is not None else "unknown",
             "mcp": {"path": "/mcp", "tools": list(READ_CAPABILITIES), "tools_basis": "server-capabilities"}}
+    if structured_citations:
+        result["mcp"]["toolsContract"] = TOOLS_CONTRACT_VERSION
+        result["mcp"]["citationContract"] = CITATION_CONTRACT_VERSION
+        result["mcp"]["citationProtocolVersion"] = "2025-06-18"
+        result["mcp"]["citationAuthorityViews"] = ["compiled"]
+    if native_citations_v2:
+        result["mcp"]["nativeCitationContract"] = {
+            "toolsContract": "2", "citationContract": "mimwell-mcp-citation-result/v2",
+            "protocolVersion": "2025-06-18", "authorityViews": ["native-adopted"],
+            "requestMeta": {"mimwell/citationContract": "2"}}
+    return result

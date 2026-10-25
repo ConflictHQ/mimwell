@@ -41,3 +41,6 @@ runtime/brain-classifier
 
 # App bundles are served only by the authenticated app host (#371).
 apps
+
+# Historical local release controls contain private machine paths; never serve them as portal assets.
+proofs/ks5/dev73

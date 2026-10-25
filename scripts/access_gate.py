@@ -18,13 +18,16 @@ A block this module cannot parse is LOCKDOWN, as in access.js: nobody is an
 owner, no restricted-mode path is readable and no tool is allowed. A register
 that cannot be read unambiguously locks down a gate that relies on it.
 
-Identity is an email (lowercased), as the Worker's Cloudflare Access header
-gives it; an empty identity is never an owner and never a reader of a
-restricted path.
+Legacy Worker identity is an email (lowercased), as the Cloudflare Access
+header gives it. The MCP host may additionally bind the verified token
+Caller's typed principals in a request-local scope. Empty email alone is never
+an owner or reader; caller-supplied principal lists are not accepted.
 """
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from urllib.parse import unquote
 
 # JavaScript's \s (WhiteSpace and LineTerminator), spelled out: Python's \s
@@ -204,7 +207,11 @@ def _string_list(value, problems, where):
             continue
         trimmed = _js_trim(item)
         # An OIDC subject is case-sensitive; every other identity is not.
-        out.append(trimmed if trimmed.startswith("oidc:") else trimmed.lower())
+        # Typed GUID namespaces are canonical and case-sensitive at the policy
+        # boundary. Keep their original spelling so malformed/case-folded
+        # values are rejected below instead of becoming a valid typed rule.
+        typed_prefix = trimmed.split(":", 1)[0].lower() in {"team", "agent", "app"}
+        out.append(trimmed if trimmed.startswith("oidc:") or typed_prefix else trimmed.lower())
     return out
 
 
@@ -261,6 +268,25 @@ def _principal_spec(spec):
     return spec.startswith("person:") or spec.startswith("oidc:")
 
 
+_GUID_PRINCIPAL = re.compile(r"^(team|agent|app):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
+
+
+def _typed_principal(spec):
+    match = _GUID_PRINCIPAL.fullmatch(spec) if isinstance(spec, str) else None
+    return match.group(0) if match else None
+
+
+def _malformed_typed_spec(spec):
+    if not isinstance(spec, str) or ":" not in spec:
+        return False
+    if _typed_principal(spec) is not None:
+        return False
+    prefix = spec.split(":", 1)[0] + ":"
+    if prefix in ("person:", "oidc:"):
+        return False
+    return True
+
+
 def _identity(email):
     return _js_trim(email if isinstance(email, str) else "").lower()
 
@@ -272,6 +298,9 @@ class Gate:
         self._config = access_cfg
         parsed = _parse(access_cfg)
         problems = list(parsed["problems"])
+        specs = parsed["owners"] + [spec for rule in parsed["rules"] for spec in rule.readers]
+        if any(_malformed_typed_spec(spec) for spec in specs):
+            problems.append("access policy contains an unknown or malformed typed principal")
         principals = None
         register_problems = []
         if register is not UNBOUND:
@@ -292,6 +321,7 @@ class Gate:
         self._owners = () if self.lockdown else tuple(parsed["owners"])
         self._rules = () if self.lockdown else tuple(parsed["rules"])
         self._tools = frozenset() if self.lockdown else frozenset(parsed["tools"])
+        self._verified_identity = ContextVar(f"access-gate-identity-{id(self)}", default=None)
         if not self.present:
             self._mode = "open"
         elif not problems and not parsed["rules"] and not parsed["tools"]:
@@ -304,12 +334,35 @@ class Gate:
         self.paths_enabled = self._mode == "paths"
         self._memo = {}
 
+    @contextmanager
+    def verified_identity(self, caller):
+        """Bind a caller produced by the host token verifier for this request.
+
+        Request fields and browser supplied principal lists must never be passed
+        here; the MCP host enters this scope only after signature verification.
+        """
+        from brain_token import Caller
+        if not isinstance(caller, Caller):
+            raise TypeError("verified host caller required")
+        token = self._verified_identity.set(caller.access_principals)
+        try:
+            yield
+        finally:
+            self._verified_identity.reset(token)
+
+    def _typed_matches(self, spec):
+        return _typed_principal(spec) is not None and spec in (self._verified_identity.get() or ())
+
     def bind_register(self, register):
         """The same configuration with app/people.json bound (#212)."""
         return Gate(self._config, register)
 
     def _matches(self, spec, email):
-        if not spec or not email:
+        if not spec:
+            return False
+        if _typed_principal(spec) is not None:
+            return self._typed_matches(spec)
+        if not email:
             return False
         if _principal_spec(spec):
             principal = self._principals.resolve("access:" + email) if self._principals else None
@@ -324,7 +377,8 @@ class Gate:
         if self.lockdown:
             return False
         identity = _identity(email)
-        return bool(identity) and any(self._matches(spec, identity) for spec in self._owners)
+        return (bool(identity) or bool(self._verified_identity.get())) and any(
+            self._matches(spec, identity) for spec in self._owners)
 
     def _rules_for(self, path):
         key = normalize_path(path).lower()
@@ -354,7 +408,7 @@ class Gate:
         if self.is_owner(email):
             return True
         identity = _identity(email)
-        if not identity:
+        if not identity and not self._verified_identity.get():
             return False
         return all(any(self._matches(spec, identity) for spec in rule.readers) for rule in hits)
 
@@ -401,7 +455,9 @@ class Gate:
     def satisfied_rules(self, email):
         """Per restricted rule, whether a reader who is not an owner may read what it covers."""
         identity = _identity(email)
-        return tuple(bool(identity) and any(self._matches(spec, identity) for spec in rule.readers)
+        has_host_principals = bool(self._verified_identity.get())
+        return tuple((bool(identity) or has_host_principals)
+                     and any(self._matches(spec, identity) for spec in rule.readers)
                      for rule in self._rules)
 
     def filter_graph(self, graph, email):

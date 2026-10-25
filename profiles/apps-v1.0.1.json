@@ -1,0 +1,1359 @@
+{
+  "overlay": "apps-v1.0.1",
+  "$comment": "Opt-in Studio app records. App and Component records are reviewed data descriptions; they never enroll, grant access, install, activate or execute an app. Attachments name bounded immutable blobs and carry no datasource credentials.",
+  "revision": "1.0.1",
+  "requiresOverlays": [
+    "data"
+  ],
+  "idConventions": {
+    "slug": [
+      "studio.app",
+      "studio.component",
+      "studio.app-query"
+    ]
+  },
+  "kinds": [
+    {
+      "id": "studio.app",
+      "title": "Studio App",
+      "class": "record",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "App",
+      "description": "A reviewed, portable data description for a Studio app; never an enrollment or executable package.",
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "const": "studio-app/v1"
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 32
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "sourceRevision": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "system",
+              "sourceId",
+              "sourceRevision"
+            ],
+            "additionalProperties": false
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sections": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+                    },
+                    "component": {
+                      "type": "string",
+                      "pattern": "^studio\\.component:[a-z0-9][a-z0-9-]{0,62}$"
+                    },
+                    "componentRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 256
+                    },
+                    "position": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "component",
+                    "componentRevision",
+                    "position"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "version",
+              "sections"
+            ],
+            "additionalProperties": false
+          },
+          "attachments": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "$ref": "#/$defs/attachment"
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "definitionVersion",
+          "owner",
+          "provenance",
+          "layout"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "attachment": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "enum": [
+                  "pglite-snapshot",
+                  "sql-fallback",
+                  "csv-fallback"
+                ]
+              },
+              "format": {
+                "enum": [
+                  "pglite-snapshot",
+                  "sql",
+                  "csv"
+                ]
+              },
+              "blob": {
+                "type": "object",
+                "properties": {
+                  "store": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "key": {
+                    "type": "string",
+                    "pattern": "^sha256/[0-9a-f]{64}$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16777216
+                  },
+                  "mediaType": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "store",
+                  "key",
+                  "sha256",
+                  "bytes",
+                  "mediaType"
+                ],
+                "additionalProperties": false
+              },
+              "capturedAt": {
+                "type": "string",
+                "format": "date-time",
+                "maxLength": 64
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "revision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "additionalProperties": false
+              },
+              "protection": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "const": "protected-bytes/v1"
+                  },
+                  "contentBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10485760
+                  },
+                  "contentSha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                },
+                "required": [
+                  "format",
+                  "contentBytes",
+                  "contentSha256"
+                ],
+                "additionalProperties": false
+              },
+              "postgresMajor": {
+                "type": "integer",
+                "minimum": 12,
+                "maximum": 99
+              },
+              "pgliteVersion": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+                "maxLength": 32
+              },
+              "compression": {
+                "enum": [
+                  "gzip",
+                  "zstd"
+                ]
+              },
+              "expandedBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 67108864
+              },
+              "expandedSha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "role",
+              "format",
+              "blob",
+              "capturedAt",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "id": "studio.component",
+      "title": "Studio Component",
+      "class": "record",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "Component",
+      "description": "A data-only, reusable Studio component definition with typed query bindings; contains no code or grants.",
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "const": "studio-component/v1"
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 32
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "sourceRevision": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "system",
+              "sourceId",
+              "sourceRevision"
+            ],
+            "additionalProperties": false
+          },
+          "definition": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "table",
+                  "chart",
+                  "text",
+                  "filter",
+                  "summary",
+                  "diagram"
+                ]
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "options": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "pageSize": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200
+                      },
+                      "columns": {
+                        "type": "array",
+                        "maxItems": 64,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "field": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                            },
+                            "label": {
+                              "type": "string",
+                              "maxLength": 128
+                            },
+                            "format": {
+                              "enum": [
+                                "text",
+                                "number",
+                                "date",
+                                "percent"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "field",
+                            "label",
+                            "format"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "embedded": {
+                        "$ref": "#/$defs/studioEmbedded"
+                      }
+                    },
+                    "required": [
+                      "pageSize",
+                      "columns"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "chartType": {
+                        "enum": [
+                          "bar",
+                          "line",
+                          "area"
+                        ]
+                      },
+                      "category": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                      },
+                      "series": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 24,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                        }
+                      }
+                    },
+                    "required": [
+                      "chartType",
+                      "category",
+                      "series"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "style": {
+                        "enum": [
+                          "body",
+                          "heading",
+                          "caption"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "style"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                      },
+                      "operator": {
+                        "enum": [
+                          "eq",
+                          "neq",
+                          "in",
+                          "gte",
+                          "lte"
+                        ]
+                      },
+                      "values": {
+                        "type": "array",
+                        "maxItems": 100,
+                        "items": {
+                          "type": [
+                            "string",
+                            "number",
+                            "boolean"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "field",
+                      "operator",
+                      "values"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "format": {
+                        "enum": [
+                          "integer",
+                          "decimal",
+                          "percent",
+                          "currency"
+                        ]
+                      },
+                      "precision": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "embedded": {
+                        "$ref": "#/$defs/studioEmbedded"
+                      }
+                    },
+                    "required": [
+                      "format",
+                      "precision"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "chartType": {
+                        "enum": [
+                          "bar",
+                          "line",
+                          "area",
+                          "point",
+                          "pie"
+                        ]
+                      },
+                      "category": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                      },
+                      "series": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 24,
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                        }
+                      },
+                      "stacked": {
+                        "type": "boolean"
+                      },
+                      "color": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                      },
+                      "embedded": {
+                        "$ref": "#/$defs/studioEmbedded"
+                      }
+                    },
+                    "required": [
+                      "chartType",
+                      "category",
+                      "series",
+                      "stacked",
+                      "embedded"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "diagramType": {
+                        "const": "flow"
+                      },
+                      "direction": {
+                        "enum": [
+                          "LR",
+                          "TD",
+                          "RL",
+                          "BT"
+                        ]
+                      },
+                      "edges": {
+                        "type": "object",
+                        "properties": {
+                          "from": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                          },
+                          "to": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9-]*:[a-z0-9._-]+$"
+                          }
+                        },
+                        "required": [
+                          "from",
+                          "to"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "embedded": {
+                        "$ref": "#/$defs/studioEmbedded"
+                      }
+                    },
+                    "required": [
+                      "diagramType",
+                      "direction",
+                      "edges",
+                      "embedded"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "version",
+              "options"
+            ],
+            "additionalProperties": false
+          },
+          "queryBindings": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "pattern": "^studio\\.app-query:[a-z0-9][a-z0-9-]{0,62}$"
+                },
+                "revision": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "query",
+                "revision"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "definitionVersion",
+          "owner",
+          "provenance",
+          "definition",
+          "queryBindings"
+        ],
+        "additionalProperties": false,
+        "$defs": {
+          "studioEmbedded": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "const": "studio-embedded/v1"
+              },
+              "descriptor": {
+                "type": "object",
+                "properties": {
+                  "format": {
+                    "const": "pglite-snapshot/v1"
+                  },
+                  "frozen_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "source": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "app",
+                          "datasource"
+                        ]
+                      },
+                      "id": {
+                        "type": "string",
+                        "maxLength": 256,
+                        "minLength": 1
+                      },
+                      "dialect": {
+                        "enum": [
+                          "sqlite",
+                          "postgres"
+                        ]
+                      },
+                      "timezone": {
+                        "type": "string",
+                        "maxLength": 128,
+                        "minLength": 1
+                      },
+                      "query_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id",
+                      "dialect",
+                      "timezone",
+                      "query_sha256"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "tables": {
+                    "type": "array",
+                    "maxItems": 0
+                  },
+                  "query": {
+                    "type": "object",
+                    "properties": {
+                      "sql": {
+                        "type": "string",
+                        "maxLength": 20000,
+                        "minLength": 1
+                      },
+                      "parameters": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,39}$"
+                        },
+                        "maxItems": 8,
+                        "minItems": 0
+                      },
+                      "controls": {
+                        "type": "object",
+                        "maxProperties": 8,
+                        "patternProperties": {
+                          "^[A-Za-z_][A-Za-z0-9_]{0,39}$": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "const": "choice"
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "string",
+                                      "maxLength": 10000,
+                                      "minLength": 0
+                                    },
+                                    {
+                                      "type": "number"
+                                    }
+                                  ]
+                                },
+                                "maxItems": 100,
+                                "minItems": 1
+                              },
+                              "default": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 10000,
+                                    "minLength": 0
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ]
+                              },
+                              "label": {
+                                "type": "string",
+                                "maxLength": 200,
+                                "minLength": 0
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "options",
+                              "default"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "sql",
+                      "parameters",
+                      "controls"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "fixtures": {
+                    "type": "object",
+                    "properties": {
+                      "ordered": {
+                        "type": "boolean"
+                      },
+                      "columns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 128,
+                          "minLength": 1
+                        },
+                        "maxItems": 64,
+                        "minItems": 1,
+                        "uniqueItems": true
+                      },
+                      "cases": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "params": {
+                              "type": "array",
+                              "items": {
+                                "oneOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 10000,
+                                    "minLength": 0
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ]
+                              },
+                              "maxItems": 8,
+                              "minItems": 0
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "null"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "const": "boolean"
+                                        },
+                                        "value": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "kind": {
+                                          "enum": [
+                                            "number",
+                                            "temporal",
+                                            "bytes",
+                                            "text"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "string",
+                                          "maxLength": 10000,
+                                          "minLength": 0
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
+                                "maxItems": 64,
+                                "minItems": 1
+                              },
+                              "maxItems": 5000,
+                              "minItems": 0
+                            }
+                          },
+                          "required": [
+                            "params",
+                            "rows"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 100,
+                        "minItems": 1
+                      }
+                    },
+                    "required": [
+                      "ordered",
+                      "columns",
+                      "cases"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "counts": {
+                    "type": "object",
+                    "properties": {
+                      "rows": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      },
+                      "fixture_rows": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 5000
+                      },
+                      "bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 33554432
+                      }
+                    },
+                    "required": [
+                      "rows",
+                      "fixture_rows",
+                      "bytes"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "format",
+                  "frozen_at",
+                  "source",
+                  "tables",
+                  "query",
+                  "fixtures",
+                  "counts"
+                ],
+                "additionalProperties": false
+              },
+              "snapshot": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "const": "pglite-snapshot"
+                  },
+                  "format": {
+                    "const": "pglite-snapshot"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "postgresMajor": {
+                    "type": "integer",
+                    "minimum": 10,
+                    "maximum": 99
+                  },
+                  "pgliteVersion": {
+                    "const": "0.5.10"
+                  },
+                  "compression": {
+                    "const": "gzip"
+                  },
+                  "expandedBytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 67108864
+                  },
+                  "expandedSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "role",
+                  "format",
+                  "sha256",
+                  "postgresMajor",
+                  "pgliteVersion",
+                  "compression",
+                  "expandedBytes",
+                  "expandedSha256"
+                ],
+                "additionalProperties": false
+              },
+              "view": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "table"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 1
+                      },
+                      "description": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                      },
+                      "view": {
+                        "type": "object",
+                        "properties": {
+                          "page_size": {
+                            "type": "integer",
+                            "minimum": 5,
+                            "maximum": 100
+                          },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 200,
+                              "minLength": 1
+                            },
+                            "maxItems": 50,
+                            "minItems": 1
+                          }
+                        },
+                        "required": [
+                          "page_size"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "description",
+                      "view"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "kpi"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 1
+                      },
+                      "description": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                      },
+                      "view": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "minLength": 1
+                          },
+                          "format": {
+                            "enum": [
+                              "number",
+                              "percent",
+                              "currency"
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "maxLength": 80,
+                            "minLength": 0
+                          },
+                          "delta": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "minLength": 1
+                          },
+                          "currency": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{3}$"
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "format",
+                          "label"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "description",
+                      "view"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "chart"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 1
+                      },
+                      "description": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                      },
+                      "view": {
+                        "type": "object",
+                        "properties": {
+                          "mark": {
+                            "enum": [
+                              "bar",
+                              "line",
+                              "area",
+                              "point",
+                              "pie"
+                            ]
+                          },
+                          "x": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "minLength": 1
+                          },
+                          "y": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 200,
+                              "minLength": 1
+                            },
+                            "minItems": 1,
+                            "maxItems": 6
+                          },
+                          "color": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "minLength": 1
+                          },
+                          "stacked": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "mark",
+                          "x",
+                          "y",
+                          "stacked"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "description",
+                      "view"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "diagram"
+                      },
+                      "title": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "minLength": 1
+                      },
+                      "description": {
+                        "type": "string",
+                        "maxLength": 500,
+                        "minLength": 0
+                      },
+                      "view": {
+                        "type": "object",
+                        "properties": {
+                          "edges": {
+                            "type": "object",
+                            "properties": {
+                              "from": {
+                                "type": "string",
+                                "maxLength": 200,
+                                "minLength": 1
+                              },
+                              "to": {
+                                "type": "string",
+                                "maxLength": 200,
+                                "minLength": 1
+                              },
+                              "label": {
+                                "type": "string",
+                                "maxLength": 200,
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "from",
+                              "to"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "direction": {
+                            "enum": [
+                              "LR",
+                              "TD",
+                              "RL",
+                              "BT"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "edges",
+                          "direction"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "description",
+                      "view"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "format",
+              "descriptor",
+              "snapshot",
+              "view"
+            ],
+            "additionalProperties": false,
+            "$comment": "Closed embedded Studio PGlite snapshot metadata and inert table/KPI/chart/query-diagram views. The snapshot is a same-App native attachment reference; it grants no authority and does not prove source provenance or browser renderer support."
+          }
+        }
+      }
+    },
+    {
+      "id": "studio.app-query",
+      "title": "Studio App Query",
+      "class": "record",
+      "mutability": "slow",
+      "durability": "durable-logic",
+      "source": "fill-in",
+      "node": "AppQuery",
+      "description": "A typed query selection bound to a reviewed metric and declared dimensions; contains no SQL or connection details.",
+      "payloadSchema": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "const": "studio-app-query/v1"
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "maxLength": 32
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "system": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "sourceId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "sourceRevision": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "system",
+              "sourceId",
+              "sourceRevision"
+            ],
+            "additionalProperties": false
+          },
+          "metric": {
+            "type": "string",
+            "pattern": "^metric:[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "metricRevision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "dimensions": {
+            "type": "array",
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*:[a-z0-9][a-z0-9._-]*$"
+            }
+          },
+          "grain": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "definitionVersion",
+          "owner",
+          "provenance",
+          "metric",
+          "metricRevision",
+          "dimensions"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "has_app_component",
+      "description": "A Studio App is composed from a data-only Component.",
+      "domain": [
+        "studio.app"
+      ],
+      "range": [
+        "studio.component"
+      ]
+    },
+    {
+      "id": "component_uses_query",
+      "description": "A Component references a typed Studio App Query.",
+      "domain": [
+        "studio.component"
+      ],
+      "range": [
+        "studio.app-query"
+      ]
+    },
+    {
+      "id": "query_uses_metric",
+      "description": "A Studio App Query selects a reviewed governed Metric.",
+      "domain": [
+        "studio.app-query"
+      ],
+      "range": [
+        "metric"
+      ]
+    }
+  ]
+}

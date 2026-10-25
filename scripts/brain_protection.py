@@ -5,6 +5,7 @@ content. Ciphertext integrity is not authorship, factual truth or permission.
 """
 import base64
 from copy import deepcopy
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,12 +13,17 @@ import re
 import secrets
 import sqlite3
 import stat
+import time
 
 from context_bundle import encode
 from knowledge_policy import fingerprint
 
 FORMAT = 'protected-record/v1'
 MAX_BODY = 4 * 1024 * 1024
+# Binary App payloads use an independent bound. The encoded envelope must fit
+# the existing 32 MiB Studio transfer/open package caps and DB blob bound.
+MAX_PROTECTED_BYTES = 10 * 1024 * 1024
+MAX_PROTECTED_ENVELOPE = 15 * 1024 * 1024
 MAX_EXCHANGE = 32 * 1024 * 1024
 MAX_ROOT = 32 * 1024 * 1024
 ROOT_FORMAT = 'root-files/v1'
@@ -277,25 +283,65 @@ class RootFiles:
             raise ProtectionError('root-file-unavailable')
         return self._files[path]
 
-    def sqlite(self, path):
+    def sqlite(self, path, *, deadline=None):
         raw = bytearray(self.read(path))
         if raw[:16] != SQLITE_HEADER:
             raise ProtectionError('invalid-sqlite-file')
         raw[18:20] = b'\x01\x01'  # A checkpointed WAL database reads as rollback-journal in memory.
+        if deadline is not None and time.monotonic() >= deadline:
+            raise ProtectionError('sqlite-admission-deadline')
         db = sqlite3.connect(':memory:')
-        # Sorts, transient indices and temp tables would otherwise spill decrypted
-        # rows to files under TMPDIR (the usual build default is TEMP_STORE=1).
-        # A TEMP_STORE=0 build ignores the pragma and always uses files.
-        db.execute('PRAGMA temp_store=MEMORY')
-        if ('TEMP_STORE=0',) in db.execute('PRAGMA compile_options').fetchall():
-            db.close()
-            raise ProtectionError('sqlite-temp-store-unavailable')
+        progress_installed = False
+        succeeded = False
+
+        def check_deadline():
+            if deadline is not None and time.monotonic() >= deadline:
+                raise ProtectionError('sqlite-admission-deadline')
+
         try:
-            db.deserialize(bytes(raw))
-        except sqlite3.DatabaseError:
-            db.close()
-            raise ProtectionError('invalid-sqlite-file') from None
-        return db
+            if deadline is not None:
+                check_deadline()
+                db.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
+                progress_installed = True
+            # Sorts, transient indices and temp tables would otherwise spill decrypted
+            # rows to files under TMPDIR (the usual build default is TEMP_STORE=1).
+            # A TEMP_STORE=0 build ignores the pragma and always uses files.
+            check_deadline()
+            db.execute('PRAGMA temp_store=MEMORY')
+            check_deadline()
+            compile_options = db.execute('PRAGMA compile_options').fetchall()
+            check_deadline()
+            if ('TEMP_STORE=0',) in compile_options:
+                raise ProtectionError('sqlite-temp-store-unavailable')
+            raw_bytes = bytes(raw)
+            check_deadline()
+            try:
+                db.deserialize(raw_bytes)
+            except sqlite3.DatabaseError:
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise ProtectionError('sqlite-admission-deadline') from None
+                raise ProtectionError('invalid-sqlite-file') from None
+            check_deadline()
+            if progress_installed:
+                db.set_progress_handler(None, 0)
+                progress_installed = False
+            succeeded = True
+            return db
+        except sqlite3.Error:
+            if deadline is not None and time.monotonic() >= deadline:
+                raise ProtectionError('sqlite-admission-deadline') from None
+            raise
+        finally:
+            if not succeeded:
+                if progress_installed:
+                    try:
+                        db.set_progress_handler(None, 0)
+                    except BaseException:
+                        pass
+                try:
+                    db.close()
+                except BaseException:
+                    pass
 
 
 def _crypto():
@@ -503,6 +549,106 @@ class ProtectionHost:
                 _root_files(body)
         self.permit(authorization, 'read')
         return body
+
+    def seal_bytes(self, raw, *, context, object_id, revision, required, selected):
+        """Seal bounded binary content without routing it through the JSON body limit.
+
+        Context metadata remains visible to the native App record; callers must
+        refuse this route when policy requires opaque attachment metadata.
+        """
+        opaque(object_id)
+        opaque(revision)
+        required, selected = requirements(required), profile(selected)
+        if (not isinstance(raw, bytes) or len(raw) > MAX_PROTECTED_BYTES
+                or selected['mode'] != 'per-record'
+                or required['opaqueMetadata']):
+            raise ProtectionError('protected-binary-unavailable')
+        checked = assess(required, selected)
+        if not checked['supported']:
+            raise ProtectionError(checked['reasons'][0])
+        entry = {'format': 'protected-bytes/v1', 'object': object_id, 'revision': revision,
+                 'requirements': required, 'profile': selected,
+                 'contextSha256': fingerprint(context), 'contentBytes': len(raw),
+                 'contentSha256': hashlib.sha256(raw).hexdigest()}
+        self.permit(entry, 'retain')
+        self.available(selected)
+        nonce = secrets.token_bytes(12)
+        storage = {'encoding': 'aes256gcm/v1', 'nonce': _b64(nonce),
+                   'ciphertext': _b64(_crypto()(self.key(selected['key'])).encrypt(
+                       nonce, raw, encode(entry)))}
+        envelope = {**entry, 'storage': storage, 'signature': None}
+        if selected['signer'] is not None:
+            signer = self.signers.get(selected['signer'])
+            if not isinstance(signer, _signing_type(private=True)):
+                raise ProtectionError('signing-key-unavailable')
+            try:
+                envelope['signature'] = {'algorithm': 'ed25519/v1', 'value': _b64(signer.sign(_signed(envelope)))}
+            except Exception:
+                raise ProtectionError('signing-key-unavailable') from None
+        if len(encode(envelope)) > MAX_PROTECTED_ENVELOPE:
+            raise ProtectionError('protected-binary-envelope-too-large')
+        self.permit({key: value for key, value in envelope.items() if key != 'storage'}, 'retain')
+        return envelope
+
+    def open_bytes(self, envelope, *, context, expected_object, expected_revision,
+                   expected_profile, required):
+        """Authorize, authenticate and verify the exact context-bound byte envelope."""
+        if (not isinstance(envelope, dict) or set(envelope) != {
+                'format', 'object', 'revision', 'requirements', 'profile', 'contextSha256',
+                'contentBytes', 'contentSha256', 'storage', 'signature'}
+                or envelope.get('format') != 'protected-bytes/v1'
+                or len(encode(envelope)) > MAX_PROTECTED_ENVELOPE):
+            raise ProtectionError('invalid-protected-binary-envelope')
+        opaque(envelope['object'])
+        opaque(envelope['revision'])
+        effective = combine(required, envelope['requirements'])
+        selected = profile(expected_profile)
+        if (envelope['object'] != expected_object or envelope['revision'] != expected_revision
+                or profile(envelope['profile']) != selected
+                or envelope['contextSha256'] != fingerprint(context)
+                or type(envelope['contentBytes']) is not int
+                or not 0 <= envelope['contentBytes'] <= MAX_PROTECTED_BYTES
+                or not isinstance(envelope['contentSha256'], str)
+                or re.fullmatch('[0-9a-f]{64}', envelope['contentSha256']) is None
+                or selected['mode'] != 'per-record'
+                or effective['opaqueMetadata']):
+            raise ProtectionError('protected-binary-context-changed')
+        checked = assess(effective, selected, offline=True)
+        if not checked['supported']:
+            raise ProtectionError(checked['reasons'][0])
+        storage = envelope['storage']
+        fields(storage, ('encoding', 'nonce', 'ciphertext'))
+        if storage['encoding'] != 'aes256gcm/v1':
+            raise ProtectionError('invalid-protected-binary-envelope')
+        authorization = {key: deepcopy(envelope[key]) for key in (
+            'format', 'object', 'revision', 'requirements', 'profile', 'contextSha256',
+            'contentBytes', 'contentSha256')}
+        authorization['requirements'] = effective
+        self.permit(authorization, 'read')
+        if envelope['signature'] is not None:
+            signer = selected['signer']
+            verifier = self.verifiers.get(signer) if signer is not None else None
+            if not isinstance(verifier, _signing_type(private=False)):
+                raise ProtectionError('verification-key-unavailable')
+            try:
+                verifier.verify(_binary(envelope['signature']['value'], maximum=64), _signed(envelope))
+            except Exception:
+                raise ProtectionError('signature-invalid') from None
+        elif selected['signer'] is not None:
+            raise ProtectionError('signature-required')
+        header = {key: value for key, value in envelope.items() if key not in ('storage', 'signature')}
+        self.available(selected)
+        try:
+            raw = _crypto()(self.key(selected['key'])).decrypt(
+                _binary(storage['nonce'], maximum=12),
+                _binary(storage['ciphertext'], maximum=MAX_PROTECTED_BYTES + 16), encode(header))
+        except Exception:
+            raise ProtectionError('body-authentication-failed') from None
+        if (len(raw) != envelope['contentBytes']
+                or hashlib.sha256(raw).hexdigest() != envelope['contentSha256']):
+            raise ProtectionError('protected-binary-digest-mismatch')
+        self.permit(authorization, 'read')
+        return raw
 
 
 class ServedMediator:
