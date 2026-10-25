@@ -1,0 +1,25 @@
+{
+  "generated": "2026-10-25",
+  "counts": {},
+  "stories": {
+    "total": 0,
+    "by_status": {}
+  },
+  "size_distribution": {
+    "order": [],
+    "counts": {},
+    "unsized": 0
+  },
+  "size_by_feature": [],
+  "gate": null,
+  "gate_split": null,
+  "critical_path": {
+    "length": 0,
+    "nodes": []
+  },
+  "effort_bounds": {
+    "low": 0,
+    "high": 0,
+    "unit": "days"
+  }
+}

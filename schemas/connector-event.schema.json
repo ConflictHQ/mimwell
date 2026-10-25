@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/connector-event/v1",
+  "title": "Mechanical connector export event",
+  "description": "Untrusted exported event mapping. Imported actor and visibility never grant host authority; order is a decimal string to preserve large IDs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "namespace", "objectId", "eventId", "revision", "order", "operation", "actor", "thread", "eventTime", "observedAt", "language", "text", "attachments", "locator", "visibility", "payload"],
+  "properties": {
+    "format": {"const": "connector-event/v1"},
+    "namespace": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S"},
+    "objectId": {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "\\S"},
+    "eventId": {"type": "string", "minLength": 1, "maxLength": 1024, "pattern": "\\S"},
+    "revision": {"type": "string", "minLength": 1, "maxLength": 256, "pattern": "\\S"},
+    "order": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,127})$"},
+    "operation": {"enum": ["upsert", "edit", "delete", "access-change"]},
+    "actor": {"type": ["string", "null"], "maxLength": 1024},
+    "thread": {"type": ["string", "null"], "maxLength": 1024},
+    "eventTime": {"type": ["string", "null"], "maxLength": 128},
+    "observedAt": {"type": ["string", "null"], "maxLength": 128},
+    "language": {"type": ["string", "null"], "maxLength": 64},
+    "text": {"type": ["string", "null"], "maxLength": 65536},
+    "attachments": {"type": "array", "maxItems": 64, "items": {"type": "object", "additionalProperties": false, "required": ["id", "locator", "mediaType"], "properties": {"id": {"type": "string", "minLength": 1, "maxLength": 1024}, "locator": {"type": "string", "maxLength": 4096}, "mediaType": {"type": "string", "minLength": 1, "maxLength": 256}}}},
+    "locator": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "visibility": {"type": ["string", "null"], "maxLength": 256},
+    "payload": {"type": "object", "additionalProperties": false, "required": ["encoding", "mediaType", "byteLength", "sha256", "data"], "properties": {"encoding": {"const": "base64"}, "mediaType": {"type": "string", "minLength": 1, "maxLength": 256}, "byteLength": {"type": "integer", "minimum": 0, "maximum": 65536}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "data": {"type": "string", "maxLength": 87384}}}
+  },
+  "allOf": [
+    {"if": {"properties": {"operation": {"enum": ["upsert", "edit"]}}}, "then": {"properties": {"text": {"type": "string"}}}},
+    {"if": {"properties": {"operation": {"enum": ["delete", "access-change"]}}}, "then": {"properties": {"text": {"type": "null"}, "attachments": {"maxItems": 0}}}}
+  ]
+}

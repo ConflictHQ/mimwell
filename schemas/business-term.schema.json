@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/business-term/v1",
+  "title": "Governed business term record data",
+  "description": "Authority-owned aliases and typed links to governed metrics and the catalogued source model.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "aliases": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "governsMetrics": {"type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^metric:[a-z0-9][a-z0-9-]*$"}},
+    "governsEntities": {"type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^source:[a-z0-9][a-z0-9-]*:entity:[a-z0-9][a-z0-9-]*$"}},
+    "governsFields": {"type": "array", "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^source:[a-z0-9][a-z0-9-]*:entity:[a-z0-9][a-z0-9-]*:field:[a-z0-9][a-z0-9-]*$"}}
+  }
+}

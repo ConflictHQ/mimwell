@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/knowledge-operation-request/v8",
+  "title": "Host-registered bounded backup write, inspection, or explicit reconciliation request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "authority",
+    "operation",
+    "arguments"
+  ],
+  "properties": {
+    "format": {
+      "const": "knowledge-operation-request/v8"
+    },
+    "authority": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "operation": {
+      "enum": [
+        "backup.write",
+        "backup.inspect",
+        "backup.reconcile"
+      ]
+    },
+    "arguments": {
+      "type": "object"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "operation": {
+          "const": "backup.write"
+        },
+        "arguments": {
+          "required": [
+            "destination",
+            "requestId",
+            "expectedPreviewSha256"
+          ],
+          "properties": {
+            "destination": {
+              "$ref": "#/$defs/destination"
+            },
+            "requestId": {
+              "$ref": "#/$defs/requestId"
+            },
+            "expectedPreviewSha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "operation",
+        "arguments"
+      ]
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "backup.inspect"
+        },
+        "arguments": {
+          "required": [
+            "destination",
+            "requestId"
+          ],
+          "properties": {
+            "destination": {
+              "$ref": "#/$defs/destination"
+            },
+            "requestId": {
+              "$ref": "#/$defs/requestId"
+            }
+          },
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "operation",
+        "arguments"
+      ]
+    },
+    {
+      "properties": {
+        "operation": {
+          "const": "backup.reconcile"
+        },
+        "arguments": {
+          "required": [
+            "destination",
+            "requestId",
+            "expectedIntentSha256"
+          ],
+          "properties": {
+            "destination": {
+              "$ref": "#/$defs/destination"
+            },
+            "requestId": {
+              "$ref": "#/$defs/requestId"
+            },
+            "expectedIntentSha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "operation",
+        "arguments"
+      ]
+    }
+  ],
+  "$defs": {
+    "destination": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

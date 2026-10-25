@@ -10,13 +10,14 @@ from copy import deepcopy
 import hashlib
 import json
 
-from blob_store import decode as decode_blob, encode as encode_blob, verify as verify_blob
+from blob_store import decode as decode_blob, encode as encode_blob, locator as make_locator, verify as verify_blob
 from knowledge_policy import fingerprint
 from knowledge_store import StoreError
 from studio_app_attachments import verify_app_attachment_bytes
 
 FORMAT = "studio-app-transfer/v1"
 RECEIPT_FORMAT = "studio-app-import-receipt/v1"
+PROTECTED_SOURCE_CONTEXT = "studio-app-transfer-protected-context/v2"
 MAX_PACKAGE_BYTES = 32 * 1024 * 1024
 STAGES = ("metric", "studio.app-query", "studio.component", "studio.app")
 
@@ -34,8 +35,32 @@ def _destination_id(source_authority, source_binding, identity):
     return prefix + ":import-" + suffix
 
 
-def _context(package, locator):
+def _context(package, locator, source_attachment=None):
     app = next(value for value in package["records"] if value["record"]["kind"] == "studio.app")
+    if source_attachment is not None and source_attachment.get("protection") is not None:
+        protection = source_attachment["protection"]
+        if (not isinstance(protection, dict)
+                or set(protection) != {"format", "contentBytes", "contentSha256"}
+                or protection.get("format") != "protected-bytes/v1"
+                or type(protection.get("contentBytes")) is not int
+                or not 1 <= protection["contentBytes"] <= 16 * 1024 * 1024
+                or not isinstance(protection.get("contentSha256"), str)
+                or len(protection["contentSha256"]) != 64
+                or any(char not in "0123456789abcdef" for char in protection["contentSha256"])
+                or source_attachment.get("blob") != locator):
+            raise StoreError("Protected source App attachment pins are invalid")
+        source_attachment_fields = {key: deepcopy(value) for key, value in source_attachment.items()
+                                    if key not in {"blob", "protection"}}
+        return {"format": PROTECTED_SOURCE_CONTEXT,
+                "sourceAuthority": package["source"]["authority"],
+                "sourceBinding": package["source"]["binding"],
+                "destinationAuthority": package["destination"]["authority"],
+                "destinationBinding": package["destination"]["binding"],
+                "record": app["record"]["id"], "recordRevision": app["revision"],
+                "sourceAttachment": source_attachment_fields,
+                "sourceLocator": deepcopy(locator),
+                "content": {"sha256": protection["contentSha256"],
+                            "bytes": protection["contentBytes"]}}
     return {"sourceAuthority": package["source"]["authority"],
             "sourceBinding": package["source"]["binding"],
             "destinationAuthority": package["destination"]["authority"],
@@ -68,26 +93,23 @@ def _guard(source, destination, app_id, actor, source_authority, destination_aut
 
 
 def _seal_bytes(raw, context, protection):
+    if context.get("format") == PROTECTED_SOURCE_CONTEXT and protection is None:
+        raise StoreError("Protected source App attachments cannot be declassified by transfer")
     if protection is None:
         return {"encoding": "base64/v1", "content": encode_blob(raw)}
-    host, required, selected = protection
+    host, required, selected = protection[:3]
     if selected.get("mode") != "per-record":
         raise StoreError("Selected protection profile has no portable App blob envelope")
     digest = fingerprint(context)
-    body = {"context": context, "content": encode_blob(raw)}
-    # ProtectionHost's bounded JSON record envelope is the only qualified portable
-    # binary wrapper. Refuse before sealing when base64/metadata exceeds its cap.
-    from brain_protection import MAX_BODY, ProtectionError
-    from context_bundle import encode
-    if len(encode(body)) > MAX_BODY:
-        raise StoreError("Protected App attachment exceeds the 4 MiB envelope limit")
+    from brain_protection import ProtectionError
     try:
-        sealed = host.seal(body, object_id=digest[:32],
-                           revision=hashlib.sha256(context["recordRevision"].encode()).hexdigest()[:32],
-                           required=required, selected=selected)
+        sealed = host.seal_bytes(raw, context=context, object_id=digest[:32],
+            revision=hashlib.sha256(context["recordRevision"].encode()).hexdigest()[:32],
+            required=required, selected=selected)
     except ProtectionError as exc:
         raise StoreError("Protected App attachment cannot be sealed under the selected profile") from exc
-    return {"encoding": "protected-record/v1", "contextSha256": digest, "envelope": sealed}
+    encoding = "protected-bytes/v2" if context.get("format") == PROTECTED_SOURCE_CONTEXT else "protected-bytes/v1"
+    return {"encoding": encoding, "envelope": sealed}
 
 
 def _open_bytes(value, context, protection):
@@ -121,9 +143,39 @@ def _open_bytes(value, context, protection):
             raw = decode_blob(body["content"])
         except Exception as exc:
             raise StoreError("Protected App attachment bytes are invalid") from exc
+    elif value.get("encoding") in ("protected-bytes/v1", "protected-bytes/v2"):
+        if protection is None:
+            raise StoreError("Protected App attachment requires a configured ProtectionHost")
+        if ((value.get("encoding") == "protected-bytes/v2")
+                != (context.get("format") == PROTECTED_SOURCE_CONTEXT)):
+            raise StoreError("Protected App attachment context version is unsupported")
+        host, required, selected = protection[:3]
+        from brain_protection import ProtectionError
+        try:
+            envelope = value.get("envelope")
+            digest = fingerprint(context)
+            raw = host.open_bytes(envelope, context=context, expected_object=digest[:32],
+                expected_revision=hashlib.sha256(context["recordRevision"].encode()).hexdigest()[:32],
+                expected_profile=selected, required=required)
+        except (ProtectionError, TypeError, ValueError) as exc:
+            raise StoreError("Protected App attachment cannot be opened under the selected profile") from exc
     else:
         raise StoreError("Unsupported Studio App attachment envelope")
-    if len(raw) != context["bytes"] or hashlib.sha256(raw).hexdigest() != context["sha256"]:
+    if context.get("format") == PROTECTED_SOURCE_CONTEXT:
+        content_pin = context.get("content")
+        if (not isinstance(content_pin, dict) or set(content_pin) != {"sha256", "bytes"}
+                or type(content_pin.get("bytes")) is not int
+                or not 1 <= content_pin["bytes"] <= 16 * 1024 * 1024
+                or not isinstance(content_pin.get("sha256"), str)
+                or len(content_pin["sha256"]) != 64
+                or any(char not in "0123456789abcdef" for char in content_pin["sha256"])):
+            raise StoreError("Protected App attachment content pin is invalid")
+        expected_bytes = content_pin["bytes"]
+        expected_sha256 = content_pin["sha256"]
+    else:
+        expected_bytes = context["bytes"]
+        expected_sha256 = context["sha256"]
+    if len(raw) != expected_bytes or hashlib.sha256(raw).hexdigest() != expected_sha256:
         raise StoreError("Studio App attachment bytes differ from the pinned source")
     return raw
 
@@ -189,7 +241,8 @@ def _request(destination, record, package_sha, actor, at):
 
 
 def prepare_package(source, destination, app_id, actor, *, source_authority, destination_authority,
-                    blob_reader, protection, destination_blob_protected, clock, identity_guard):
+                    blob_reader, protection, source_protection=None,
+                    destination_blob_protected, clock, identity_guard):
     """Prepare a pinned graph and exact attachment bytes for one destination.
 
     `blob_reader` is a trusted host callback. Native source policy is checked before
@@ -218,20 +271,42 @@ def prepare_package(source, destination, app_id, actor, *, source_authority, des
 
     app = root["record"]
     attachments = app.get("content", {}).get("data", {}).get("attachments", [])
-    if attachments and destination_blob_protected:
-        raise StoreError("Protected destination App attachments require an authorized durable blob wrapper")
+    if (not destination_blob_protected
+            and any(isinstance(item, dict) and item.get("protection") is not None
+                    for item in attachments)):
+        raise StoreError("Protected source App attachments cannot be declassified by transfer")
+    if attachments and destination_blob_protected and protection is None:
+        raise StoreError("Protected destination App attachments require an authorized durable byte provider")
     locators = {item["key"]: item for item in app.get("blobs", [])}
+    attachment_by_key = {item["blob"]["key"]: item
+                         for item in app.get("content", {}).get("data", {}).get("attachments", [])}
     raw_contents = {}
+    stored_contents = {}
     for key, locator in locators.items():
         if not callable(blob_reader):
             raise StoreError("A trusted source blob reader is required")
         try:
-            raw = verify_blob(locator, blob_reader(locator))
+            stored = verify_blob(locator, blob_reader(locator))
+            stored_contents[key] = stored
+            attachment = attachment_by_key.get(key)
+            if not isinstance(attachment, dict):
+                raise StoreError("Studio App source attachment metadata is unavailable")
+            if attachment.get("protection") is not None:
+                if source_protection is None:
+                    raise StoreError("Protected source App attachment requires its current byte provider")
+                from studio_app_mcp import _open_attachment
+                raw = _open_attachment(stored, binding=source.contract.binding,
+                    record_id=app["id"], attachment=attachment, protection=source_protection)
+            else:
+                raw = stored
+            if attachment.get("role") == "pglite-snapshot" and attachment.get("protection") is not None:
+                from studio_app_attachments import verify_pglite_snapshot_bytes
+                verify_pglite_snapshot_bytes(attachment, raw)
         except Exception as exc:
             raise StoreError("Selected Studio App attachment is unavailable") from exc
         raw_contents[key] = raw
     if attachments:
-        verify_app_attachment_bytes(app, raw_contents)
+        verify_app_attachment_bytes(app, stored_contents)
     package = {"format": FORMAT,
                "source": {"authority": source_authority, "binding": source.contract.binding,
                           "recordRevisions": {value["record"]["id"]: value["revision"] for value in records}},
@@ -239,9 +314,23 @@ def prepare_package(source, destination, app_id, actor, *, source_authority, des
                                "blobProtected": destination_blob_protected},
                "app": app_id, "records": deepcopy(records), "attachments": []}
     for key, locator in locators.items():
-        context = _context(package, locator)
-        package["attachments"].append({"locator": deepcopy(locator),
-                                       "payload": _seal_bytes(raw_contents[key], context, protection)})
+        attachment = attachment_by_key[key]
+        context = _context(package, locator, attachment)
+        item = {"locator": deepcopy(locator),
+                "payload": _seal_bytes(raw_contents[key], context, protection)}
+        if destination_blob_protected:
+            attachment = attachment_by_key[key]
+            destination_id = _destination_id(source_authority, source.contract.binding, app_id)
+            from studio_app_mcp import _seal_attachment
+            stored, protection_metadata = _seal_attachment(raw_contents[key],
+                binding=destination.contract.binding, record={"id": destination_id},
+                role=attachment["role"], fmt=attachment["format"], protection=protection,
+                source_revision=attachment["source"]["revision"])
+            destination_locator = make_locator(destination.contract.blob_store,
+                "sha256/" + hashlib.sha256(stored).hexdigest(), stored, locator["mediaType"])
+            item["destinationStorage"] = {"locator": destination_locator,
+                "data": encode_blob(stored), "protection": protection_metadata}
+        package["attachments"].append(item)
     package["sha256"] = fingerprint(package)
     from context_bundle import encode
     if len(encode(package)) > MAX_PACKAGE_BYTES:
@@ -253,6 +342,50 @@ def prepare_package(source, destination, app_id, actor, *, source_authority, des
             source_authority, package["source"]["binding"], value["record"]["id"])}
         _request(destination, rewritten, package["sha256"], actor, _now(clock))
     return package
+
+
+def verify_current_source(source, destination, package, actor, *, source_authority,
+                          destination_authority, blob_reader, source_protection, protection,
+                          destination_blob_protected, clock, identity_guard):
+    """Recheck a retained transfer package without resealing randomized envelopes."""
+    _validate_package(package)
+    if (source_authority != package["source"]["authority"]
+            or destination_authority != package["destination"]["authority"]
+            or destination_blob_protected != package["destination"]["blobProtected"]):
+        raise StoreError("Studio App transfer source or destination binding changed")
+    _guard(source, destination, package["app"], actor, source_authority, destination_authority,
+        package["source"]["binding"], package["destination"]["binding"], clock, identity_guard,
+        package["records"])
+    app = next(value["record"] for value in package["records"] if value["record"]["kind"] == "studio.app")
+    attachments = {item["blob"]["key"]: item for item in
+        app.get("content", {}).get("data", {}).get("attachments", [])}
+    for item in package["attachments"]:
+        locator = item["locator"]
+        try:
+            stored = verify_blob(locator, blob_reader(locator))
+            attachment = attachments[locator["key"]]
+            if attachment.get("protection") is not None:
+                if source_protection is None:
+                    raise StoreError("Protected source App attachment requires its current byte provider")
+                from studio_app_mcp import _open_attachment
+                current = _open_attachment(stored, binding=source.contract.binding,
+                    record_id=package["app"], attachment=attachment, protection=source_protection)
+            else:
+                current = stored
+            source_attachment = attachments.get(locator["key"])
+            if not isinstance(source_attachment, dict):
+                raise StoreError("Studio App source attachment metadata is unavailable")
+            packaged = _open_bytes(item["payload"], _context(package, locator, source_attachment), protection)
+        except StoreError:
+            raise
+        except Exception as exc:
+            raise StoreError("Studio App transfer source attachment is unavailable") from exc
+        if current != packaged:
+            raise StoreError("Studio App transfer source changed")
+    _guard(source, destination, package["app"], actor, source_authority, destination_authority,
+        package["source"]["binding"], package["destination"]["binding"], clock, identity_guard,
+        package["records"])
+    return True
 
 
 def new_receipt(package):
@@ -300,23 +433,58 @@ def _validate_package(package):
     app = next(item["record"] for item in package["records"] if item["record"]["kind"] == "studio.app")
     from studio_app_attachments import validate_app_attachments
     validate_app_attachments(app)
-    if app.get("content", {}).get("data", {}).get("attachments") and package["destination"]["blobProtected"]:
-        raise StoreError("Protected destination App attachments require an authorized durable blob wrapper")
+    # Protected destinations carry an independently sealed final blob in
+    # addition to the transfer-session envelope. The source record remains
+    # immutable in the package; the final locator is applied only when the
+    # destination proposal is prepared.
     for item in package["records"]:
         if item["record"]["kind"] != "studio.app" and item["record"].get("blobs"):
             raise StoreError("Studio App transfer cannot omit blobs from a bound dependency")
     locators = {locator["key"]: locator for locator in app.get("blobs", [])}
     attachments = package["attachments"]
-    if any(not isinstance(item, dict) or set(item) != {"locator", "payload"}
+    if any(not isinstance(item, dict) or set(item) not in (
+                {"locator", "payload"}, {"locator", "payload", "destinationStorage"})
            or not isinstance(item.get("locator"), dict) or not isinstance(item.get("payload"), dict)
            for item in attachments):
         raise StoreError("Studio App transfer package attachment set is invalid")
     attachment_keys = [item["locator"].get("key") for item in attachments]
+    app_attachments = app.get("content", {}).get("data", {}).get("attachments", [])
+    if (any(isinstance(item, dict) and item.get("protection") is not None
+            for item in app_attachments) and not package["destination"]["blobProtected"]):
+        raise StoreError("Protected source App attachments cannot be declassified by transfer")
     if (len(attachment_keys) != len(set(attachment_keys)) or set(attachment_keys) != set(locators)
             or any(item["locator"] != locators.get(item["locator"].get("key"))
-                   or item["payload"].get("encoding") not in ("base64/v1", "protected-record/v1")
+                   or item["payload"].get("encoding") not in (
+                       "base64/v1", "protected-record/v1", "protected-bytes/v1", "protected-bytes/v2")
                    for item in attachments)):
         raise StoreError("Studio App transfer package attachment set is invalid")
+    source_attachment_by_key = {item["blob"]["key"]: item for item in app_attachments
+                                if isinstance(item, dict) and isinstance(item.get("blob"), dict)}
+    for item in attachments:
+        source_attachment = source_attachment_by_key.get(item["locator"].get("key"))
+        source_protected = isinstance(source_attachment, dict) and source_attachment.get("protection") is not None
+        if source_protected and item["payload"].get("encoding") != "protected-bytes/v2":
+            raise StoreError("Legacy protected-source transfer package context is unsupported")
+        if not source_protected and item["payload"].get("encoding") == "protected-bytes/v2":
+            raise StoreError("Protected-source transfer context has no protected source attachment")
+    if package["destination"]["blobProtected"] and len(attachments) != len(locators):
+        raise StoreError("Protected destination App attachment set is incomplete")
+    for item in attachments:
+        destination_storage = item.get("destinationStorage")
+        if package["destination"]["blobProtected"] != (destination_storage is not None):
+            raise StoreError("Studio App destination protection storage is incomplete")
+        if destination_storage is not None:
+            if (not isinstance(destination_storage, dict)
+                    or set(destination_storage) != {"locator", "data", "protection"}
+                    or not isinstance(destination_storage.get("locator"), dict)
+                    or not isinstance(destination_storage.get("data"), str)
+                    or not isinstance(destination_storage.get("protection"), dict)):
+                raise StoreError("Studio App destination protection storage is invalid")
+            try:
+                stored = decode_blob(destination_storage["data"])
+                verify_blob(destination_storage["locator"], stored)
+            except Exception as exc:
+                raise StoreError("Studio App destination protection storage is invalid") from exc
     if package.get("sha256") != fingerprint({k: v for k, v in package.items() if k != "sha256"}):
         raise StoreError("Studio App transfer package digest is invalid")
     from context_bundle import encode
@@ -357,7 +525,8 @@ def _validate_receipt(package, receipt, destination):
     return receipt
 
 
-def _rewrite(record, receipt, destination, package_sha, destination_revisions):
+def _rewrite(record, receipt, destination, package_sha, destination_revisions,
+             destination_storage_by_source_key=None):
     value = deepcopy(record)
     origin_id = value["id"]
     entry = receipt["records"][origin_id]
@@ -392,10 +561,21 @@ def _rewrite(record, receipt, destination, package_sha, destination_revisions):
     if value.get("blobs"):
         if destination.contract.blob_store is None:
             raise StoreError("Destination has no native blob store for App attachments")
+        destination_storage_by_source_key = destination_storage_by_source_key or {}
         for locator in value["blobs"]:
-            locator["store"] = destination.contract.blob_store
+            selected_storage = destination_storage_by_source_key.get(locator["key"])
+            if selected_storage is not None:
+                locator.update(deepcopy(selected_storage["locator"]))
+            else:
+                locator["store"] = destination.contract.blob_store
         for attachment in data.get("attachments", []):
-            attachment["blob"]["store"] = destination.contract.blob_store
+            old_key = attachment["blob"]["key"]
+            selected_storage = destination_storage_by_source_key.get(old_key)
+            if selected_storage is not None:
+                attachment["blob"] = deepcopy(selected_storage["locator"])
+                attachment["protection"] = deepcopy(selected_storage["protection"])
+            else:
+                attachment["blob"]["store"] = destination.contract.blob_store
     return value
 
 
@@ -412,7 +592,8 @@ def _commit_receipt(destination, proposal):
     raise StoreError("Studio App import commit receipt is unavailable")
 
 
-def _verify_existing(destination, source_item, receipt, actor, at, package_sha, revisions):
+def _verify_existing(destination, source_item, receipt, actor, at, package_sha, revisions,
+                     destination_storage_by_source_key=None):
     origin_id = source_item["record"]["id"]
     state = receipt["records"][origin_id]
     proposal_id = state.get("proposal")
@@ -422,7 +603,8 @@ def _verify_existing(destination, source_item, receipt, actor, at, package_sha, 
         if destination._record_metadata(state["destinationId"]) is not None:
             raise StoreError("Studio App destination record exists without its transfer proposal")
         return None
-    expected = _rewrite(source_item["record"], receipt, destination, package_sha, revisions)
+    expected = _rewrite(source_item["record"], receipt, destination, package_sha, revisions,
+                        destination_storage_by_source_key)
     request, _ = _request(destination, expected, package_sha, actor, at)
     inspected = destination.inspect(proposal_id, actor, at=at)
     proposal = inspected["proposal"]
@@ -453,7 +635,8 @@ def _verify_existing(destination, source_item, receipt, actor, at, package_sha, 
 
 
 def advance(source, destination, package, receipt, actor, *, source_authority, destination_authority,
-            blob_reader, protection, blob_writer, destination_blob_protected, clock, identity_guard,
+            blob_reader, protection, source_protection=None, blob_writer,
+            destination_blob_protected, clock, identity_guard,
             before_effect=None):
     """Create/resume exactly one native proposal phase; never review or commit it."""
     receipt = _validate_receipt(package, receipt, destination)
@@ -464,22 +647,61 @@ def advance(source, destination, package, receipt, actor, *, source_authority, d
         destination_authority, package["source"]["binding"], package["destination"]["binding"],
         clock, identity_guard, package["records"])
     raw_by_key = {}
+    source_stored_by_key = {}
+    destination_storage_by_source_key = {}
+    destination_stored_by_key = {}
     app = next(value["record"] for value in package["records"] if value["record"]["kind"] == "studio.app")
+    if (not destination_blob_protected
+            and any(isinstance(item, dict) and item.get("protection") is not None
+                    for item in app.get("content", {}).get("data", {}).get("attachments", []))):
+        raise StoreError("Protected source App attachments cannot be declassified by transfer")
+    source_attachments = {item["blob"]["key"]: item for item in
+        app.get("content", {}).get("data", {}).get("attachments", [])}
+    destination_app_id = _destination_id(source_authority, source.contract.binding, package["app"])
     for item in package["attachments"]:
         source_locator = item["locator"]
         try:
-            live = verify_blob(source_locator, blob_reader(source_locator))
+            source_stored = verify_blob(source_locator, blob_reader(source_locator))
+            source_stored_by_key[source_locator["key"]] = source_stored
         except Exception as exc:
             raise StoreError("Studio App source attachment is unavailable") from exc
-        context = _context(package, source_locator)
+        source_attachment = source_attachments.get(source_locator["key"])
+        if not isinstance(source_attachment, dict):
+            raise StoreError("Studio App source attachment metadata is unavailable")
+        if source_attachment.get("protection") is not None:
+            if source_protection is None:
+                raise StoreError("Protected source App attachment requires its current byte provider")
+            from studio_app_mcp import _open_attachment
+            live = _open_attachment(source_stored, binding=source.contract.binding,
+                record_id=package["app"], attachment=source_attachment, protection=source_protection)
+            if source_attachment.get("role") == "pglite-snapshot":
+                from studio_app_attachments import verify_pglite_snapshot_bytes
+                verify_pglite_snapshot_bytes(source_attachment, live)
+        else:
+            live = source_stored
+        context = _context(package, source_locator, source_attachment)
         packaged = _open_bytes(item["payload"], context, protection)
         if packaged != live:
             raise StoreError("Studio App package attachment differs from the current source")
         raw_by_key[source_locator["key"]] = live
-    if app.get("blobs") and destination_blob_protected:
-        raise StoreError("Protected destination App attachments require an authorized durable blob wrapper")
+        destination_storage = item.get("destinationStorage")
+        if destination_storage is not None:
+            stored = decode_blob(destination_storage["data"])
+            locator_value = destination_storage["locator"]
+            verify_blob(locator_value, stored)
+            from studio_app_mcp import _open_attachment
+            target_attachment = {key: source_attachment[key] for key in
+                                 ("role", "format", "source") if key in source_attachment}
+            target_attachment["protection"] = destination_storage["protection"]
+            target_plain = _open_attachment(stored, binding=destination.contract.binding,
+                record_id=destination_app_id, attachment=target_attachment, protection=protection)
+            if target_plain != live:
+                raise StoreError("Studio App destination ciphertext differs from the source attachment")
+            selected_storage = {"locator": locator_value, "protection": destination_storage["protection"]}
+            destination_storage_by_source_key[source_locator["key"]] = selected_storage
+            destination_stored_by_key[locator_value["key"]] = stored
     if app.get("blobs"):
-        verify_app_attachment_bytes(app, raw_by_key)
+        verify_app_attachment_bytes(app, source_stored_by_key)
     _guard(source, destination, package["app"], actor, source_authority, destination_authority,
            package["source"]["binding"], package["destination"]["binding"], clock, identity_guard,
            package["records"])
@@ -492,7 +714,8 @@ def advance(source, destination, package, receipt, actor, *, source_authority, d
             if any(value["record"]["id"] not in destination_revisions for value in prerequisites):
                 raise StoreError("Studio App import phases must commit dependencies before dependents")
             existing = _verify_existing(destination, source_item, receipt, actor, _now(clock),
-                                        package["sha256"], destination_revisions)
+                                        package["sha256"], destination_revisions,
+                                        destination_storage_by_source_key)
             _guard(source, destination, package["app"], actor, source_authority, destination_authority,
                    package["source"]["binding"], package["destination"]["binding"], clock, identity_guard,
                    package["records"])
@@ -503,7 +726,8 @@ def advance(source, destination, package, receipt, actor, *, source_authority, d
             if isinstance(existing, str):
                 destination_revisions[origin_id] = existing
                 continue
-            record = _rewrite(source_item["record"], receipt, destination, package["sha256"], destination_revisions)
+            record = _rewrite(source_item["record"], receipt, destination, package["sha256"],
+                              destination_revisions, destination_storage_by_source_key)
             if before_effect is not None:
                 if not callable(before_effect):
                     raise StoreError("Studio App effect-intent callback is invalid")
@@ -520,9 +744,13 @@ def advance(source, destination, package, receipt, actor, *, source_authority, d
                         if not callable(blob_writer):
                             raise StoreError("A trusted destination blob writer is required")
                         for locator in record["blobs"]:
-                            source_locator = next(item["locator"] for item in package["attachments"]
-                                                  if item["locator"]["key"] == locator["key"])
-                            blob_writer(locator, raw_by_key[source_locator["key"]])
+                            if locator["key"] in destination_stored_by_key:
+                                blob_value = destination_stored_by_key[locator["key"]]
+                            else:
+                                source_locator = next(item["locator"] for item in package["attachments"]
+                                                      if item["locator"]["key"] == locator["key"])
+                                blob_value = raw_by_key[source_locator["key"]]
+                            blob_writer(locator, blob_value)
                             written.append(locator["key"])
                     now, _ = _guard(source, destination, package["app"], actor, source_authority,
                         destination_authority, package["source"]["binding"], package["destination"]["binding"],

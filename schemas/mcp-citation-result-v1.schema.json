@@ -1,0 +1,1409 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:mimwell:mcp-citation-result:v1",
+  "title": "Mimwell MCP structured citations v1",
+  "description": "Opt-in structured citation output contract; disabled by default and not yet release-qualified. Host attestation is not Git object verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "tool",
+    "resultTextSha256",
+    "result",
+    "citations",
+    "provenance",
+    "authorityView"
+  ],
+  "properties": {
+    "contract": {
+      "const": "mimwell-mcp-citation-result/v1"
+    },
+    "tool": {
+      "enum": [
+        "search_records",
+        "read_record",
+        "list_definitions",
+        "resolve_metric"
+      ]
+    },
+    "resultTextSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}(?![\\s\\S])"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    },
+    "citations": {
+      "$ref": "#/$defs/citationSet"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "authorityView": {
+      "enum": [
+        "compiled",
+        "native-adopted"
+      ]
+    }
+  },
+  "$defs": {
+    "record": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "relationship": {
+      "type": "object",
+      "required": [
+        "id",
+        "rel",
+        "direction"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "rel": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out"
+          ]
+        }
+      }
+    },
+    "recordEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "kind",
+        "title",
+        "summary",
+        "source"
+      ],
+      "properties": {
+        "type": {
+          "const": "record"
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "matched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "documentEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "path",
+        "title",
+        "summary",
+        "matched"
+      ],
+      "properties": {
+        "type": {
+          "const": "document"
+        },
+        "path": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "matched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "searchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query",
+        "total",
+        "matches"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/recordEntry"
+              },
+              {
+                "$ref": "#/$defs/documentEntry"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "readRecordResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record",
+        "relationships",
+        "relationshipCount"
+      ],
+      "properties": {
+        "record": {
+          "$ref": "#/$defs/record"
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationship"
+          }
+        },
+        "relationshipCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "termDefinition": {
+      "type": "object",
+      "required": [
+        "id",
+        "term",
+        "definition",
+        "aliases"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "term": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "definition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metricDefinition": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "definition",
+        "aliases"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "definition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "kindDefinition": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "description",
+        "recordKinds",
+        "records"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recordKinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "records": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "definitionsResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "terms",
+        "metrics",
+        "kinds",
+        "counts"
+      ],
+      "properties": {
+        "terms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/termDefinition"
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/metricDefinition"
+          }
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/kindDefinition"
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "terms",
+            "metrics",
+            "kinds"
+          ],
+          "properties": {
+            "terms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "metrics": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "kinds": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "metricResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "relationships",
+        "relationshipCount"
+      ],
+      "properties": {
+        "metric": {
+          "$ref": "#/$defs/record"
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationship"
+          }
+        },
+        "relationshipCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "metricCandidatesResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidates",
+        "note"
+      ],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/recordEntry"
+          }
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "result": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/searchResult"
+        },
+        {
+          "$ref": "#/$defs/readRecordResult"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/definitionsResult"
+        },
+        {
+          "$ref": "#/$defs/metricResult"
+        },
+        {
+          "$ref": "#/$defs/metricCandidatesResult"
+        }
+      ]
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "kind",
+        "title",
+        "path",
+        "revision",
+        "url"
+      ],
+      "properties": {
+        "record_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Null for document and schema targets without a graph record identity."
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})(?![\\s\\S])",
+          "description": "Full lowercase source commit supplied by the trusted build host; this is not Git-object verification."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "description": "The six public citation fields. A resourceBinding adjacent to the citation records the raw bytes used by the adapter; processed document result text is separately covered by resultTextSha256."
+    },
+    "citationBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resultPointer",
+        "citation",
+        "resourceBinding"
+      ],
+      "properties": {
+        "resultPointer": {
+          "type": "string",
+          "pattern": "^(?:/(?:[^~/]|~[01])*)*(?![\\s\\S])"
+        },
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "nativeRevision": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Separate opaque authority revision; never substitute for citation.revision."
+        },
+        "resourceBinding": {
+          "$ref": "#/$defs/resourceBinding"
+        }
+      }
+    },
+    "citationSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "bindings",
+        "unavailableReasons"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "unavailable",
+            "partial",
+            "complete"
+          ]
+        },
+        "bindings": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/citationBinding"
+          }
+        },
+        "unavailableReasons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "no-source-binding",
+              "no-openable-url",
+              "document-bytes-unbound",
+              "schema-definition-unbound",
+              "compiled-commit-unbound",
+              "native-reader-disabled",
+              "result-variant-unqualified",
+              "no-citable-results"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "complete"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unavailableReasons": {
+                "maxItems": 0
+              },
+              "bindings": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bindings": {
+                "maxItems": 0
+              },
+              "unavailableReasons": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "partial"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "unavailableReasons": {
+                "minItems": 1
+              },
+              "bindings": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compiled",
+        "native"
+      ],
+      "properties": {
+        "compiled": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "commit",
+            "graphSha256"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "unbound",
+                "bound"
+              ]
+            },
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})?(?![\\s\\S])"
+            },
+            "graphSha256": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^(?:[a-f0-9]{64})?(?![\\s\\S])"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "bound"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "commit": {
+                    "type": "string",
+                    "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})(?![\\s\\S])"
+                  },
+                  "graphSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}(?![\\s\\S])"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "unbound"
+                  }
+                },
+                "required": [
+                  "status"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "commit": {
+                    "const": null
+                  },
+                  "graphSha256": {
+                    "const": null
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "native": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "not-applicable",
+                "unavailable",
+                "bound"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "nativeSearchResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "query",
+        "total",
+        "matches"
+      ],
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recordEntry"
+          }
+        }
+      }
+    },
+    "readRecordOrDocumentResult": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/readRecordResult"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "resolveMetricResult": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/metricResult"
+        },
+        {
+          "$ref": "#/$defs/metricCandidatesResult"
+        }
+      ]
+    },
+    "resourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "compiled-record",
+            "document",
+            "schema-kind"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}(?![\\s\\S])"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 268435456
+        },
+        "jsonPointer": {
+          "type": "string",
+          "pattern": "^/kinds/(0|[1-9][0-9]*)(?![\\s\\S])"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "schema-kind"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "jsonPointer"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "jsonPointer"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  },
+  "x-draft-status": "implemented-opt-in-source-candidate-unqualified",
+  "x-advertisement-default": false,
+  "x-structured-content-protocol": "2025-06-18",
+  "x-older-protocol-behavior": "content-only",
+  "x-preserve-existing-content-text": true,
+  "x-qualified-result-variants": [],
+  "x-tool-contracts": {
+    "search_records": {
+      "legacyInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Keywords, e.g. 'pricing decision' or 'churn'."
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Only records of this kind (e.g. 'Decision', 'Term', 'Metric'), or 'document' for documents only."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        }
+      },
+      "nativeInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Keywords, e.g. 'pricing decision' or 'churn'."
+          },
+          "kind": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Only records of this kind (e.g. 'Decision', 'Term', 'Metric'), or 'document' for documents only."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        }
+      },
+      "resultVariants": [
+        "record-and-document-matches",
+        "record-only-native-matches"
+      ],
+      "compiledResultSchema": {
+        "$ref": "#/$defs/searchResult"
+      },
+      "nativeAdoptedResultSchema": {
+        "$ref": "#/$defs/nativeSearchResult"
+      },
+      "viewModes": [
+        "compiled",
+        "native-adopted"
+      ]
+    },
+    "read_record": {
+      "legacyInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "id"
+            ]
+          },
+          {
+            "required": [
+              "path"
+            ]
+          }
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "A record id, e.g. 'decision:pick-alpha'."
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "A document path, e.g. 'knowledge/docs/overview.md'."
+          }
+        }
+      },
+      "nativeInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "A record id, e.g. 'decision:pick-alpha'."
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "resultVariants": [
+        "record-object",
+        "document-text"
+      ],
+      "compiledResultSchema": {
+        "$ref": "#/$defs/readRecordOrDocumentResult"
+      },
+      "nativeAdoptedResultSchema": {
+        "$ref": "#/$defs/readRecordResult"
+      },
+      "viewModes": [
+        "compiled",
+        "native-adopted"
+      ]
+    },
+    "list_definitions": {
+      "legacyInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Only definitions whose name, alias or text contains this."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50,
+            "description": "At most this many terms, and as many metrics."
+          }
+        }
+      },
+      "nativeInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "Only definitions whose name, alias or text contains this."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50,
+            "description": "At most this many terms, and as many metrics."
+          }
+        }
+      },
+      "resultVariants": [
+        "terms-metrics-schema-kinds-counts"
+      ],
+      "compiledResultSchema": {
+        "$ref": "#/$defs/definitionsResult"
+      },
+      "nativeAdoptedResultSchema": {
+        "$ref": "#/$defs/definitionsResult"
+      },
+      "viewModes": [
+        "compiled",
+        "native-adopted"
+      ]
+    },
+    "resolve_metric": {
+      "legacyInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "A metric's name, alias or id, e.g. 'monthly recurring revenue'."
+          }
+        }
+      },
+      "nativeInputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "description": "A metric's name, alias or id, e.g. 'monthly recurring revenue'."
+          }
+        }
+      },
+      "resultVariants": [
+        "single-metric",
+        "ambiguous-candidates"
+      ],
+      "compiledResultSchema": {
+        "$ref": "#/$defs/resolveMetricResult"
+      },
+      "nativeAdoptedResultSchema": {
+        "$ref": "#/$defs/resolveMetricResult"
+      },
+      "viewModes": [
+        "compiled",
+        "native-adopted"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "search_records"
+          },
+          "authorityView": {
+            "const": "compiled"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/searchResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "search_records"
+          },
+          "authorityView": {
+            "const": "native-adopted"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/nativeSearchResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "read_record"
+          },
+          "authorityView": {
+            "const": "compiled"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/readRecordOrDocumentResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "read_record"
+          },
+          "authorityView": {
+            "const": "native-adopted"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/readRecordResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "list_definitions"
+          },
+          "authorityView": {
+            "const": "compiled"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/definitionsResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "list_definitions"
+          },
+          "authorityView": {
+            "const": "native-adopted"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/definitionsResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "resolve_metric"
+          },
+          "authorityView": {
+            "const": "compiled"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/resolveMetricResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "tool": {
+            "const": "resolve_metric"
+          },
+          "authorityView": {
+            "const": "native-adopted"
+          }
+        },
+        "required": [
+          "tool",
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "$ref": "#/$defs/resolveMetricResult"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "citations": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "partial",
+                  "complete"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "citations"
+        ]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {
+              "compiled": {
+                "properties": {
+                  "status": {
+                    "const": "bound"
+                  },
+                  "commit": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authorityView": {
+            "const": "native-adopted"
+          }
+        },
+        "required": [
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "citations": {
+            "properties": {
+              "bindings": {
+                "items": {
+                  "required": [
+                    "nativeRevision"
+                  ]
+                }
+              }
+            }
+          },
+          "provenance": {
+            "properties": {
+              "native": {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "unavailable",
+                      "bound"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authorityView": {
+            "const": "compiled"
+          }
+        },
+        "required": [
+          "authorityView"
+        ]
+      },
+      "then": {
+        "properties": {
+          "citations": {
+            "properties": {
+              "bindings": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "nativeRevision"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "authorityView": {
+            "const": "native-adopted"
+          },
+          "citations": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "partial",
+                  "complete"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "authorityView",
+          "citations"
+        ]
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "properties": {
+              "native": {
+                "properties": {
+                  "status": {
+                    "const": "bound"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "x-host-attestation-not-git-object-proof": true,
+  "x-citation-targets": {
+    "compiled-record": "app/brain.json",
+    "document": "exact document path",
+    "schema-kind": "brain-schema.json"
+  }
+}

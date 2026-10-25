@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mimwell:schema/knowledge-operation-request/v10",
+  "title": "Explicit selected registered JSON record profiles and canonical proposals",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v10"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "authority.inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v10"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "recordIndex"
+          ],
+          "properties": {
+            "recordIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v10"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "file.propose"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedRevision",
+            "expectedSelectionSha256",
+            "recordIndex",
+            "expectedRecordSha256",
+            "fields",
+            "requestId",
+            "reason"
+          ],
+          "properties": {
+            "expectedRevision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "expectedSelectionSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "recordIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "expectedRecordSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "fields": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 64,
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 65536
+                  },
+                  {
+                    "type": "array",
+                    "maxItems": 256,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 65536
+                    }
+                  }
+                ]
+              }
+            },
+            "requestId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        }
+      }
+    }
+  ]
+}

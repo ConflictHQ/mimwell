@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/studio-app-storage-admission/v1",
+  "title": "Studio App storage admission status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "state",
+    "alias",
+    "budget",
+    "writerCoverage",
+    "attachmentStaging",
+    "protection",
+    "aggregateCapacityAvailable",
+    "claimsNotMade",
+    "routeBasisSha256",
+    "checkedAt"
+  ],
+  "properties": {
+    "format": {"const": "studio-app-storage-admission/v1"},
+    "state": {"enum": ["ready", "limit-reached"]},
+    "alias": {"type": "string", "minLength": 1, "maxLength": 64},
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "accounting",
+        "limitBytes",
+        "measuredBytes",
+        "reservedBytes",
+        "remainingBytes",
+        "inventoryBasisSha256"
+      ],
+      "properties": {
+        "scope": {"const": "registered-brain-logical-retained-content/v1"},
+        "accounting": {"const": "logical-retained-content-bytes/v1"},
+        "limitBytes": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+        "measuredBytes": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "reservedBytes": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "remainingBytes": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "inventoryBasisSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "writerCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "operations"],
+      "properties": {
+        "scope": {"const": "host-mediated-studio-app-sqlite-session-upload-save/v1"},
+        "operations": {
+          "type": "array",
+          "const": [
+            "apps.save.begin",
+            "apps.save.attachment.begin",
+            "apps.save.attachment.chunk",
+            "apps.save.attachment.finish",
+            "apps.save.advance",
+            "apps.save.abort"
+          ],
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "attachmentStaging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "plaintextPermitted"],
+      "allOf": [
+        {
+          "if": {"properties": {"scope": {"const": "effectively-company-wide-readable/v1"}}},
+          "then": {"properties": {"plaintextPermitted": {"const": true}}}
+        },
+        {
+          "if": {"properties": {"scope": {"const": "selected-provider-encrypted/v1"}}},
+          "then": {"properties": {"plaintextPermitted": {"const": false}}}
+        }
+      ],
+      "properties": {
+        "scope": {"enum": ["effectively-company-wide-readable/v1", "selected-provider-encrypted/v1"]},
+        "plaintextPermitted": {"type": "boolean"}
+      }
+    },
+    "protection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profileMode", "requirementsSha256", "nativeScope"],
+      "properties": {
+        "profileMode": {"const": "per-record"},
+        "requirementsSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "nativeScope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nativeRecordBodies", "nativeHistory", "nativeMetadata"],
+          "properties": {
+            "nativeRecordBodies": {"const": false},
+            "nativeHistory": {"const": false},
+            "nativeMetadata": {"const": false}
+          }
+        }
+      }
+    },
+    "aggregateCapacityAvailable": {"const": false},
+    "claimsNotMade": {
+      "type": "array",
+      "const": [
+        "physical-disk-capacity",
+        "whole-root-protection",
+        "all-brain-writers-covered"
+      ],
+      "items": {"type": "string"}
+    },
+    "routeBasisSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checkedAt": {"type": "string", "format": "date-time"}
+  }
+}

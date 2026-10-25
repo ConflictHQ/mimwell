@@ -6,7 +6,7 @@
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}':JSON.stringify(value);
   const same=(a,b)=>canonical(a)===canonical(b);
   async function validate(report,request) {
-    if(!['knowledge-operation-request/v1','knowledge-operation-request/v2','knowledge-operation-request/v3','knowledge-operation-request/v4','knowledge-operation-request/v5','knowledge-operation-request/v6'].includes(request.format)||
+    if(!['knowledge-operation-request/v1','knowledge-operation-request/v2','knowledge-operation-request/v3','knowledge-operation-request/v4','knowledge-operation-request/v5','knowledge-operation-request/v6','knowledge-operation-request/v9','knowledge-operation-request/v10','knowledge-operation-request/v11','knowledge-operation-request/v12'].includes(request.format)||
       report?.format!==request.format.replace('knowledge-operation-request/','knowledge-operation/')||report.state!=='completed'||
       report.authority!==request.authority||report.operation!==request.operation||
       typeof report.nativeWire!=='string'||!/^[a-f0-9]{64}$/.test(report.nativeSha256)||
@@ -22,10 +22,46 @@
     if(requestSha!==report.requestSha256||!same(JSON.parse(report.requestWire),request))throw Error('Operation request changed');
     return report.native;
   }
+  async function discoverAuthority(call,{nativeData=false}={}) {
+    const current=await call('authority.inspect',{},'v1');
+    if(current?.driver==='files')return current; // Existing files and publication groups keep their own protocol.
+    if(nativeData){
+      try{return await call('authority.inspect',{},'v12');}
+      catch(error){if(error.status!==400)throw error;return discoverAuthority(call);}
+    }
+    try{return await call('authority.inspect',{},'v9');}
+    catch(error){
+      if(error.status!==400)throw error;
+      // Unsupported v9 is not cached permission. Read v1 AGAIN under current identity/host.
+      return call('authority.inspect',{},'v1');
+    }
+  }
+  function nativeObjectWires(wire,{maxBytes=262144,maxNodes=16384,maxDepth=72}={}){
+    if(typeof wire!=='string'||new TextEncoder().encode(wire).length>maxBytes||(JSON.parse(wire)===null||typeof JSON.parse(wire)!=='object'||Array.isArray(JSON.parse(wire))))throw Error('A bounded JSON correction object is required');
+    let nodes=0;const space=i=>{while(/\s/.test(wire[i]||'')&&i<wire.length)i++;return i;};
+    function stringEnd(i){for(i++;i<wire.length;i++){if(wire[i]==='\\')i++;else if(wire[i]==='"')return i+1;}throw Error('Invalid JSON text');}
+    function end(i,depth=0){
+      i=space(i);if(++nodes>maxNodes||depth>maxDepth)throw Error('JSON correction structure exceeds bound');
+      if(wire[i]==='"')return stringEnd(i);
+      if(wire[i]==='{'||wire[i]==='['){const close=wire[i]==='{'?'}':']',isObject=wire[i]==='{';i=space(i+1);
+        while(wire[i]!==close){if(isObject){i=space(stringEnd(i));if(wire[i++]!==':')throw Error('Invalid JSON field');}i=space(end(i,depth+1));if(wire[i]===close)break;if(wire[i++]!==',')throw Error('Invalid JSON value');i=space(i);}return i+1;}
+      while(i<wire.length&&!/[\s,}\]]/.test(wire[i]))i++;return i;
+    }
+    const result=Object.create(null);let i=space(0);if(wire[i++]!=='{')throw Error('JSON object required');i=space(i);
+    while(wire[i]!=='}'){
+      const after=stringEnd(i),name=JSON.parse(wire.slice(i,after));if(Object.hasOwn(result,name)||name.length>2000)throw Error('Duplicate or invalid JSON field');i=space(after);if(wire[i++]!==':')throw Error('Invalid JSON field');i=space(i);const afterValue=end(i);result[name]=wire.slice(i,afterValue);i=space(afterValue);if(wire[i]==='}')break;if(wire[i++]!==',')throw Error('Invalid JSON object');i=space(i);
+    }
+    if(Object.keys(result).length>256)throw Error('Native data fields exceed bound');
+    return result;
+  }
   function mount(host,options={}) {
     host.replaceChildren();
     const wires=new WeakMap();
-    let capabilities=null;
+    let expectedOwner=null;
+    const jsonValues=options.jsonValueEditing===true?global.KBRegisteredJSONValues:null;
+    if(options.jsonValueEditing===true&&!jsonValues)throw Error('Selected JSON value editor module unavailable');
+    let fileValuePreview=null,fileValuePreviewButton=null;
+    let capabilities=null, agentAvailable=false;
     const requiredOperations={
       'source-list':['source.list'],'source-next':['source.list'],'source-inspect':['source.inspect'],
       'source-capture':['source.capture','source.extraction-preview'],'source-extract':['source.extract'],
@@ -45,7 +81,10 @@
     };
     let sequence=0, controller=null, activeWrite=false, uncertain=false, principal=null, description=null, selectedRecord=null,
       capture=null, extraction=null, sourcePreview=null, proposal=null, publication=null, transfer=null, sourcePage=null, proposalPage=null,
-      fileSource=null, fileProposal=null, fileHistory=null, fileAttempt=null;
+      fileSource=null, fileProposal=null, fileHistory=null, fileAttempt=null, fileProfile=null, fileProfileSha=null;
+    const fileRecordInputs=new Map();
+    let nativeDataProfile=null;
+    const nativeDataInputs=new Map();
     const inputs={}, buttons=[], outputs=[];
     const status=node('p','Choose the brain you are allowed to change, then connect to begin.');status.setAttribute('role','status');
     const identity=node('p');identity.className='ko-coordinate';
@@ -71,7 +110,13 @@
       }
       if(!capabilities||!['proposal.propose','record.patch-propose'].some(operation=>capabilities.operations.includes(operation)))proposeButton.disabled=true;
       const canDraft=capabilities&&['proposal.propose','record.patch-propose'].some(operation=>capabilities.operations.includes(operation));
-      for(const name of ['title','text','reason','evidence'])inputs[name].disabled=!canDraft;
+      for(const name of ['title','text','reason','evidence','nativePatch','agentInstruction','relationAddType','relationAddTarget','relationRemoveType','relationRemoveTarget'])inputs[name].disabled=!canDraft;
+      const patchV9=capabilities?.recordPatchVersions?.includes('v9')===true;
+      for(const name of ['nativePatch','relationAddType','relationAddTarget','relationRemoveType','relationRemoveTarget'])inputs[name].disabled=!canDraft||!patchV9;
+      agentDraft.disabled=!agentAvailable||!selectedRecord?.record||!patchV9||!capabilities?.operations.includes('record.patch-propose');
+      const dataReady=canDraft&&capabilities?.recordPatchVersions?.includes("v12")===true&&nativeDataProfile!==null;
+      for(const control of [inputs.nativeDataSet,inputs.nativeDataRemove,...nativeDataInputs.values()])control.disabled=!dataReady;
+      syncFileRecord();
     }
     const tabs=node('nav');tabs.className='ko-tabs';tabs.setAttribute('aria-label','Knowledge tasks');
     const panels={};
@@ -88,7 +133,8 @@
       const section=node('section');section.setAttribute('aria-label',label);parent.append(section);outputs.push(section);return section;
     }
     function display(target,title,value) {
-      target.replaceChildren(node('h3',title));const pre=node('pre',typeof value==='string'?value:JSON.stringify(value,null,2));
+      target.replaceChildren(node('h3',title));const exactFile=value?.writer==='json-commit'&&value?.proposalSha256?wires.get(value):null;
+      const pre=node('pre',typeof value==='string'?value:exactFile||JSON.stringify(value,null,2));
       if(typeof value!=='string'){pre.setAttribute('data-kb-advanced','');const hint=node('p','Details loaded. Show all writing details to inspect the exact response before continuing.');hint.className='kb-easy-only';target.append(hint);}target.append(pre);
     }
     const guidance=node('p','Add material, inspect the record, then propose a change for review. Nothing is accepted or applied just by switching views.');
@@ -137,12 +183,19 @@
     const r=panels.record;
     field(r,'record','Record ID',{value:options.record||''});field(r,'collection','Collection',{type:'select'});
     const recordView=output(r,'Record inspection');
-    const loadRecord=button(r,'record-get','Inspect record',()=>task('Loading the selected record…',false,async call=>{
+    const loadRecord=button(r,'record-get','Inspect record',()=>task('Loading the selected record…',false,async (call,ensureCurrent)=>{
       selectedRecord=await call('record.get',{record:inputs.record.value});
       if(selectedRecord?.withheldRelations)throw Error('Whole-record editing is unavailable for this scope');
       const value=selectedRecord?.record;
       const capturedDraft=extraction&&inputs.evidence.value==='capture:'+extraction.captureSha256?inputs.text.value:null;
+      inputs.nativePatch.value='';draftView.replaceChildren();resetNativeData();
+      for(const name of ['relationAddType','relationRemoveType'])inputs[name].replaceChildren();
+      for(const name of ['relationAddTarget','relationRemoveTarget'])inputs[name].value='';
       if(value){inputs.collection.value=value.collection;inputs.title.value=value.content.title||'';inputs.text.value=value.content.text||'';}
+      if(value&&capabilities?.recordPatchVersions?.includes('v12')){
+        const semantics=await call('collection.semantic-inspect',{collection:value.collection},'v12');
+        await renderNativeData(semantics.dataProfile,ensureCurrent);
+      }
       if(capturedDraft!==null)inputs.text.value=capturedDraft;
       recordView.replaceChildren();
       global.KBReviewCards.record(recordView,value,{title:value?'Current record':'Record unavailable or not created',revision:selectedRecord?.revision});
@@ -169,20 +222,103 @@
       if(history.truncated)historyView.append(node('p','Showing the latest '+history.limit+' recorded revisions.'));
       if(!history.entries.length)historyView.append(node('p','No changes have been recorded since import.'));
     }));
-    const loadVocabulary=button(r,'collection-semantics','Inspect collection meaning',()=>task('Loading the adopted vocabulary…',false,async call=>{
-      const result=await call('collection.semantic-inspect',{collection:inputs.collection.value});
+    const loadVocabulary=button(r,'collection-semantics','Inspect collection meaning',()=>task('Loading the adopted vocabulary…',false,async (call,ensureCurrent)=>{
+      const result=await call('collection.semantic-inspect',{collection:inputs.collection.value},capabilities?.recordPatchVersions?.includes('v12')?'v12':null);
+      if(selectedRecord?.record?.collection===inputs.collection.value&&result.dataProfile)await renderNativeData(result.dataProfile,ensureCurrent);
       vocabularyView.replaceChildren();global.KBReviewCards.semantics(vocabularyView,result);
       global.KBReviewCards.details(vocabularyView,'Exact semantic declarations',wires.get(result));
+      for(const name of ['relationAddType','relationRemoveType']){
+        inputs[name].replaceChildren(new Option('No relationship change',''));
+        for(const edge of result.relationships)inputs[name].append(new Option(edge.id,edge.id));
+      }
     }));
     field(r,'title','Title');field(r,'text','Text',{type:'textarea'});field(r,'evidence','Evidence reference');field(r,'reason','Reason for change');
+    field(r,'relationAddType','Add declared relationship',{type:'select'});field(r,'relationAddTarget','Related record reference');
+    field(r,'relationRemoveType','Remove declared relationship',{type:'select'});field(r,'relationRemoveTarget','Relationship target to remove');
+    field(r,'nativePatch','Advanced proposed correction (JSON)',{type:'textarea'});
+    r.append(node('p','Leave advanced correction blank to use title and text. A correction can change title/text or add/remove declared record relationships. It preserves other native fields. Ordinary authored Term data uses its declared native writer; Registry kind/schema/vocabulary definitions use the separate reviewed source workflow.'));
+    const nativeDataView=node('section');nativeDataView.setAttribute('aria-label','Native domain data');r.append(nativeDataView);
+    field(r,'nativeDataSet','Advanced domain-data fields to merge (JSON object)',{type:'textarea'}).maxLength=131072;
+    field(r,'nativeDataRemove','Domain-data field names to remove (JSON array)',{type:'textarea'});
+    function resetNativeData(){nativeDataProfile=null;nativeDataInputs.clear();nativeDataView.replaceChildren();inputs.nativeDataSet.value='';inputs.nativeDataRemove.value='';}
+    async function renderNativeData(profile,ensureCurrent){
+      ensureCurrent();resetNativeData();
+      if(profile?.format!=='native-domain-data-schema/v1'||profile.collection!==selectedRecord?.record?.collection||profile.kind!==selectedRecord.record.kind||profile.pointer!=='/content/data'||profile.writer!=='record.patch-propose'||!Array.isArray(profile.schemas)||profile.schemas.length>4||!/^[a-f0-9]{64}$/.test(profile.sha256))throw Error('Native schema unavailable');
+      const record=nativeObjectWires(wires.get(selectedRecord)),content=nativeObjectWires(nativeObjectWires(record.record).content),values=Object.hasOwn(content,'data')?nativeObjectWires(content.data):Object.create(null);
+      const declarations=Object.create(null);
+      nativeDataView.append(node('h3','Domain data'),node('p','Edit the adopted payload below. Omitted fields remain unchanged. Identity, ownership, protection and review rules remain enforced by this native writer.'));
+      for(const row of profile.schemas){
+        if(typeof row.wire!=='string'||row.wire.length>262144)throw Error('Native schema exceeds bound');
+        const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(row.wire)))].map(x=>x.toString(16).padStart(2,'0')).join('');ensureCurrent();if(hash!==row.sha256)throw Error('Native schema changed');
+        const schema=JSON.parse(row.wire);global.KBReviewCards.details(nativeDataView,row.source,row.wire);
+        if(schema&&typeof schema==='object'&&!Array.isArray(schema))for(const [name,decl] of Object.entries(schema.properties||{}))declarations[name]={schema,decl};
+      }
+      const names=[...new Set([...Object.keys(values),...Object.keys(declarations)])].sort();if(names.length>256)throw Error('Native editor field bound exceeded');
+      for(const name of names){
+        const row=declarations[name];let decl=row?.decl;
+        if(decl&&typeof decl.$ref==='string'&&decl.$ref.startsWith('#/')){let current=row.schema;for(const part of decl.$ref.slice(2).split('/'))current=current?.[part.replace(/~1/g,'/').replace(/~0/g,'~')];decl=current;}
+        const wrap=node('label',name),input=node('textarea');input.rows=decl?.type==='string'?2:5;input.maxLength=131072;input.dataset.nativeDataField=name;input.dataset.nativeDataString=String(decl?.type==='string');
+        input.value=Object.hasOwn(values,name)?(input.dataset.nativeDataString==='true'?JSON.parse(values[name]):values[name]):'';input.dataset.initialValue=input.value;
+        input.addEventListener('input',()=>{inputs.nativePatch.value='';draftView.replaceChildren();});wrap.append(input);nativeDataView.append(wrap);nativeDataInputs.set(name,input);
+      }
+      ensureCurrent();nativeDataProfile=profile;
+    }
+    function nativeDataChanges(){
+      const advanced=inputs.nativeDataSet.value.trim(),set=advanced?nativeObjectWires(advanced):Object.create(null);
+      if(!advanced)for(const [name,input] of nativeDataInputs)if(input.value!==input.dataset.initialValue)set[name]=input.dataset.nativeDataString==='true'?JSON.stringify(input.value):input.value;
+      const remove=inputs.nativeDataRemove.value.trim()?JSON.parse(inputs.nativeDataRemove.value):[];
+      if(!Array.isArray(remove)||remove.some(x=>typeof x!=='string'||x.length>2000)||new Set(remove).size!==remove.length||remove.some(x=>Object.hasOwn(set,x)))throw Error('Explicit distinct native removals required');
+      if(!Object.keys(set).length&&!remove.length)return null;
+      if(!nativeDataProfile||!capabilities?.recordPatchVersions?.includes('v12'))throw Error('Inspect the current native data schema first');
+      for(const wire of Object.values(set)){if(!wire.trim())throw Error('Use explicit removal for absent fields');JSON.parse(wire);}
+      const result='{"set":{'+Object.entries(set).map(([key,wire])=>JSON.stringify(key)+':'+wire).join(',')+'},"remove":'+JSON.stringify(remove)+'}';
+      if(new TextEncoder().encode(result).length>131072)throw Error('Native data correction exceeds bound');return result;
+    }
+    for(const input of [inputs.nativeDataSet,inputs.nativeDataRemove])input.addEventListener('input',()=>{inputs.nativePatch.value='';draftView.replaceChildren();});
+    const draftView=output(r,'Author-agent draft');
+    field(r,'agentInstruction','Ask the author agent for a correction',{type:'textarea'});
+    const agentDraft=button(r,'author-agent-draft','Draft a correction',()=>task('Drafting against the current governed source…',false,async (call,ensureCurrent,signal)=>{
+      if(!selectedRecord?.record||!agentAvailable)throw Error('Inspect a readable record first');
+      const report=await post({action:'knowledge-draft',authority:inputs.authority.value,record:inputs.record.value,
+        collection:inputs.collection.value,instruction:inputs.agentInstruction.value,...(nativeDataProfile?{nativeData:true}:{})},signal,'/api/edit');
+      ensureCurrent();
+      if(!['governed-authoring-draft/v1','governed-authoring-draft/v2'].includes(report?.format)||report.state!=='draft-only'||report.committed!==false||report.proposalCreated!==false||
+        report.executionAuthorized!==false||report.basis.authority!==inputs.authority.value||report.basis.record!==selectedRecord.record.id||
+        report.basis.collection!==selectedRecord.record.collection||report.basis.revision!==selectedRecord.revision||
+        report.basis.principal!==principal||report.writer!=='record.patch-propose')throw Error('Draft selection changed');
+      if(report.format==='governed-authoring-draft/v2'&&report.basis.dataSchemaSha256!==nativeDataProfile?.sha256)throw Error('Native data schema changed');
+      for(const input of nativeDataInputs.values())input.value=input.dataset.initialValue;inputs.nativeDataSet.value='';inputs.nativeDataRemove.value='';
+      inputs.nativePatch.value=JSON.stringify(report.patch,null,2);
+      draftView.replaceChildren(node('h3','Unaccepted author-agent draft'),node('p',report.explanation),
+        node('p','Owning contract: '+report.owner.contract+' · authority: '+report.owner.authority),
+        node('p','Review the correction, enter your reason and evidence, then use Propose change. Independent native review and explicit application still follow.'));
+      proposeButton.disabled=false;
+    }));
     const proposeButton=button(r,'proposal-propose','Propose change',()=>task('Preparing a native proposal…',true,async call=>{
       if(!inputs.reason.value.trim()||!inputs.evidence.value.trim()||!inputs.record.value.trim())throw Error('Record, reason and evidence are required');
       const collection=description.collections.find(value=>value.id===inputs.collection.value);if(!collection)throw Error('Select a collection');
       let result;
       if(selectedRecord?.record){
-        result=await call('record.patch-propose',{record:selectedRecord.record.id,expectedRevision:selectedRecord.revision,
-          requestId:crypto.randomUUID(),title:inputs.title.value,text:inputs.text.value,reason:inputs.reason.value,evidence:[inputs.evidence.value]});
+        const shared={record:selectedRecord.record.id,expectedRevision:selectedRecord.revision,
+          requestId:crypto.randomUUID(),reason:inputs.reason.value,evidence:[inputs.evidence.value]};
+        const advanced=inputs.nativePatch.value.trim(),patch={title:inputs.title.value,text:inputs.text.value};
+        let relationshipChange=false;
+        if(!advanced)for(const [operation,kind,target] of [['addRelations','relationAddType','relationAddTarget'],['removeRelations','relationRemoveType','relationRemoveTarget']]){
+          if(inputs[kind].value||inputs[target].value.trim()){
+            if(!inputs[kind].value||!inputs[target].value.trim())throw Error('Select the declared relationship and its target');
+            patch[operation]=[{rel:inputs[kind].value,target:inputs[target].value.trim()}];relationshipChange=true;
+          }
+        }
+        const dataWire=nativeDataChanges(),correction=advanced?JSON.parse(advanced):patch;
+        if(dataWire&&Object.hasOwn(correction,'dataPatchWire'))throw Error('Choose one domain-data correction surface');
+        if(dataWire)correction.dataPatchWire=dataWire;
+        if(Object.hasOwn(correction,'dataPatchWire')){
+          if(!nativeDataProfile)throw Error('Inspect the current native data schema first');
+          result=await call('record.patch-propose',{...shared,patch:correction,expectedDataSchemaSha256:nativeDataProfile.sha256},'v12');
+        }else result=await call('record.patch-propose',advanced?{...shared,patch:correction}:
+          relationshipChange?{...shared,patch}:{...shared,title:inputs.title.value,text:inputs.text.value});
       }else{
+        if(inputs.nativePatch.value.trim())throw Error('Advanced corrections require an existing inspected record');
         const value={id:inputs.record.value,collection:collection.id,kind:collection.kind,
           content:{title:inputs.title.value,text:inputs.text.value},relations:[]};
         const request={id:crypto.randomUUID(),record:value.id,resource:collection.resource,mutation:'create',expectedRevision:null,
@@ -193,6 +329,9 @@
       clearQueue();
       proposal=await call('proposal.inspect',{proposal:result.proposal});renderProposal();show('review');
     }));
+    for(const name of ['title','text','relationAddType','relationAddTarget','relationRemoveType','relationRemoveTarget'])inputs[name].addEventListener('input',()=>{
+      inputs.nativePatch.value='';draftView.replaceChildren();
+    });
     const v=panels.review;
     field(v,'reviewCollection','Proposal collection',{type:'select'});
     const proposalList=output(v,'Proposal queue');
@@ -251,6 +390,18 @@
       const comparison=node('div');comparison.className='review-comparison';proposalView.append(comparison);
       global.KBReviewCards.record(comparison,proposal.current?.record,{title:'Before',revision:proposal.current?.revision});
       global.KBReviewCards.record(comparison,proposal.proposal.record,{title:'Proposed',proposed:true,revision:proposal.proposal.request.expectedRevision});
+      if(proposal.current?.record?.content?.data!==undefined||proposal.proposal.record?.content?.data!==undefined){
+        const bounds={maxBytes:ceiling,maxNodes:65536,maxDepth:80},parts=nativeObjectWires(wires.get(proposal),bounds),dataComparison=node('section');
+        dataComparison.setAttribute('aria-label','Exact domain-data comparison');
+        dataComparison.append(node('h3','Domain-data review'),node('p','Compare these exact native values before independently reviewing or applying this proposal. Unmentioned fields are retained.'));
+        for(const [label,key] of [['Before','current'],['Proposed','proposal']]){
+          const record=parts[key]&&parts[key]!=='null'?nativeObjectWires(parts[key],bounds).record:null;
+          const content=record&&record!=='null'?nativeObjectWires(record,bounds).content:null;
+          const data=content?nativeObjectWires(content,bounds).data:null;
+          dataComparison.append(node('h4',label),node('pre',data||'No domain data in this observation.'));
+        }
+        proposalView.append(dataComparison);
+      }
       global.KBReviewCards.details(proposalView,'Exact proposal and lifecycle',wires.get(proposal));
       inputs.confirmCommit.checked=false;reviewAvailability();
     }
@@ -310,6 +461,7 @@
     f.append(node('p','Edit a host-registered source through its declared writer and content policy. Opaque binary assets and fixed two-to-four destination groups are supported when the host registers them. A different host identity reviews each proposal; each destination creates only a local review branch. No default branch or remote service is updated. If a response is interrupted, inspect its proposal and destination status before retrying.'));
     const fileView=output(f,'Registered file source');
     const inspectFile=button(f,'file-inspect','Inspect registered source',()=>task('Inspecting the registered file source…',false,async call=>{
+      resetFileRecord();
       fileSource=await call('file.inspect',{});fileProposal=null;fileHistory=null;
       const binary=fileSource.writer==='binary-commit';
       inputs.fileDocument.parentElement.hidden=binary;inputs.fileAsset.parentElement.hidden=!binary;
@@ -318,6 +470,145 @@
       fileHistoryButton.disabled=!capabilities?.operations.includes('file.history');
       fileProposeButton.disabled=!capabilities?.operations.includes('file.propose');
     }));
+    const fileRecordSection=node('section');fileRecordSection.setAttribute('aria-label','Selected JSON record correction');f.append(fileRecordSection);
+    fileRecordSection.append(node('h3','Correct one JSON record'),node('p','This optional editor uses fields from the registered source schema. Form fields, JSON corrections and agent drafts use the same file proposal and independent review. It does not edit ontology declarations. Manual whole-file and asset editing remain below.'));
+    field(fileRecordSection,'fileRecordIndex','Record position (starting at zero)',{type:'number',value:'0'});
+    inputs.fileRecordIndex.min='0';inputs.fileRecordIndex.max='65535';inputs.fileRecordIndex.step='1';
+    const fileRecordView=output(fileRecordSection,'Selected record and source');
+    const fileRecordForm=node('fieldset');fileRecordForm.append(node('legend','Declared record fields'));fileRecordSection.append(fileRecordForm);
+    field(fileRecordSection,'fileCorrection','Advanced selected-field correction (JSON)',{type:'textarea'});
+    if(jsonValues)inputs.fileCorrection.maxLength=131072;
+    field(fileRecordSection,'fileAgentInstruction','Ask the author agent about this record',{type:'textarea'});
+    const fileDraftView=output(fileRecordSection,'Unaccepted registered-file agent draft');
+    function recordIndex(){
+      const value=inputs.fileRecordIndex.value;if(!/^(0|[1-9][0-9]{0,4})$/.test(value)||Number(value)>65535)throw Error('Select a bounded record position');
+      return Number(value);
+    }
+    function resetFileRecord(){
+      if(jsonValues)fileValuePreview=null;
+      fileProfile=null;fileProfileSha=null;fileRecordInputs.clear();
+      fileRecordForm.replaceChildren(node('legend','Declared record fields'));fileRecordView.replaceChildren();fileDraftView.replaceChildren();
+      inputs.fileCorrection.value='';inputs.fileAgentInstruction.value='';
+    }
+    function syncFileRecord(){
+      const json=fileSource?.writer==='json-commit',mayInspect=capabilities?.operations.includes('file.inspect')===true;
+      const mayPropose=capabilities?.operations.includes('file.propose')===true;
+      inspectFileRecord.disabled=!json||!mayInspect;
+      fileRecordPropose.disabled=!fileProfile||!mayPropose;
+      if(jsonValues){fileRecordPropose.disabled=fileRecordPropose.disabled||!fileValuePreview;if(fileValuePreviewButton)fileValuePreviewButton.disabled=!fileProfile||!mayInspect;}
+      fileAgentDraft.disabled=!fileProfile||!mayPropose||!agentAvailable;
+      inputs.fileRecordIndex.disabled=!json||!mayInspect;
+      for(const input of fileRecordInputs.values())input.disabled=!mayPropose;
+      inputs.fileCorrection.disabled=!fileProfile||!mayPropose;inputs.fileAgentInstruction.disabled=!fileProfile||!mayPropose||!agentAvailable;
+    }
+    function fileEditingChanged(){
+      if(jsonValues){fileValuePreview=null;syncFileRecord();}
+      if(!controller)return;
+      if(activeWrite){
+        invalidate('File proposal may have completed. Inspect the uncertain proposal before continuing.');
+        if(fileAttempt)fileReconcile.disabled=false;
+      }else{
+        interrupt();host.removeAttribute('aria-busy');status.textContent=messageWithUncertainty('Draft selection changed. Inspect before continuing.');
+      }
+      syncCapabilities();
+    }
+    function selectedFileFields(){
+      if(!fileProfile)throw Error('Inspect the current selected record first');
+      if(jsonValues)return jsonValues.collect(fileProfile,fileRecordInputs,inputs.fileCorrection.value);
+      let fields;
+      if(inputs.fileCorrection.value.trim())fields=JSON.parse(inputs.fileCorrection.value);
+      else{
+        fields=Object.create(null);const original=JSON.parse(fileProfile.recordWire);
+        for(const [name,input] of fileRecordInputs){
+          if(input.value===input.dataset.initialValue)continue;
+          const value=fileProfile.fields[name].type==='array'?JSON.parse(input.value):input.value;
+          if(!Object.hasOwn(original,name)||!same(original[name],value))fields[name]=value;
+        }
+      }
+      if(!fields||typeof fields!=='object'||Array.isArray(fields)||!Object.keys(fields).length||Object.keys(fields).length>64)throw Error('Enter declared field corrections');
+      for(const [name,value] of Object.entries(fields)){
+        if(!Object.hasOwn(fileProfile.fields,name))throw Error('Correction includes an undeclared field');
+        const type=fileProfile.fields[name].type;
+        if(type==='string'?typeof value!=='string'||value.length>65536:!Array.isArray(value)||value.length>256||value.some(x=>typeof x!=='string'||x.length>65536))throw Error('Use bounded text or text-array fields');
+      }
+      if(new TextEncoder().encode(JSON.stringify(fields)).length>131072)throw Error('Correction too large');
+      return fields;
+    }
+    const inspectFileRecord=button(fileRecordSection,'file-record-inspect','Inspect selected record',()=>task('Loading the current registered JSON record…',false,async (call,ensureCurrent)=>{
+      if(fileSource?.writer!=='json-commit')throw Error('Inspect a registered JSON source first');
+      resetFileRecord();
+      if(jsonValues){
+        await call('authority.inspect',{},'v11');
+        if(!capabilities?.fileRecordVersions?.includes('v11'))throw Error('Exact JSON value editing is unavailable');
+        const loaded=await call('file.inspect',{recordIndex:recordIndex()},'v11');
+        jsonValues.profile(loaded,fileSource,capabilities.binding,recordIndex());
+        if(await jsonValues.sha(loaded.schemaWire)!==loaded.sourceSchemaSha256||await jsonValues.sha(loaded.recordWire)!==loaded.recordSha256)throw Error('Selected JSON bytes changed');
+        const loadedSha=await jsonValues.sha(wires.get(loaded));ensureCurrent();
+        fileProfile=loaded;fileProfileSha=loadedSha;
+        jsonValues.render(loaded,fileRecordView,fileRecordForm,fileRecordInputs,()=>{fileEditingChanged();fileDraftView.replaceChildren();});return;
+      }
+      await call('authority.inspect',{},'v10');
+      if(!capabilities?.fileRecordVersions?.includes('v10'))throw Error('Typed file corrections are unavailable');
+      const profile=await call('file.inspect',{recordIndex:recordIndex()},'v10');
+      if(profile.format!=='registered-json-record-edit/v1'||profile.writer!=='json-commit'||profile.sourceRevision!==fileSource.revision||
+         profile.sourcePath!==fileSource.path||profile.selectionSha256!==capabilities.binding||profile.recordIndex!==recordIndex()||
+         !profile.fields||typeof profile.fields!=='object'||Array.isArray(profile.fields)||Object.keys(profile.fields).length>64)throw Error('Source changed; inspect it again');
+      const original=JSON.parse(profile.recordWire);fileProfile=profile;
+      fileProfileSha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(wires.get(profile))))].map(x=>x.toString(16).padStart(2,'0')).join('');
+      fileRecordView.append(node('p','Source: '+profile.sourcePath+' · record '+profile.recordIndex+' · revision '+profile.sourceRevision),node('pre',profile.recordWire));
+      for(const [name,declaration] of Object.entries(profile.fields)){
+        const wrap=node('label',name),input=node('textarea');input.rows=2;input.maxLength=65536;input.dataset.fileField=name;
+        input.value=declaration.type==='array'?JSON.stringify(original[name]??[]):original[name]??'';input.dataset.initialValue=input.value;
+        input.addEventListener('input',()=>{fileEditingChanged();fileDraftView.replaceChildren();});
+        wrap.append(input);fileRecordForm.append(wrap);fileRecordInputs.set(name,input);
+      }
+    }));
+    if(jsonValues)fileValuePreviewButton=button(fileRecordSection,'file-record-value-preview','Preview JSON values against registered schema',()=>task('Validating selected JSON values…',false,async call=>{
+      if(!fileProfile)throw Error('Inspect the selected JSON record first');
+      fileValuePreview=null;const fieldWires=selectedFileFields();
+      const preview=await call('file.inspect',{recordIndex:fileProfile.recordIndex,expectedRevision:fileProfile.sourceRevision,
+        expectedSelectionSha256:fileProfile.selectionSha256,expectedRecordSha256:fileProfile.recordSha256,fieldWires},'v11');
+      jsonValues.preview(preview,fileProfile,fieldWires);
+      fileValuePreview={fieldWires,profileSha256:fileProfileSha};
+      fileDraftView.replaceChildren(node('h3','Schema-validated JSON value preview'),node('pre',preview.beforeRecordWire),node('pre',preview.afterRecordWire),node('p','No proposal or review was created. Inspect this change and provide a reason before proposing.'));
+    }));
+    const fileAgentDraft=button(fileRecordSection,'file-record-agent','Draft selected field corrections',()=>task('Drafting against the current registered JSON source…',false,async (call,ensureCurrent,signal)=>{
+      if(!fileProfile||!agentAvailable||recordIndex()!==fileProfile.recordIndex)throw Error('Inspect a selected JSON record first');
+      if(jsonValues){
+        fileValuePreview=null;const draft=await post({action:'knowledge-file-json-draft',authority:inputs.authority.value,recordIndex:fileProfile.recordIndex,instruction:inputs.fileAgentInstruction.value},signal,'/api/edit');ensureCurrent();
+        const b=draft?.basis;if(draft.format!=='registered-json-values-draft/v1'||draft.state!=='draft-only'||draft.committed!==false||draft.proposalCreated!==false||draft.executionAuthorized!==false||draft.writer!=='file.propose'||b?.authority!==inputs.authority.value||b.principal!==principal||b.binding!==fileProfile.selectionSha256||b.sourceRevision!==fileProfile.sourceRevision||b.sourceSchemaSha256!==fileProfile.sourceSchemaSha256||b.recordIndex!==fileProfile.recordIndex||b.recordSha256!==fileProfile.recordSha256||b.profileSha256!==fileProfileSha||typeof draft.previewWire!=='string'||await jsonValues.sha(draft.previewWire)!==draft.previewSha256)throw Error('JSON draft selection changed');
+        ensureCurrent();jsonValues.preview(JSON.parse(draft.previewWire),fileProfile,draft.fieldWires);
+        inputs.fileCorrection.value=jsonValues.objectWire(draft.fieldWires);selectedFileFields();
+        fileDraftView.replaceChildren(node('h3','Unaccepted JSON value draft'),node('p',draft.explanation),node('p','Review the exact values, then request the registered-schema preview before proposing. No record or source proposal was created.'));return;
+      }
+      const report=await post({action:'knowledge-file-draft',authority:inputs.authority.value,recordIndex:fileProfile.recordIndex,instruction:inputs.fileAgentInstruction.value},signal,'/api/edit');
+      ensureCurrent();
+      const basis=report?.basis;
+      if(report.format!=='registered-file-authoring-draft/v1'||report.state!=='draft-only'||report.committed!==false||report.proposalCreated!==false||report.executionAuthorized!==false||
+         report.writer!=='file.propose'||basis?.authority!==inputs.authority.value||basis.principal!==principal||basis.binding!==fileProfile.selectionSha256||
+         basis.sourceRevision!==fileProfile.sourceRevision||basis.sourceSchemaSha256!==fileProfile.sourceSchemaSha256||basis.recordIndex!==fileProfile.recordIndex||
+         basis.recordSha256!==fileProfile.recordSha256||basis.profileSha256!==fileProfileSha)throw Error('Draft selection changed');
+      inputs.fileCorrection.value=JSON.stringify(report.fields,null,2);selectedFileFields();
+      fileDraftView.append(node('h3','Unaccepted file draft'),node('p',report.explanation),node('p','Review the field corrections and reason, then create a file proposal. Independent review and the local review branch still follow.'));
+    }));
+    const fileRecordPropose=button(fileRecordSection,'file-record-propose','Propose selected record correction',()=>task('Preparing a registered JSON file proposal…',true,async call=>{
+      if(fileAttempt)throw Error('Reconcile the earlier file proposal before creating another');
+      if(!fileProfile||recordIndex()!==fileProfile.recordIndex||!inputs.fileReason.value.trim())throw Error('Inspect a record and provide a reason');
+      if(jsonValues){
+        const fieldWires=selectedFileFields();
+        if(!fileValuePreview||fileValuePreview.profileSha256!==fileProfileSha||!same(fileValuePreview.fieldWires,fieldWires))throw Error('Preview these exact JSON values before proposing');
+        fileAttempt={id:crypto.randomUUID(),revision:fileProfile.sourceRevision};
+        fileProposal=await call('file.propose',{expectedRevision:fileAttempt.revision,expectedSelectionSha256:fileProfile.selectionSha256,recordIndex:fileProfile.recordIndex,expectedRecordSha256:fileProfile.recordSha256,fieldWires,requestId:fileAttempt.id,reason:inputs.fileReason.value},'v11');
+        fileAttempt=null;fileValuePreview=null;inputs.fileProposalId.value=fileProposal.id;display(fileView,'Proposed file change',fileProposal);fileProposalInspect.disabled=false;return;
+      }
+      const fields=selectedFileFields();
+      fileAttempt={id:crypto.randomUUID(),revision:fileProfile.sourceRevision};
+      fileProposal=await call('file.propose',{expectedRevision:fileAttempt.revision,expectedSelectionSha256:fileProfile.selectionSha256,
+        recordIndex:fileProfile.recordIndex,expectedRecordSha256:fileProfile.recordSha256,fields,requestId:fileAttempt.id,reason:inputs.fileReason.value},'v10');
+      fileAttempt=null;inputs.fileProposalId.value=fileProposal.id;display(fileView,'Proposed file change',fileProposal);fileProposalInspect.disabled=false;
+    }));
+    inputs.fileRecordIndex.addEventListener('input',()=>{fileEditingChanged();resetFileRecord();syncFileRecord();});
+    for(const name of ['fileCorrection','fileAgentInstruction'])inputs[name].addEventListener('input',()=>{fileEditingChanged();fileDraftView.replaceChildren();});
     const fileHistoryButton=button(f,'file-history','Browse source history',()=>task('Loading source history…',false,async call=>{
       if(!fileSource)throw Error('Inspect the registered source first');
       fileHistory=await call('file.history',{limit:25});
@@ -466,8 +757,11 @@
     }));
     function clearKnowledge() {
       selectedRecord=capture=extraction=sourcePreview=proposal=publication=transfer=sourcePage=proposalPage=fileSource=fileProposal=fileHistory=null;
+      resetNativeData();
       for(const area of outputs)area.replaceChildren();
-      for(const name of ['title','text','evidence','reason','reviewReason'])inputs[name].value='';inputs.confirmCommit.checked=false;
+      for(const name of ['title','text','evidence','reason','reviewReason','nativePatch','agentInstruction','relationAddTarget','relationRemoveTarget'])inputs[name].value='';
+      for(const name of ['relationAddType','relationRemoveType'])inputs[name].replaceChildren();inputs.confirmCommit.checked=false;
+      resetFileRecord();
       if(inputs.fileDocument)inputs.fileDocument.value='';if(inputs.fileAsset)inputs.fileAsset.value='';
       if(inputs.fileDocument)inputs.fileDocument.parentElement.hidden=false;if(inputs.fileAsset)inputs.fileAsset.parentElement.hidden=true;
       if(inputs.fileReason)inputs.fileReason.value='';if(inputs.fileProposalId)inputs.fileProposalId.value='';if(inputs.fileReviewReason)inputs.fileReviewReason.value='';
@@ -487,10 +781,10 @@
     function invalidate(message) {
       interrupt();clearKnowledge();host.removeAttribute('aria-busy');status.textContent=messageWithUncertainty(message);
     }
-    async function post(request,signal) {
-      const response=await fetch('/brain-operations/operate',{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',signal,
+    async function post(request,signal,endpoint='/brain-operations/operate') {
+      const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',signal,
         headers:{'content-type':'application/json'},body:JSON.stringify(request)});
-      if(!response.ok||!response.body||!(response.headers.get('content-type')||'').toLowerCase().startsWith('application/json'))throw Error('Operation unavailable');
+      if(!response.ok||!response.body||!(response.headers.get('content-type')||'').toLowerCase().startsWith('application/json')){const error=Error('Operation unavailable');error.status=response.status;throw error;}
       const reader=response.body.getReader(),parts=[];let size=0;
       try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>ceiling)throw Error('Response too large');parts.push(part.value);}}
       catch(error){await reader.cancel().catch(()=>{});throw error;}finally{reader.releaseLock();}
@@ -501,11 +795,12 @@
       const current=++sequence;if(controller)controller.abort();controller=new AbortController();activeWrite=mayWrite;const active=controller;
       const timer=setTimeout(()=>active.abort(),80000);host.setAttribute('aria-busy','true');status.textContent=messageWithUncertainty(message);
       function ensureCurrent(){if(current!==sequence||document.hidden||active.signal.aborted)throw Error('Selection changed');}
-      async function call(operation,arguments_) {
+      async function call(operation,arguments_,version=null) {
         if(operation!=='authority.inspect'&&(!capabilities||!capabilities.operations.includes(operation)))throw Error('This action is unavailable for this connection');
-        const request={format:operation.startsWith('file.')?'knowledge-operation-request/v6':['source.list','proposal.list','collection.semantic-inspect'].includes(operation)?'knowledge-operation-request/v3':operation.startsWith('transfer.')?'knowledge-operation-request/v2':'knowledge-operation-request/v1',authority:inputs.authority.value,operation,arguments:arguments_};
+        const request={format:version?'knowledge-operation-request/'+version:operation==='record.patch-propose'&&Object.hasOwn(arguments_,'patch')?'knowledge-operation-request/v9':operation.startsWith('file.')?'knowledge-operation-request/v6':['source.list','proposal.list','collection.semantic-inspect'].includes(operation)?'knowledge-operation-request/v3':operation.startsWith('transfer.')?'knowledge-operation-request/v2':'knowledge-operation-request/v1',authority:inputs.authority.value,operation,arguments:arguments_};
         const report=await post(request,active.signal),native=await validate(report,request);
         ensureCurrent();
+        if(expectedOwner&&(report.contract!==expectedOwner.binding||report.authorization.principal!==expectedOwner.principal))throw Error('Selected owning writer changed');
         if(principal&&principal!==report.authorization.principal){principal=null;throw Error('Identity changed');}
         if(operation==='authority.inspect'){
           const advertised=report.hostCapabilities;
@@ -519,7 +814,7 @@
         }
         principal=report.authorization.principal;identity.textContent='Signed in as '+principal;if(native&&typeof native==='object')wires.set(native,report.nativeWire);return native;
       }
-      try{await action(call,ensureCurrent);if(current===sequence)status.textContent=messageWithUncertainty('Operation completed.');}
+      try{await action(call,ensureCurrent,active.signal);if(current===sequence)status.textContent=messageWithUncertainty('Operation completed.');}
       catch(error){if(current===sequence){if(mayWrite)uncertain=true;clearKnowledge();
         if(fileAttempt)fileReconcile.disabled=false;
         if(groupRequestId)groupReconcile.disabled=false;
@@ -528,9 +823,16 @@
       finally{clearTimeout(timer);if(current===sequence){host.removeAttribute('aria-busy');controller=null;activeWrite=false;syncCapabilities();}}
     }
     const connect=button(settings,'connect','Connect',()=>{
-      invalidate('Connecting…');groupRequestId=null;groupProposal=null;groupSnapshot=null;description=null;principal=null;capabilities=null;capabilityView.hidden=true;capabilityView.replaceChildren();
-      task('Loading authority…',false,async call=>{
-        description=await call('authority.inspect',{});inputs.collection.replaceChildren();inputs.reviewCollection.replaceChildren();
+      invalidate('Connecting…');groupRequestId=null;groupProposal=null;groupSnapshot=null;description=null;principal=null;capabilities=null;agentAvailable=false;capabilityView.hidden=true;capabilityView.replaceChildren();
+      task('Loading authority…',false,async (call,ensureCurrent,signal)=>{
+        description=await discoverAuthority(call,{nativeData:true});
+        agentAvailable=false;
+        try{
+          const configReply=await fetch('/client.config.json',{credentials:'same-origin',cache:'no-store',redirect:'error',signal});
+          if(configReply.ok){const config=await configReply.json();agentAvailable=config.features?.authoring===true&&config.features?.authoring_agent===true;}
+        }catch{agentAvailable=false;}
+        ensureCurrent();
+        inputs.collection.replaceChildren();inputs.reviewCollection.replaceChildren();
         capabilityView.append(node('h2','Available actions'),node('p','These actions were offered when you connected. Permission is checked again for every record and operation.'));
         const actions=node('ul');capabilityView.append(actions);
         for(const [label,operations] of [['Collect source material',['source.inspect','source.capture','source.extraction-preview','source.extract']],
@@ -551,12 +853,12 @@
         groupInspect.disabled=!capabilities?.operations.includes('file.group.inspect');
       });
     },{ready:true});
-    inputs.authority.addEventListener('input',()=>{fileAttempt=null;groupRequestId=null;groupProposal=null;groupSnapshot=null;invalidate('Authority changed. Connect again.');description=null;principal=null;capabilities=null;capabilityView.hidden=true;capabilityView.replaceChildren();identity.textContent='';for(const control of [inspectSource,loadRecord,loadHistory,loadProposal,previewPublication,previewTransfer,listSources,listProposals,loadVocabulary,inspectFile,fileReconcile,groupInspect])control.disabled=true;syncCapabilities();});
+    inputs.authority.addEventListener('input',()=>{expectedOwner=null;fileAttempt=null;groupRequestId=null;groupProposal=null;groupSnapshot=null;invalidate('Authority changed. Connect again.');description=null;principal=null;capabilities=null;agentAvailable=false;capabilityView.hidden=true;capabilityView.replaceChildren();identity.textContent='';for(const control of [inspectSource,loadRecord,loadHistory,loadProposal,previewPublication,previewTransfer,listSources,listProposals,loadVocabulary,inspectFile,fileReconcile,groupInspect])control.disabled=true;syncCapabilities();});
     for(const name of ['source','record','collection','reviewCollection','proposal','consumer','transferPurpose','transferFormat'])inputs[name].addEventListener('input',()=>{
       interrupt();host.removeAttribute('aria-busy');
       if(name==='source'){capture=extraction=sourcePreview=null;sourceView.replaceChildren();for(const control of [captureButton,extractButton,useText])control.disabled=true;}
       else if(name==='record'||name==='collection'){
-        selectedRecord=null;recordView.replaceChildren();vocabularyView.replaceChildren();historyView.replaceChildren();proposeButton.disabled=true;
+        selectedRecord=null;resetNativeData();inputs.nativePatch.value='';draftView.replaceChildren();for(const name of ['relationAddType','relationRemoveType'])inputs[name].replaceChildren();for(const name of ['relationAddTarget','relationRemoveTarget'])inputs[name].value='';recordView.replaceChildren();vocabularyView.replaceChildren();historyView.replaceChildren();proposeButton.disabled=true;
         if(!extraction||inputs.evidence.value!=='capture:'+extraction.captureSha256){inputs.title.value='';inputs.text.value='';inputs.evidence.value='';}
       }else if(name==='reviewCollection'){proposalPage=null;proposalList.replaceChildren();nextProposals.disabled=true;proposal=null;proposalView.replaceChildren();inputs.confirmCommit.checked=false;reviewAvailability();}
       else if(name==='proposal'){proposal=null;proposalView.replaceChildren();inputs.confirmCommit.checked=false;reviewAvailability();}
@@ -568,9 +870,20 @@
     global.addEventListener('pagehide',()=>invalidate('Preview cleared.'));
     host.append(settings,status,identity,capabilityView,tabs,...Object.values(panels));
     syncCapabilities();
-    return {clear:()=>invalidate('Preview cleared.'),connect:()=>connect.click()};
+    return {clear:()=>invalidate('Preview cleared.'),connect:()=>connect.click(),
+      suspendOwner(){
+        if(controller||uncertain||fileAttempt||groupRequestId||proposal||fileProposal||groupProposal)return false;
+        invalidate('Owner selection changed. Connect to the current registered writer before continuing.');
+        capabilities=null;principal=null;expectedOwner=null;syncCapabilities();return true;
+      },
+      selectAuthority(alias,binding,actor){
+        if(typeof alias!=='string'||!alias.trim()||alias.length>2000||typeof binding!=='string'||!/^[a-f0-9]{64}$/.test(binding)||typeof actor!=='string'||!actor.trim()||actor.length>2000)throw Error('Invalid explicit writer hint');
+        if(controller||uncertain||fileAttempt||groupRequestId||proposal||fileProposal||groupProposal)return false;
+        inputs.authority.value=alias;inputs.authority.dispatchEvent(new Event('input'));
+        expectedOwner={binding,principal:actor};connect.click();return true;
+      }};
   }
-  global.KnowledgeOperations={mount,validate};
+  global.KnowledgeOperations={mount,validate,discoverAuthority,nativeObjectWires};
   if(typeof document!=='undefined')document.addEventListener('DOMContentLoaded',()=>{
     const hosts=document.querySelectorAll('[data-kb-knowledge-operations]');
     if(!hosts.length)return;

@@ -162,11 +162,14 @@ def _process(command, *, cwd, env, deadline, limit, diagnostic=None):
         return truncated if diagnostic is not None else bytes(captured)
     finally:
         try:
-            os.killpg(child.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        child.wait()
-        child.stdout.close()
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            child.wait()
+        finally:
+            # A process-group cleanup error must not leak the parent pipe.
+            child.stdout.close()
 
 
 def _run(command, *, cwd, env, deadline, diagnostic):

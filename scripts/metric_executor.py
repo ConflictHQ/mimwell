@@ -24,7 +24,7 @@ def authorize_metric_reader(root, settings, authority, identity, metric, *, trus
     identity itself is supplied by the authenticated MCP host; the request and
     compiled graph never choose a native policy actor.
     """
-    from knowledge_operations import private_path
+    from knowledge_operations import private_path, private_store_path
     from knowledge_store import SQLiteAuthority, StoreError, adopted_authority, resolve_store_dsn, utcnow
     from context_host import decode
 
@@ -53,11 +53,7 @@ def authorize_metric_reader(root, settings, authority, identity, metric, *, trus
         if not isinstance(configured, dict) or configured != authority:
             raise ValueError("adopted authority does not match the metric projection")
         dsn = resolve_store_dsn(settings, authority["store"])
-        database = Path(dsn)
-        if not database.is_absolute():
-            raise ValueError("authority path must be absolute")
-        relative = database.relative_to(Path(root).absolute()).as_posix()
-        database = private_path(Path(root), relative)
+        database = private_store_path(Path(root), dsn)
         store = SQLiteAuthority(database, expected_binding=authority["binding"], readonly=True)
         try:
             collections = [collection for collection, spec in store.contract.collections.items()

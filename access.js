@@ -139,10 +139,14 @@ export function nodePaths(n) {
   return out;
 }
 
-// An owner spec matches either a full address or, when it carries no "@", the
-// local part of one. Empty identity NEVER matches: no identity means no grant.
-function identityMatches(spec, email, principals) {
-  if (!spec || !email) return false;
+// An owner spec matches a verified typed host identity or, for legacy rules, an
+// email address / local part. Request fields do not supply typed identities.
+const TYPED_PRINCIPAL = /^(team|agent|app):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+
+function identityMatches(spec, email, principals, hostPrincipals = []) {
+  if (!spec) return false;
+  if (TYPED_PRINCIPAL.test(spec)) return hostPrincipals.includes(spec);
+  if (!email) return false;
   if (isPrincipalSpec(spec)) {
     // #212: a spec naming a person matches the Access email bound to the same
     // principal in the person register. Unbound or unresolvable -> no grant.
@@ -289,8 +293,11 @@ function stringList(value, problems, where) {
       problems.push(`${where} entries must be non-empty strings`);
       continue;
     }
-    // An OIDC subject is case-sensitive; every other identity is not.
-    out.push(v.trim().startsWith("oidc:") ? v.trim() : v.trim().toLowerCase());
+    // OIDC and typed GUID principals are case-sensitive. Keep typed-looking
+    // input intact so malformed or noncanonical rules fail closed below.
+    const trimmed = v.trim();
+    const typedPrefix = ["team", "agent", "app"].includes(trimmed.split(":", 1)[0].toLowerCase());
+    out.push(trimmed.startsWith("oidc:") || typedPrefix ? trimmed : trimmed.toLowerCase());
   }
   return out;
 }
@@ -299,9 +306,11 @@ function stringList(value, problems, where) {
 // function never "does its best" with a security config.
 function parseAccess(raw) {
   const problems = [];
-  if (raw === undefined || raw === null) return { present: false, problems };
+  if (raw === undefined || raw === null) {
+    return { present: false, problems, owners: [], rules: [], tools: [] };
+  }
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    return { present: true, problems: ["access must be an object"] };
+    return { present: true, problems: ["access must be an object"], owners: [], rules: [], tools: [] };
   }
 
   // Unknown keys are ambiguous: they may be a restriction this engine version
@@ -501,11 +510,31 @@ function openGate(present, problems) {
  * Build the access gate for an engagement.
  *
  * @param {*} accessCfg the raw `access` block from client.config.json (or undefined)
+ * @param {*} register the person register, if loaded
+ * @param {*} verifiedHostIdentity internal immutable identity context from a trusted token host;
+ *        never pass request, browser, imported-record, or caller-provided identity data
  * @returns a frozen gate: {enabled, lockdown, isOwner, isRestrictedPath, canRead,
  *          allowFor, toolAllowed, redactSearch, filterArtifact, filter*, ...}
  */
-export function makeAccess(accessCfg, register) {
+export function makeAccess(accessCfg, register, verifiedHostIdentity = null) {
   const parsed = parseAccess(accessCfg);
+  const hostPrincipals = [];
+  if (verifiedHostIdentity !== null) {
+    const allowed = verifiedHostIdentity && verifiedHostIdentity.source === "verified-token-host"
+      && verifiedHostIdentity.contract === "1" && Array.isArray(verifiedHostIdentity.principals);
+    if (!allowed || verifiedHostIdentity.principals.some((item) => typeof item !== "string"
+        || !TYPED_PRINCIPAL.test(item)) || new Set(verifiedHostIdentity.principals).size !==
+        verifiedHostIdentity.principals.length) {
+      parsed.problems.push("verified host identity is malformed");
+    } else {
+      hostPrincipals.push(...verifiedHostIdentity.principals);
+    }
+  }
+  const specs = [...parsed.owners, ...parsed.rules.flatMap((rule) => rule.owners)];
+  if (specs.some((spec) => typeof spec === "string" && spec.includes(":")
+      && !isPrincipalSpec(spec) && !TYPED_PRINCIPAL.test(spec))) {
+    parsed.problems.push("access policy contains an unknown or malformed typed principal");
+  }
 
   // Principals (#212). `register` is the parsed app/people.json; undefined means
   // not loaded yet. An owner spec naming a person (`person:<slug>`,
@@ -526,7 +555,7 @@ export function makeAccess(accessCfg, register) {
       return principals && e ? principals.resolve("access:" + e) : null;
     },
     resolvePrincipal: (identity) => (principals ? principals.resolve(identity) : null),
-    bindRegister: (next) => makeAccess(accessCfg, next),
+    bindRegister: (next) => makeAccess(accessCfg, next, verifiedHostIdentity),
   });
 
   // Not configured -> the fast path. Also the case where an `access` block is
@@ -538,7 +567,8 @@ export function makeAccess(accessCfg, register) {
     // Keep reads on the open fast path, but do not turn every reader into an owner.
     return bound({...openGate(true, []), isOwner: (email) => {
       const identity = String(email || "").trim().toLowerCase();
-      return !!identity && parsed.owners.some((spec) => identityMatches(spec, identity, principals));
+      return (!!identity || hostPrincipals.length > 0)
+        && parsed.owners.some((spec) => identityMatches(spec, identity, principals, hostPrincipals));
     }});
   }
 
@@ -561,8 +591,9 @@ export function makeAccess(accessCfg, register) {
   function isOwner(email) {
     if (lockdown) return false;
     const e = String(email || "").trim().toLowerCase();
-    if (!e) return false; // no identity -> never an owner
-    return owners.some((spec) => identityMatches(spec, e, principals));
+    if (!e && !hostPrincipals.length) return false; // empty email needs a bound host identity
+    return (!!e || hostPrincipals.length > 0)
+      && owners.some((spec) => identityMatches(spec, e, principals, hostPrincipals));
   }
 
   function isRestrictedPath(path) {
@@ -578,8 +609,8 @@ export function makeAccess(accessCfg, register) {
     if (!hits.length) return true;
     if (isOwner(email)) return true;
     const e = String(email || "").trim().toLowerCase();
-    if (!e) return false;
-    return hits.every((r) => r.owners.some((spec) => identityMatches(spec, e, principals)));
+    if (!e && !hostPrincipals.length) return false;
+    return hits.every((r) => r.owners.some((spec) => identityMatches(spec, e, principals, hostPrincipals)));
   }
 
   // Memoized per-request predicate: one identity resolution, one path cache.

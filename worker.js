@@ -637,12 +637,12 @@ function carriesCredential(env, text) {
 // import, like policy-authoring.js), so an Anthropic brain never evaluates it.
 const openAIModelClient = (env) => ({
   messages: {
-    stream(params) {
+    stream(params, options = {}) {
       return {
         async finalMessage() {
           const { createOpenAIClient } = await import("./openai-client.js");
           const client = createOpenAIClient({ apiKey: env.OPENAI_API_KEY, baseUrl: config.assistant.baseUrl });
-          return client.messages.stream(params).finalMessage();
+          return client.messages.stream(params, options).finalMessage();
         },
       };
     },
@@ -1663,6 +1663,66 @@ async function handleEdit(request, env, ctx, gate = ACCESS) {
   }
   const action = body.action || "draft";
   const repo = authoringRepo(env);
+
+  // Optional native drafting uses the SAME authenticated operations and never writes.
+  if (action === "knowledge-draft") {
+    if (!AUTHORING_AGENT) return json({error: "conversational edit not enabled"}, 404);
+    if (!modelAvailable(env)) return json({error: "edit-agent unavailable"}, 503);
+    if (carriesCredential(env, JSON.stringify(body))) return new Response(null, {status: 422, headers: {"cache-control": "private, no-store"}});
+    try {
+      const {draftGovernedChange} = await import("./runtime/governed-authoring-draft.js");
+      const mapping = JSON.parse(env.BRAIN_OPERATIONS_CREDENTIALS);
+      if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) throw Error("Credentials unavailable");
+      // The existing per-user mapping is a JSON secret: check each actual token,
+      // not only the serialized whole. This changes no authentication or grants.
+      const serviceTokens = Object.values(mapping).filter(value => typeof value === "string" && value.length > 0 && value.length <= 4096);
+      const containsCredential = value => carriesCredential(env, value) || serviceTokens.some(token => String(value).includes(token));
+      if (containsCredential(JSON.stringify(body))) return new Response(null, {status: 422, headers: {"cache-control": "private, no-store"}});
+      const draft = await draftGovernedChange(request, env, body, {client: modelClientFactory(env), model: MODEL, containsCredential});
+      if (containsCredential(JSON.stringify(draft))) return privateJson({error: "draft refused"});
+      return privateJson(draft);
+    } catch { return new Response(null, {status: 503, headers: {"cache-control": "private, no-store"}}); }
+  }
+
+  // Optional registered-file drafting uses the SAME authenticated operations and never writes.
+  if (action === "knowledge-file-draft") {
+    if (!AUTHORING_AGENT) return json({error: "conversational edit not enabled"}, 404);
+    if (!modelAvailable(env)) return json({error: "edit-agent unavailable"}, 503);
+    if (carriesCredential(env, JSON.stringify(body))) return new Response(null, {status: 422, headers: {"cache-control": "private, no-store"}});
+    try {
+      const {draftRegisteredFileChange} = await import("./runtime/registered-file-authoring-draft.js");
+      const mapping = JSON.parse(env.BRAIN_OPERATIONS_CREDENTIALS);
+      if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) throw Error("Credentials unavailable");
+      // The existing per-user mapping is a JSON secret: check each actual token,
+      // not only the serialized whole. This changes no authentication or grants.
+      const serviceTokens = Object.values(mapping).filter(value => typeof value === "string" && value.length > 0 && value.length <= 4096);
+      const containsCredential = value => carriesCredential(env, value) || serviceTokens.some(token => String(value).includes(token));
+      if (containsCredential(JSON.stringify(body))) return new Response(null, {status: 422, headers: {"cache-control": "private, no-store"}});
+      const draft = await draftRegisteredFileChange(request, env, body, {client: modelClientFactory(env), model: MODEL, containsCredential});
+      if (containsCredential(JSON.stringify(draft))) return privateJson({error: "draft refused"});
+      return privateJson(draft);
+    } catch { return new Response(null, {status: 503, headers: {"cache-control": "private, no-store"}}); }
+  }
+
+  // Optional exact nested-JSON drafting uses the SAME authenticated operations and never writes.
+  if (action === "knowledge-file-json-draft") {
+    if (!AUTHORING_AGENT) return json({error: "conversational edit not enabled"}, 404);
+    if (!modelAvailable(env)) return json({error: "edit-agent unavailable"}, 503);
+    if (carriesCredential(env, JSON.stringify(body))) return new Response(null, {status: 422, headers: {"cache-control": "private, no-store"}});
+    try {
+      const {draftRegisteredJSONValues} = await import("./runtime/registered-json-values-draft.js");
+      const mapping = JSON.parse(env.BRAIN_OPERATIONS_CREDENTIALS);
+      if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) throw Error("Credentials unavailable");
+      // The existing per-user mapping is a JSON secret: check each actual token,
+      // not only the serialized whole. This changes no authentication or grants.
+      const serviceTokens = Object.values(mapping).filter(value => typeof value === "string" && value.length > 0 && value.length <= 4096);
+      const containsCredential = value => carriesCredential(env, value) || serviceTokens.some(token => String(value).includes(token));
+      if (containsCredential(JSON.stringify(body))) return new Response(null, {status: 422, headers: {"cache-control": "private, no-store"}});
+      const draft = await draftRegisteredJSONValues(request, env, body, {client: modelClientFactory(env), model: MODEL, containsCredential});
+      if (containsCredential(JSON.stringify(draft))) return privateJson({error: "draft refused"});
+      return privateJson(draft);
+    } catch { return new Response(null, {status: 503, headers: {"cache-control": "private, no-store"}}); }
+  }
 
   // A store authority is written only by its own governed writer (the knowledge
   // operations service: proposal.propose / review / commit) and reaches readers

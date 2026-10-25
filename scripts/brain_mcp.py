@@ -35,9 +35,21 @@ Identity. With BRAIN_MCP_JWKS_URL, BRAIN_MCP_ISSUER and BRAIN_MCP_AUDIENCE set,
 every request must carry a valid Astrolift brain read token in
 BRAIN_MCP_TOKEN_HEADER (default X-Astrolift-Brain-Token; scripts/brain_token.py),
 and the verified email is mapped through the protected MCP identity file before
-native reads or proposals. A legacy brain may use anonymous access only when
+native reads or proposals. Legacy email rules retain the same matching semantics
+as access.js. Opt-in typed GUID rules apply only to this verifier-backed host;
+the Cloudflare Worker has no typed token context and will not grant those rules.
+A legacy brain may use anonymous access only when
 the operator explicitly selects public-only mode. Setting only some verifier
 settings refuses to start. The token is never logged or echoed.
+
+Typed GUID read principals require both BRAIN_MCP_TYPED_PRINCIPALS=true and a
+host-configured BRAIN_MCP_EXPECTED_ORG_GUID. They affect only the read gate by
+default. An operator may separately map verified app/agent subjects to existing
+native reader actors in the private `_internal/mcp-typed-readers.json` file;
+that file grants no native permissions. The legacy email/UID mapping remains
+separate and continues to serve people and local stdio callers. Typed reads are
+disabled unless the verifier is explicitly configured, and do not grant
+proposal, review, commit, correction-basis or metric execution access.
 
 Correction bases are bounded direct native reads, separate from compiled
 `read_record` responses. They supply the complete admitted record, native revision
@@ -52,18 +64,23 @@ Factory for gunicorn: `brain_mcp:create_application()`.
 from __future__ import annotations
 
 from array import array
+from collections.abc import Mapping
 from copy import deepcopy
 from functools import cached_property
 from http import HTTPStatus
 import hmac
 import hashlib
+import html
 import json
 import mimetypes
 import os
+from contextlib import nullcontext
 from pathlib import Path
 import re
 import sys
 import unicodedata
+from types import MappingProxyType
+from urllib.parse import parse_qsl
 
 import access_gate
 import brain_token
@@ -71,7 +88,7 @@ import metric_executor
 import public_status
 from context_host import _read_raw, decode
 from context_search import FIELDS, score_record, terms
-from knowledge_operations import StoreError, load_host, private_path
+from knowledge_operations import StoreError, load_host, private_path, private_store_path
 from record_sources import record_slug
 
 PROTOCOL_VERSIONS = ("2025-06-18", "2025-03-26")
@@ -81,6 +98,14 @@ SERVER_NAME = "mimwell-brain"
 MAX_BODY_BYTES = 64 * 1024
 MAX_DOC_BYTES = 8 * 1024 * 1024
 MAX_STATIC_BYTES = 64 * 1024 * 1024
+MAX_NATIVE_RECORD_HTML_BYTES = 64 * 1024
+MAX_TYPED_NATIVE_READERS_BYTES = 64 * 1024
+MAX_TYPED_NATIVE_READERS = 1000
+_TYPED_NATIVE_SUBJECT = re.compile(
+    r"(?:app|agent):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z"
+)
+NATIVE_RECORD_PATH = "/.well-known/mimwell/native-record"
+CITATION_PATH = "/.well-known/mimwell/citation"
 DEFAULT_MAX_DOC_CHARS = 300000
 SUMMARY_CHARS = 300
 MAX_RELATIONSHIPS = 100
@@ -96,6 +121,9 @@ _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 # Read only as filtered views by access.js; a reader gets their content here
 # through the record tools instead of the raw file.
 _SERVER_ONLY = frozenset({"client.config.json", "app/brain-meta.json", "app/brain-manifest.json"})
+SOURCE_RECEIPT_PATH = Path("/opt/brain/private/source-receipt.json")
+SOURCE_RECEIPT_OWNER_UID = 0
+SOURCE_ARTIFACT_MANIFEST_PATH = Path("/opt/brain/private/source-artifacts.json")
 
 # The Worker read tools each MCP tool serves the data of (worker.js TOOLS).
 TOOL_SOURCES = {
@@ -388,16 +416,55 @@ class Brain:
         self.doc_roots = tuple(r for r in (str(x).strip("/") for x in roots) if r) if isinstance(roots, list) else ()
         limit = assistant.get("maxDocChars")
         self.max_doc_chars = limit if type(limit) is int and limit > 0 else DEFAULT_MAX_DOC_CHARS
-        graph = self._json("app/brain.json")
-        graph = graph if isinstance(graph, dict) else {}
+        graph_raw = None
+        try:
+            graph_raw = _read_raw(self.root, "app/brain.json")
+            graph = decode(graph_raw)
+        except FileNotFoundError:
+            graph = None
+        except (OSError, ValueError):
+            self.unreadable.append("app/brain.json")
+            graph = None
+        graph_loaded = isinstance(graph, dict)
+        graph = graph if graph_loaded else {}
+        from source_receipt import load_receipt
+
+        # The receipt is optional for legacy builds. When the private image
+        # copy exists, malformed or mismatched provenance is a startup error.
+        # Hash the exact bytes already parsed above; never reopen the graph.
+        self.source_attestation = load_receipt(
+            SOURCE_RECEIPT_PATH,
+            graph_raw if graph_loaded else None,
+            owner_uid=SOURCE_RECEIPT_OWNER_UID,
+        )
+        from source_artifact_manifest import load_manifest
+
+        loaded_artifacts = load_manifest(
+            SOURCE_ARTIFACT_MANIFEST_PATH,
+            self.source_attestation,
+            graph_raw if graph_loaded else None,
+            owner_uid=SOURCE_RECEIPT_OWNER_UID,
+        ) or {}
+        self.source_artifacts = MappingProxyType({
+            key: MappingProxyType(dict(value)) for key, value in loaded_artifacts.get("entries", {}).items()
+        })
+        self.artifact_coverage = loaded_artifacts.get("coverage", "unavailable")
+        self.artifact_coverage_reasons = loaded_artifacts.get("reasonCodes", ())
+        startup_artifact_evidence = {}
+        self._artifact_evidence_startup = startup_artifact_evidence
+        if graph_raw is not None:
+            self._observe_artifact("app/brain.json", graph_raw)
         self.nodes = [n for n in graph.get("nodes") or [] if isinstance(n, dict) and isinstance(n.get("id"), str)]
         self.edges = [e for e in graph.get("edges") or [] if isinstance(e, dict)
                       and isinstance(e.get("source"), str) and isinstance(e.get("target"), str)]
+        self._brain_schema_raw = None
+        self._schema_kinds = None
         pack = self._json("app/knowledge-pack.json")
         items = pack.get("items") if isinstance(pack, dict) else None
         self.documents = [i for i in items or [] if isinstance(i, dict) and isinstance(i.get("path"), str) and i["path"]]
         schema = self._json("brain-schema.json")
         kinds = schema.get("kinds") if isinstance(schema, dict) else None
+        self._schema_kinds = tuple(kinds) if isinstance(kinds, list) else None
         self.kinds = [k for k in kinds or [] if isinstance(k, dict) and isinstance(k.get("id"), str)]
         release = self._json("engine-release.json")
         self.version = str(release.get("version") or "0") if isinstance(release, dict) else "0"
@@ -428,17 +495,47 @@ class Brain:
                 gate, ((access_gate.node_paths({"evidence": e.get("evidence")}), e) for e in self.edges))
             self.document_access = access_gate.Prepared(
                 gate, (([d["path"]], {"title": d.get("title"), "summary": d.get("summary")}) for d in self.documents))
+        self.artifact_evidence = MappingProxyType(
+            {key: MappingProxyType(dict(value)) for key, value in startup_artifact_evidence.items()})
+        del self._artifact_evidence_startup
+
+    def _observe_artifact(self, relative, raw):
+        expected = self.source_artifacts.get(relative)
+        if (isinstance(expected, Mapping) and expected.get("status") == "bound"
+                and type(expected.get("size")) is int and expected["size"] == len(raw)
+                and isinstance(expected.get("sha256"), str)
+                and hmac.compare_digest(expected["sha256"], hashlib.sha256(raw).hexdigest())):
+            state = {"status": "bound", "size": len(raw), "sha256": expected["sha256"]}
+        else:
+            state = {"status": "unavailable"}
+        startup = getattr(self, "_artifact_evidence_startup", None)
+        if startup is not None:
+            startup[relative] = state
+        return state
 
     def _json(self, relative, required=False):
         try:
-            return decode(_read_raw(self.root, relative))
+            raw = _read_raw(self.root, relative)
+            if relative == "brain-schema.json":
+                self._brain_schema_raw = raw
+            if relative in ("app/knowledge-pack.json", "brain-schema.json"):
+                self._observe_artifact(relative, raw)
+            return decode(raw)
         except FileNotFoundError:
+            if relative == "brain-schema.json":
+                self._brain_schema_raw = None
             if required:
                 raise
         except (OSError, ValueError):
+            if relative == "brain-schema.json":
+                self._brain_schema_raw = None
             if required:
                 raise
             self.unreadable.append(relative)
+        if relative in ("app/knowledge-pack.json", "brain-schema.json"):
+            startup = getattr(self, "_artifact_evidence_startup", None)
+            if startup is not None:
+                startup[relative] = {"status": "unavailable"}
         return None
 
 
@@ -448,8 +545,13 @@ class View:
 
     def __init__(self, brain, email, *, propose_change=None, native_actor=None, native_ids=None,
                  native_relations=None, native_nodes=None, native_root=None, identity_authorized=True,
-                 native_authorize=None, correction_basis=None):
+                 native_authorize=None, correction_basis=None, native_revisions=None,
+                 suppress_metric_execution=False):
         self.brain, self.email, self.gate = brain, email, brain.gate
+        # Per-request copy: later document reads never mutate shared Brain state.
+        self.artifact_evidence = dict(brain.artifact_evidence)
+        self.artifact_coverage = brain.artifact_coverage
+        self.artifact_coverage_reasons = brain.artifact_coverage_reasons
         native_adopted = brain.native_authority is not None
         self.propose_change = propose_change
         self.correction_basis = correction_basis
@@ -457,9 +559,11 @@ class View:
         self.native_ids = frozenset() if native_adopted and native_ids is None else native_ids
         self.native_relations = native_relations or {}
         self.native_nodes = native_nodes or {}
+        self.native_revisions = native_revisions or {}
         self.native_root = native_root or brain.root
         self.identity_authorized = identity_authorized
         self.native_authorize = native_authorize
+        self.suppress_metric_execution = suppress_metric_execution is True
         self.native_adopted = native_adopted
         self.owner = self.gate.is_owner(email)
         self.scoped = self.gate.paths_enabled and not self.owner
@@ -470,6 +574,17 @@ class View:
                                   and not self.native_adopted)
         self.read_doc_allowed = (self.identity_authorized and self.gate.tool_allowed("read_doc", email)
                                  and not self.native_adopted)
+
+    def observe_document_artifact(self, path, raw):
+        expected = self.brain.source_artifacts.get(path)
+        if (isinstance(expected, Mapping) and expected.get("status") == "bound"
+                and type(expected.get("size")) is int and expected["size"] == len(raw)
+                and isinstance(expected.get("sha256"), str)
+                and hmac.compare_digest(expected["sha256"], hashlib.sha256(raw).hexdigest())):
+            self.artifact_evidence[path] = {"status": "bound", "size": len(raw),
+                                            "sha256": expected["sha256"]}
+        else:
+            self.artifact_evidence[path] = {"status": "unavailable"}
 
     @cached_property
     def _node_mask(self):
@@ -528,6 +643,8 @@ class View:
                    "read_doc": self.read_doc_allowed}
         names = []
         for name, sources in TOOL_SOURCES.items():
+            if name == "run_metric" and self.suppress_metric_execution:
+                continue
             if not self.gate.tool_allowed(name, self.email) or not any(allowed[s] for s in sources):
                 continue
             if name in ("resolve_metric", "run_metric") and not any(
@@ -634,6 +751,7 @@ def _read_document(view, path):
         raw = _read_raw(brain.root, clean, max_bytes=MAX_DOC_BYTES)
     except (OSError, ValueError):
         raise ToolError(missing) from None
+    view.observe_document_artifact(clean, raw)
     text = raw.decode("utf-8", errors="replace")
     if clean.endswith(".json"):
         try:
@@ -859,7 +977,10 @@ def _instructions(brain, view):
             f"Cite record ids and document paths.{proposal}")
 
 
-def _tool_description(name, view):
+def _tool_description(name, view, *, structured_citations=False, protocol_version=None,
+                      native_citations_v2=False):
+    if native_citations_v2 and not view.native_adopted:
+        raise ValueError("Native citation v2 requires a native view")
     tool = deepcopy({"name": name, **TOOLS[name]})
     if view.native_adopted and name == "search_records":
         tool["description"] = ("Search records the current native authority policy allows you to read. An optional "
@@ -874,11 +995,26 @@ def _tool_description(name, view):
                                "idempotentHint": False, "openWorldHint": False}
     else:
         tool["annotations"] = dict(_READ_ONLY)
+    if (structured_citations and protocol_version == LATEST_PROTOCOL
+            and name in ("search_records", "read_record", "list_definitions", "resolve_metric")):
+        from mcp_citations import output_schema
+
+        authority_view = "native-adopted" if view.native_adopted else "compiled"
+        tool["outputSchema"] = output_schema(name, authority_view)
+    if native_citations_v2 and protocol_version == LATEST_PROTOCOL and name in (
+            "search_records", "read_record", "list_definitions", "resolve_metric"):
+        from mcp_citations import native_output_schema
+        tool["outputSchema"] = native_output_schema(name)
     return tool
 
 
-def call_tool(view, params):
+def call_tool(view, params, *, structured_citations=False, protocol_version=None,
+              public_origin=None, link_identity=False, native_citations_v2=False,
+              native_citation_route=None, native_citation_revalidate=None):
     """tools/call: (result, None) or (None, JSON-RPC error)."""
+    if native_citations_v2 and (not view.native_adopted or params.get("name") not in {
+            "search_records", "read_record", "list_definitions", "resolve_metric"}):
+        return None, (-32602, "Requested native read citation contract is unavailable")
     name, arguments = params.get("name"), params.get("arguments")
     arguments = {} if arguments is None else arguments
     if not isinstance(name, str) or name not in view.tools():
@@ -890,28 +1026,104 @@ def call_tool(view, params):
     except ToolError as exc:
         return {"content": [{"type": "text", "text": f"Error: {exc}"}], "isError": True}, None
     text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-    return {"content": [{"type": "text", "text": text}], "isError": False}, None
+    result = {"content": [{"type": "text", "text": text}], "isError": False}
+    if native_citations_v2 and protocol_version == LATEST_PROTOCOL and name in (
+            "search_records", "read_record", "list_definitions", "resolve_metric"):
+        from mcp_citations import StructuredResultUnavailable, native_structured_result
+        try:
+            result["structuredContent"] = native_structured_result(
+                view, name, value, text, route=native_citation_route,
+                revalidate=native_citation_revalidate)
+        except StructuredResultUnavailable:
+            return {"content": [{"type": "text", "text": "Error: native citation result is unavailable."}],
+                    "isError": True}, None
+        return result, None
+    if (structured_citations and protocol_version == LATEST_PROTOCOL
+            and name in ("search_records", "read_record", "list_definitions", "resolve_metric")):
+        from mcp_citations import StructuredResultUnavailable, structured_result
+
+        document_path = arguments.get("path") if name == "read_record" else None
+        document_evidence = view.artifact_evidence.get(document_path) if isinstance(document_path, str) else None
+        document_evidence = dict(document_evidence) if isinstance(document_evidence, Mapping) else None
+        try:
+            structured = structured_result(
+                view, name, value, text, public_origin=public_origin,
+                link_identity=link_identity,
+                document_path=document_path, document_evidence=document_evidence,
+            )
+        except StructuredResultUnavailable:
+            # An opted-in success must satisfy the outputSchema advertised by
+            # tools/list. Report the bounded-output refusal as a tool error rather
+            # than returning a successful content-only response.
+            return {"content": [{"type": "text",
+                                  "text": "Error: tool result cannot fit the structured output limits."}],
+                    "isError": True}, None
+        result["structuredContent"] = structured
+    return result, None
 
 
-def dispatch(brain, view, message):
+def dispatch(brain, view, message, *, protocol_version=None, structured_citations=False,
+             public_origin=None, link_identity=False, native_citations_v2=False,
+             native_citation_route=None, native_citation_revalidate=None):
     """One JSON-RPC request object (already validated) -> its JSON-RPC reply."""
     rid, method, params = message["id"], message["method"], message.get("params", {})
     if params is None:
         params = {}
     if not isinstance(params, dict):
         return _error(rid, -32602, "params must be an object")
+    selected_native_v2 = False
+    metadata = params.get("_meta")
+    if isinstance(metadata, dict) and "mimwell/citationContract" in metadata:
+        selected = metadata["mimwell/citationContract"]
+        if selected not in ("1", "2"):
+            return _error(rid, -32602, "Requested citation contract is unavailable")
+        if selected == "2":
+            chosen = protocol_version
+            if method == "initialize":
+                requested = params.get("protocolVersion")
+                chosen = requested if requested in PROTOCOL_VERSIONS else LATEST_PROTOCOL
+            if (not native_citations_v2 or not view.native_adopted or chosen != LATEST_PROTOCOL
+                    or not isinstance(native_citation_route, dict)
+                    or not callable(native_citation_revalidate)):
+                return _error(rid, -32602, "Requested citation contract is unavailable")
+            selected_native_v2 = True
     if method == "initialize":
         requested = params.get("protocolVersion")
         version = requested if requested in PROTOCOL_VERSIONS else LATEST_PROTOCOL
-        return _result(rid, {"protocolVersion": version, "capabilities": {"tools": {"listChanged": False}},
-                             "serverInfo": {"name": SERVER_NAME, "title": brain.name, "version": brain.version},
-                             "instructions": _instructions(brain, view)})
+        initialized = {"contract": public_status.CONTRACT_VERSION,
+                       "protocolVersion": version, "capabilities": {"tools": {"listChanged": False}},
+                       "serverInfo": {"name": SERVER_NAME, "title": brain.name, "version": brain.version},
+                       "instructions": _instructions(brain, view)}
+        if structured_citations and version == LATEST_PROTOCOL:
+            initialized["toolsContract"] = public_status.TOOLS_CONTRACT_VERSION
+            initialized["citationContract"] = public_status.CITATION_CONTRACT_VERSION
+            initialized["citationAuthorityViews"] = ["compiled"]
+        if selected_native_v2:
+            initialized["toolsContract"] = "2"
+            initialized["citationContract"] = "mimwell-mcp-citation-result/v2"
+            initialized["citationAuthorityViews"] = ["native-adopted"]
+            initialized["instructions"] = (
+                "Explicit native citation contract v2 selects four existing read tools. "
+                "It does not expose proposal or write tools; each request must select v2.")
+        return _result(rid, initialized)
     if method == "ping":
         return _result(rid, {})
     if method == "tools/list":
-        return _result(rid, {"tools": [_tool_description(name, view) for name in view.tools()]})
+        return _result(rid, {"tools": [_tool_description(
+            name, view, structured_citations=structured_citations,
+            protocol_version=protocol_version, native_citations_v2=selected_native_v2)
+            for name in view.tools()
+            if not selected_native_v2 or name in {
+                "search_records", "read_record", "list_definitions", "resolve_metric"}]})
     if method == "tools/call":
-        result, error = call_tool(view, params)
+        if selected_native_v2 and params.get("name") not in {
+                "search_records", "read_record", "list_definitions", "resolve_metric"}:
+            return _error(rid, -32602, "Native citation contract v2 contains only read tools")
+        result, error = call_tool(view, params, structured_citations=structured_citations,
+                                  protocol_version=protocol_version, public_origin=public_origin,
+                                  link_identity=link_identity, native_citations_v2=selected_native_v2,
+                                  native_citation_route=native_citation_route,
+                                  native_citation_revalidate=native_citation_revalidate)
         return _result(rid, result) if error is None else _error(rid, *error)
     return _error(rid, -32601, f"Method not found: {method}")
 
@@ -925,8 +1137,10 @@ class MCPApplication:
 
     def __init__(self, brain, *, verifier=None, token_header=TOKEN_HEADER, allowed_origins=(),
                  static_identity_source="anonymous", edge_identity_secret=None, proposals_enabled=False,
+                 native_record_identity_source="off", native_record_edge_secret=None,
                  operations_root=None, operations_host="_internal/knowledge-operations.json",
-                 public_only=False, status_declaration=None):
+                 public_only=False, status_declaration=None, structured_citations=False,
+                 citation_public_origin=None, native_citations_v2=False):
         if not _HEADER_NAME.fullmatch(token_header or ""):
             raise ValueError("BRAIN_MCP_TOKEN_HEADER must be an HTTP header name of letters, digits and dashes")
         self.brain = brain
@@ -942,20 +1156,62 @@ class MCPApplication:
             raise ValueError("edge identity requires no token verifier and BRAIN_STATIC_EDGE_SECRET")
         self.static_identity_source = static_identity_source
         self.edge_identity_secret = edge_identity_secret or ""
+        if native_record_identity_source not in ("off", "token", "edge"):
+            raise ValueError("BRAIN_NATIVE_RECORD_IDENTITY_SOURCE must be off, token or edge")
+        if native_record_identity_source == "token" and verifier is None:
+            raise ValueError("BRAIN_NATIVE_RECORD_IDENTITY_SOURCE=token requires brain token verification")
+        if native_record_identity_source == "edge" and (not isinstance(native_record_edge_secret, str)
+                                                           or not native_record_edge_secret
+                                                           or len(native_record_edge_secret) > 4096):
+            raise ValueError("edge native record identity requires BRAIN_NATIVE_RECORD_EDGE_SECRET")
+        self.native_record_identity_source = native_record_identity_source
+        self.native_record_edge_secret = native_record_edge_secret or ""
         self.proposals_enabled = proposals_enabled is True
         self.operations_root = Path(operations_root).absolute() if operations_root else brain.root
         self.operations_host = operations_host
         self.native_reader_file = "_internal/mcp-identities.json"
+        self.typed_native_reader_file = "_internal/mcp-typed-readers.json"
         if public_only is not True and public_only is not False:
             raise ValueError("public_only must be a boolean")
         if public_only and brain.native_authority is not None:
             raise ValueError("adopted authorities require an authenticated native principal")
         self.public_only = public_only
+        if structured_citations is not True and structured_citations is not False:
+            raise ValueError("structured_citations must be a boolean")
+        self.structured_citations = structured_citations
+        self.citation_public_origin = None
+        if structured_citations or native_citations_v2:
+            from mcp_citations import validate_public_origin
+
+            self.citation_public_origin = validate_public_origin(citation_public_origin)
+        if type(native_citations_v2) is not bool:
+            raise ValueError("native_citations_v2 must be a boolean")
+        self.native_citations_v2 = native_citations_v2
+        self._native_citation_binding = None
+        if native_citations_v2:
+            audience, issuer = getattr(verifier, "audience", None), getattr(verifier, "issuer", None)
+            if (brain.native_authority in (None, False) or native_record_identity_source != "token"
+                    or not brain_token._canonical_guid(audience) or not isinstance(issuer, str)
+                    or not issuer or self.citation_public_origin is None):
+                raise ValueError("Native citation v2 requires selected authority, token reader and bound brain origin")
+            self._native_citation_binding = (brain, brain.root, verifier, issuer, audience,
+                                            self.citation_public_origin)
         self.status_declaration = public_status.validate(status_declaration) if status_declaration is not None else None
         if self.proposals_enabled:
             # Validate the protected operator registration at startup. It is
             # outside the published asset tree in container deployments.
             load_host(self.operations_root, self.operations_host)
+
+    def _native_citation_route(self, view):
+        """One configured host binding; no caller-controlled origin or private root disclosure."""
+        bound = self._native_citation_binding
+        if (not self.native_citations_v2 or bound is None or self.brain is not bound[0]
+                or view.brain is not bound[0] or self.brain.root != bound[1]
+                or self.verifier is not bound[2] or self.verifier.issuer != bound[3]
+                or self.verifier.audience != bound[4] or self.citation_public_origin != bound[5]
+                or self.native_record_identity_source != "token"):
+            return None
+        return {"brainAudience": bound[4], "readerOrigin": bound[5], "readerPath": NATIVE_RECORD_PATH}
 
     def _proposal_for(self, email, environ):
         if not self.proposals_enabled or not email:
@@ -972,7 +1228,7 @@ class MCPApplication:
             return None
 
         def authorize():
-            current, refusal = self._identity(environ)
+            current, refusal, _caller = self._identity(environ)
             mapped = None if refusal is not None else self._native_identity(current)
             return mapped if mapped == actor else None
 
@@ -1039,7 +1295,7 @@ class MCPApplication:
             _, target, driver, store_id, current = select_backend(self.operations_root, entry)
             dsn = resolve_store_dsn(self.brain.config, authority['store'])
             if driver == 'sqlite':
-                if not Path(dsn).is_absolute() or Path(dsn).resolve() != Path(target).resolve():
+                if private_store_path(self.operations_root, dsn) != target:
                     raise StoreError('Correction basis route differs from the selected brain')
             elif store_id != authority['store'] or target != dsn:
                 raise StoreError('Correction basis route differs from the selected brain')
@@ -1100,16 +1356,78 @@ class MCPApplication:
         except (StoreError, OSError, ValueError, TypeError, KeyError):
             return None
 
-    def _native_read(self, email, uid=None):
+    @staticmethod
+    def _typed_native_subject(caller):
+        """Return an app/agent namespace candidate, including malformed subjects."""
+        subject = getattr(caller, "subject", None)
+        if isinstance(subject, str) and (subject.startswith("app:") or subject.startswith("agent:")):
+            return subject
+        return None
+
+    def _typed_native_identity(self, caller):
+        """Map a verified non-person token to one existing native reader actor."""
+        authority = self.brain.native_authority
+        verifier = self.verifier
+        subject = self._typed_native_subject(caller)
+        expected_org = getattr(verifier, "expected_org_guid", None)
+        binding = authority.get("binding") if isinstance(authority, dict) else None
+        if (subject is None or not isinstance(authority, dict)
+                or not isinstance(caller, brain_token.Caller)
+                or not isinstance(verifier, brain_token.TokenVerifier)
+                or verifier.typed_principals_enabled is not True
+                or caller.contract != "1"
+                or not isinstance(binding, str) or not binding
+                or not brain_token._canonical_guid(expected_org)
+                or not isinstance(caller.access_principals, tuple)
+                or subject not in caller.access_principals
+                or not _TYPED_NATIVE_SUBJECT.fullmatch(subject)):
+            return None
+        try:
+            path = private_path(self.operations_root, self.typed_native_reader_file)
+            with path.open("rb") as stream:
+                raw = stream.read(MAX_TYPED_NATIVE_READERS_BYTES + 1)
+            if len(raw) > MAX_TYPED_NATIVE_READERS_BYTES:
+                raise ValueError("typed native reader registration exceeds its limit")
+            mapping = decode(raw)
+            if (not isinstance(mapping, dict) or set(mapping) != {
+                    "format", "expectedOrgGuid", "authorityBinding", "principalsBySubject"}
+                    or mapping["format"] != "mcp-typed-readers/v1"
+                    or mapping["expectedOrgGuid"] != expected_org
+                    or mapping["authorityBinding"] != binding
+                    or not isinstance(mapping["principalsBySubject"], dict)
+                    or len(mapping["principalsBySubject"]) > MAX_TYPED_NATIVE_READERS):
+                raise ValueError("typed native reader registration does not match the selected authority")
+            for configured_subject, actor in mapping["principalsBySubject"].items():
+                if (not isinstance(configured_subject, str)
+                        or not _TYPED_NATIVE_SUBJECT.fullmatch(configured_subject)
+                        or not isinstance(actor, str) or not actor or actor != actor.strip()
+                        or len(actor) > 200
+                        or any(ord(char) < 0x20 or ord(char) == 0x7f for char in actor)):
+                    raise ValueError("typed native reader registration has an invalid entry")
+            return mapping["principalsBySubject"].get(subject)
+        except (StoreError, OSError, ValueError, TypeError, KeyError, RecursionError):
+            return None
+
+    def _native_read_identity(self, email, uid=None, caller=None):
+        """Resolve typed non-person reads separately from legacy email/UID readers."""
+        typed_subject = self._typed_native_subject(caller)
+        if typed_subject is not None:
+            return self._typed_native_identity(caller)
+        if (caller is not None and getattr(caller, "contract", None) == "1"
+                and not isinstance(caller, brain_token.Caller)):
+            return None
+        return self._native_identity(email, uid)
+
+    def _native_read(self, email, uid=None, *, caller=None):
         """Resolve a trusted host principal and restrict compiled rows to its live native view."""
         authority = self.brain.native_authority
         if authority is None:
-            return None, None, None, None, {}
+            return None, None, None, None, {}, {}
         if authority is False:
-            return None, frozenset(), {}, None, {}
-        actor = self._native_identity(email, uid)
+            return None, frozenset(), {}, None, {}, {}
+        actor = self._native_read_identity(email, uid, caller)
         if actor is None:
-            return None, frozenset(), {}, None, {}
+            return None, frozenset(), {}, None, {}, {}
         try:
 
             from knowledge_store import FileReference, authority_class, resolve_store_dsn, utcnow
@@ -1118,11 +1436,7 @@ class MCPApplication:
             adapter = authority_class(dsn)
             driver = adapter.dialect_class.driver if adapter is not FileReference else "files"
             if driver in ("files", "sqlite"):
-                database = Path(dsn)
-                if not database.is_absolute():
-                    raise ValueError("native authority path must be absolute")
-                relative = database.relative_to(self.operations_root).as_posix()
-                database = private_path(self.operations_root, relative)
+                database = private_store_path(self.operations_root, dsn)
             else:
                 database = dsn
             store = (adapter(database, expected_binding=authority["binding"]) if adapter is FileReference
@@ -1143,7 +1457,10 @@ class MCPApplication:
                 ids = set()
                 relations = {}
                 native_nodes = {}
-                allowed_files, file_edge_keys, file_basis = self._file_source_graph(actor)
+                if self._typed_native_subject(caller) is not None:
+                    allowed_files, file_edge_keys, file_basis = {}, set(), None
+                else:
+                    allowed_files, file_edge_keys, file_basis = self._file_source_graph(actor)
                 candidate_ids, candidate_bytes = set(), 0
                 for node in self.brain.nodes:
                     identity = node.get("id")
@@ -1188,18 +1505,24 @@ class MCPApplication:
                             and (_native_edge_key(edge) in live_edge_keys
                                  or _native_edge_key(edge) in file_edge_keys):
                         relations.setdefault(edge["source"], set()).add(_native_edge_key(edge))
-                basis_value = {"checkpoint": snapshot["checkpoint"], "revisions": snapshot["revisions"],
+                revisions = snapshot["revisions"]
+                policy_sha256 = snapshot["graph"].get("meta", {}).get("lifecycle", {}).get("policySha256")
+                if (not isinstance(policy_sha256, str)
+                        or not re.fullmatch(r"[a-f0-9]{64}", policy_sha256)):
+                    raise ValueError("native snapshot has no valid policy fingerprint")
+                basis_value = {"checkpoint": snapshot["checkpoint"], "revisions": revisions,
+                               "policySha256": policy_sha256,
                                "ids": sorted(ids),
                                "relations": {key: sorted(value) for key, value in sorted(relations.items())},
                                "fileSources": file_basis}
                 basis = hashlib.sha256(json.dumps(basis_value, sort_keys=True, separators=(",", ":"))
                                        .encode("utf-8")).hexdigest()
-                return actor, frozenset(ids), relations, basis, native_nodes
+                return actor, frozenset(ids), relations, basis, native_nodes, revisions
             finally:
                 store.close()
         except (OSError, ValueError, TypeError, KeyError, StoreError):
             # An adopted authority with missing or invalid host state is closed.
-            return None, frozenset(), {}, None, {}
+            return None, frozenset(), {}, None, {}, {}
 
     def _file_source_graph(self, actor):
         """Load exact nodes and edges from actor-specific, digest-pinned catalog files."""
@@ -1247,26 +1570,43 @@ class MCPApplication:
         except (OSError, ValueError, TypeError, StoreError, KeyError):
             return {}, set(), None
 
-    def _view(self, email, environ, *, uid=None):
-        actor, native_ids, native_relations, basis, native_nodes = self._native_read(email, uid)
+    def _view(self, email, environ, *, uid=None, caller=None):
+        typed_subject = self._typed_native_subject(caller)
+        if typed_subject is not None:
+            native_view = self._native_read(email, uid, caller=caller)
+        else:
+            native_view = self._native_read(email, uid)
+        actor, native_ids, native_relations, basis, native_nodes, native_revisions = native_view
         def current():
             if self.brain.native_authority is False:
                 return False
-            observed = self._native_read(email, uid)
+            if typed_subject is not None:
+                _current_email, refusal, current_caller = self._identity(environ)
+                if refusal is not None or current_caller != caller:
+                    return False
+                observed = self._native_read(email, uid, caller=caller)
+                identity_still_matches = self._native_read_identity(email, uid, caller) == actor
+            else:
+                observed = self._native_read(email, uid)
+                identity_still_matches = self._native_identity(email, uid) == actor
             return observed[0] == actor and observed[1] == native_ids and observed[2] == native_relations \
-                and observed[3] == basis and observed[4] == native_nodes \
-                and self._native_identity(email, uid) == actor
-        proposal = self._proposal_for(email, environ)
+                and observed[3] == basis and observed[4] == native_nodes and observed[5] == native_revisions \
+                and identity_still_matches
+        # A typed app/agent principal never borrows proposal grants through an
+        # optional email claim or a matching legacy email mapping.
+        proposal = None if typed_subject is not None else self._proposal_for(email, environ)
         return View(self.brain, email, propose_change=proposal,
                     correction_basis=getattr(proposal, 'correction_basis', None),
                     native_actor=actor, native_ids=native_ids, native_relations=native_relations,
                     native_nodes=native_nodes,
+                    native_revisions=native_revisions,
                     native_root=self.operations_root,
+                    suppress_metric_execution=typed_subject is not None,
                     native_authorize=current
                     if self.brain.native_authority not in (None, False) and actor else None)
 
     def _stdio_view(self, uid):
-        actor, native_ids, native_relations, basis, native_nodes = self._native_read("", uid)
+        actor, native_ids, native_relations, basis, native_nodes, native_revisions = self._native_read("", uid)
         if self.brain.native_authority is None and actor is None:
             actor = self._native_identity("", uid)
         # A local UID is the trusted caller. Reuse its operator-mapped principal
@@ -1277,13 +1617,14 @@ class MCPApplication:
                 return False
             observed = self._native_read("", uid)
             return observed[0] == actor and observed[1] == native_ids and observed[2] == native_relations \
-                and observed[3] == basis and observed[4] == native_nodes \
+                and observed[3] == basis and observed[4] == native_nodes and observed[5] == native_revisions \
                 and self._native_identity("", uid) == actor
         proposal = self._proposal_for_uid(uid)
         return View(self.brain, identity, propose_change=proposal,
                     correction_basis=getattr(proposal, 'correction_basis', None),
                     native_actor=actor, native_ids=native_ids, native_relations=native_relations,
                     native_nodes=native_nodes,
+                    native_revisions=native_revisions,
                     native_root=self.operations_root, identity_authorized=actor is not None or self.public_only,
                     native_authorize=current
                     if self.brain.native_authority not in (None, False) and actor else None)
@@ -1292,12 +1633,210 @@ class MCPApplication:
         if self.static_identity_source == "token":
             return self._identity(environ)
         if self.static_identity_source != "edge":
-            return "", None
+            return "", None, None
         assertion = environ.get("HTTP_X_PORTAL_AUTH_ASSERTION", "")
         if not isinstance(assertion, str) or not hmac.compare_digest(assertion, self.edge_identity_secret):
-            return "", None
+            return "", None, None
         email = environ.get("HTTP_X_AUTH_REQUEST_EMAIL", "")
-        return email.strip().lower() if isinstance(email, str) else "", None
+        return email.strip().lower() if isinstance(email, str) else "", None, None
+
+    def _native_record_identity(self, environ):
+        """Resolve identity for the opt-in native HTML reader, independently of static files."""
+        if self.native_record_identity_source == "token":
+            email, refusal, caller = self._identity(environ)
+            return (email, caller) if refusal is None else (None, None)
+        if self.native_record_identity_source != "edge":
+            return None, None
+        assertion = environ.get("HTTP_X_PORTAL_AUTH_ASSERTION", "")
+        email = environ.get("HTTP_X_AUTH_REQUEST_EMAIL", "")
+        if (not isinstance(assertion, str)
+                or not hmac.compare_digest(assertion, self.native_record_edge_secret)
+                or not isinstance(email, str) or not email.strip()):
+            return None, None
+        return email.strip().lower(), None
+
+    @staticmethod
+    def _native_record_query(query):
+        if not isinstance(query, str) or len(query) > 2048:
+            return None
+        try:
+            values = parse_qsl(query, keep_blank_values=True, strict_parsing=True,
+                               max_num_fields=2, encoding="utf-8", errors="strict")
+        except (ValueError, UnicodeError):
+            return None
+        if len(values) != 2 or {key for key, _ in values} != {"id", "revision"}:
+            return None
+        result = dict(values)
+        try:
+            identity_bytes = result["id"].encode("utf-8", errors="strict")
+            revision_bytes = result["revision"].encode("utf-8", errors="strict")
+        except UnicodeError:
+            return None
+        if (not identity_bytes or len(identity_bytes) > 512
+                or not revision_bytes or len(revision_bytes) > 256
+                or any(ord(char) < 0x20 or ord(char) == 0x7f
+                       for char in result["id"] + result["revision"])):
+            return None
+        return result
+
+    @staticmethod
+    def _citation_query(query):
+        if not isinstance(query, str) or len(query) > 4096:
+            return None
+        try:
+            values = parse_qsl(query, keep_blank_values=True, strict_parsing=True,
+                               max_num_fields=5, encoding="utf-8", errors="strict")
+        except (ValueError, UnicodeError):
+            return None
+        keys = [key for key, _ in values]
+        if (len(set(keys)) != len(keys)
+                or set(keys) not in ({"type", "path", "target", "revision"},
+                                    {"type", "path", "target", "revision", "pointer"})):
+            return None
+        result = dict(values)
+        if (result["type"] not in ("compiled-record", "document", "schema-kind")
+                or not result["path"] or len(result["path"].encode("utf-8")) > 512
+                or not result["target"] or len(result["target"].encode("utf-8")) > 512
+                or not re.fullmatch(r"(?:[a-f0-9]{40}|[a-f0-9]{64})", result["revision"])
+                or (result["type"] == "schema-kind" and "pointer" not in result)
+                or (result["type"] != "schema-kind" and "pointer" in result)
+                or ("pointer" in result and not re.fullmatch(r"/kinds/(?:0|[1-9][0-9]*)", result["pointer"]))
+                or any(ord(char) < 0x20 or ord(char) == 0x7f
+                       for value in result.values() for char in value)):
+            return None
+        return result
+
+    def _citation(self, environ, start_response):
+        method = environ.get("REQUEST_METHOD", "GET")
+        head = method == "HEAD"
+        if method not in ("GET", "HEAD"):
+            return self._respond(start_response, 405, b"Method not allowed\n", "text/plain; charset=utf-8",
+                                 [("Allow", "GET, HEAD")])
+        if (not self.structured_citations or self.brain.native_authority is not None
+                or self.citation_public_origin is None):
+            return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+        query = self._citation_query(environ.get("QUERY_STRING", ""))
+        email, refusal, caller = self._static_identity(environ)
+        if query is None or refusal is not None:
+            return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+        from mcp_citations import _compiled, _entry, render_html
+
+        scope = self.brain.gate.verified_identity(caller) if caller is not None else nullcontext()
+        with scope:
+            view = View(self.brain, email)
+            receipt = _compiled(view)
+            if receipt is None or not hmac.compare_digest(receipt["commit"], query["revision"]):
+                return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+            title = kind = text = None
+            data = None
+            resource_type, path, target = query["type"], query["path"], query["target"]
+            if resource_type == "compiled-record":
+                if (path != "app/brain.json" or not view.records_allowed
+                        or _entry(view, path) is None or not view.visible_id(target)):
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                data = view.node(target)
+                if not isinstance(data, dict):
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                title = data.get("title") if isinstance(data.get("title"), str) and data["title"] else target
+                kind = data.get("kind") if isinstance(data.get("kind"), str) else "Record"
+                text = data.get("text") if isinstance(data.get("text"), str) else ""
+            elif resource_type == "document":
+                if path != target or not view.read_doc_allowed:
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                try:
+                    text = _read_document(view, path)
+                except ToolError:
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                if _entry(view, path) is None:
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                item = next((entry for entry in self.brain.documents if entry.get("path") == path), {})
+                title, kind, data = str(item.get("title") or path), "document", {"path": path}
+            else:
+                if path != "brain-schema.json" or not self.brain.gate.can_read(path, email):
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                first_raw = getattr(self.brain, "_brain_schema_raw", None)
+                kinds = getattr(self.brain, "_schema_kinds", None)
+                pointer = query.get("pointer", "")
+                match = re.fullmatch(r"/kinds/(0|[1-9][0-9]*)", pointer)
+                if not isinstance(first_raw, bytes) or not isinstance(kinds, tuple) or match is None:
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                entry = _entry(view, path)
+                if (entry is None or entry.get("size") != len(first_raw)
+                        or not hmac.compare_digest(entry.get("sha256", ""), hashlib.sha256(first_raw).hexdigest())):
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                index = int(match.group(1))
+                if index >= len(kinds):
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                selected = kinds[index]
+                if (not isinstance(selected, dict) or selected.get("id") != target
+                        or not any(selected is candidate for candidate in self.brain.kinds)
+                        or not view.kind_visible(selected)):
+                    return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+                title = selected.get("title") if isinstance(selected.get("title"), str) else target
+                kind, text, data = "Schema kind", str(selected.get("description") or ""), selected
+            payload = render_html(title, kind, text, data)
+            if payload is None:
+                return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+        return self._respond(start_response, 200, payload, "text/html; charset=utf-8",
+                             [("Content-Security-Policy", "default-src 'none'; base-uri 'none'; "
+                               "form-action 'none'; frame-ancestors 'none'; object-src 'none'; style-src 'none'"),
+                              ("Referrer-Policy", "no-referrer")], head=head)
+
+    @staticmethod
+    def _native_record_html(record):
+        # Show only the selected authorized record. Escaping the serialized value
+        # makes every record-controlled string inert, including markup and URLs.
+        encoded = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        title = record.get("title") if isinstance(record.get("title"), str) and record["title"] else record["id"]
+        kind = record.get("kind") if isinstance(record.get("kind"), str) else "Record"
+        text = record.get("text")
+        content = record.get("content")
+        if not isinstance(text, str) and isinstance(content, dict):
+            text = content.get("text")
+        if not isinstance(text, str):
+            text = ""
+        document = ("<!doctype html><html><head><meta charset=\"utf-8\"><title>" + html.escape(title)
+                    + "</title></head><body><main><h1>" + html.escape(title) + "</h1><p>"
+                    + html.escape(kind) + "</p><p>" + html.escape(text) + "</p><details><summary>Record data</summary><pre>"
+                    + html.escape(encoded) + "</pre></details></main></body></html>").encode("utf-8")
+        if len(document) > MAX_NATIVE_RECORD_HTML_BYTES:
+            return None
+        return document
+
+    def _native_record(self, environ, start_response):
+        method = environ.get("REQUEST_METHOD", "GET")
+        head = method == "HEAD"
+        if method not in ("GET", "HEAD"):
+            return self._respond(start_response, 405, b"Method not allowed\n", "text/plain; charset=utf-8",
+                                 [("Allow", "GET, HEAD")])
+        if (self.native_record_identity_source == "off" or self.brain.native_authority in (None, False)):
+            return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+        query = self._native_record_query(environ.get("QUERY_STRING", ""))
+        email, caller = self._native_record_identity(environ)
+        if query is None or email is None:
+            return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+        scope = self.brain.gate.verified_identity(caller) if caller is not None else nullcontext()
+        with scope:
+            view = self._view(email, environ, caller=caller)
+            identity = query["id"]
+            revision = view.native_revisions.get(identity)
+            record = view.node(identity) if view.records_allowed else None
+            try:
+                revision_matches = isinstance(revision, str) and hmac.compare_digest(
+                    revision.encode("utf-8", errors="strict"), query["revision"].encode("utf-8", errors="strict"))
+            except UnicodeError:
+                revision_matches = False
+            if (not revision_matches
+                    or not isinstance(record, dict) or not callable(view.native_authorize)
+                    or not view.native_authorize()):
+                return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+            payload = self._native_record_html(record)
+            if payload is None or not view.native_authorize():
+                return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8", head=head)
+        return self._respond(start_response, 200, payload, "text/html; charset=utf-8",
+                             [("Content-Security-Policy", "default-src 'none'; base-uri 'none'; "
+                               "form-action 'none'; frame-ancestors 'none'; object-src 'none'; style-src 'none'"),
+                              ("Referrer-Policy", "no-referrer")], head=method == "HEAD")
 
     def _static_asset(self, path):
         """Read a published file without following symlinks or escaping BRAIN_ROOT."""
@@ -1392,11 +1931,16 @@ class MCPApplication:
         if self.brain.native_authority is not None:
             return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8",
                                  head=method == "HEAD")
-        email, refusal = self._static_identity(environ)
+        email, refusal, caller = self._static_identity(environ)
         if refusal is not None:
             status, body, extra = refusal
             payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
             return self._respond(start_response, status, payload, "application/json", extra)
+        scope = self.brain.gate.verified_identity(caller) if caller is not None else nullcontext()
+        with scope:
+            return self._static_authorized(environ, start_response, email, method)
+
+    def _static_authorized(self, environ, start_response, email, method):
         raw_path = environ.get("PATH_INFO", "")
         path = access_gate.normalize_path(raw_path)
         gate = self.brain.gate
@@ -1443,22 +1987,22 @@ class MCPApplication:
         return [b"" if head else body]
 
     def _identity(self, environ):
-        """(email, None) for an admitted caller, or (None, refusal)."""
+        """(email, refusal, verified caller); the caller is host-internal only."""
         if self.verifier is None:
             if self.public_only:
-                return "", None
-            return None, self._unauthorized("this endpoint requires a verified identity or explicit public-only mode")
+                return "", None, None
+            return None, self._unauthorized("this endpoint requires a verified identity or explicit public-only mode"), None
         token = environ.get(self._token_key)
         if not token:
-            return None, self._unauthorized(f"send a brain read token in {self.token_header}")
+            return None, self._unauthorized(f"send a brain read token in {self.token_header}"), None
         try:
             caller = self.verifier.verify(token)
         except brain_token.TokenError:
-            return None, self._unauthorized("the brain read token is not valid for this brain")
+            return None, self._unauthorized("the brain read token is not valid for this brain"), None
         except brain_token.KeysUnavailable:
             return None, (503, _error(None, -32000, "Service unavailable: brain token keys cannot be fetched"),
-                          [("Retry-After", "30")])
-        return caller.email.lower(), None
+                          [("Retry-After", "30")]), None
+        return caller.email.lower(), None, caller
 
     def _unauthorized(self, detail):
         return (401, _error(None, -32000, f"Unauthorized: {detail}"),
@@ -1470,7 +2014,10 @@ class MCPApplication:
         origin = environ.get("HTTP_ORIGIN")
         if origin is not None and origin not in self.allowed_origins:
             return 403, _error(None, -32000, "Forbidden: origin not allowed"), []
-        email, refusal = self._identity(environ)
+        # Bind the credential actually presented at initial verification. This
+        # extra capture is used only by the explicitly selected native-v2 path.
+        native_request_token = environ.get(self._token_key) if self.native_citations_v2 else None
+        email, refusal, caller = self._identity(environ)
         if refusal is not None:
             return refusal
         if environ.get("REQUEST_METHOD") != "POST":
@@ -1516,8 +2063,40 @@ class MCPApplication:
         rid = message["id"]
         if not isinstance(rid, _REQUEST_ID) or isinstance(rid, bool):
             return 400, _error(None, -32600, "Invalid Request: id must be a string or a number"), []
-        view = self._view(email, environ)
-        response = dispatch(self.brain, view, message)
+        scope = self.brain.gate.verified_identity(caller) if caller is not None else nullcontext()
+        with scope:
+            view = self._view(email, environ, caller=caller)
+            requested_protocol = environ.get("HTTP_MCP_PROTOCOL_VERSION")
+            if method == "initialize" and requested_protocol not in PROTOCOL_VERSIONS:
+                requested_protocol = message.get("params", {}).get("protocolVersion") \
+                    if isinstance(message.get("params"), dict) else None
+            native_route = None
+            native_current = None
+            params = message.get("params")
+            metadata = params.get("_meta") if isinstance(params, dict) else None
+            if self.native_citations_v2 and isinstance(metadata, dict) and metadata.get("mimwell/citationContract") == "2":
+                native_route = self._native_citation_route(view)
+                def native_current():
+                    # Legacy email/user native views recheck the native mapping,
+                    # not the token. Native-v2 must reverify every token family
+                    # with the current verifier/clock before and after capture.
+                    if (native_route is None or self._native_citation_route(view) != native_route
+                            or environ.get(self._token_key) != native_request_token):
+                        return False
+                    current_email, current_refusal, current_caller = self._identity(environ)
+                    return (current_refusal is None and current_email == email
+                            and current_caller == caller and callable(view.native_authorize)
+                            and view.native_authorize() is True
+                            and environ.get(self._token_key) == native_request_token
+                            and self._native_citation_route(view) == native_route)
+            response = dispatch(
+                self.brain, view, message, protocol_version=requested_protocol,
+                structured_citations=self.structured_citations,
+                public_origin=self.citation_public_origin,
+                link_identity=(self.public_only and self.static_identity_source in ("anonymous", "edge")),
+                native_citations_v2=self.native_citations_v2, native_citation_route=native_route,
+                native_citation_revalidate=native_current,
+            )
         if view.native_adopted and (not callable(view.native_authorize) or not view.native_authorize()):
             return 200, _error(rid, -32001, "Native view changed or authorization was revoked; retry"), []
         return 200, response, []
@@ -1534,6 +2113,20 @@ class MCPApplication:
         return b"".join(chunks)
 
     def __call__(self, environ, start_response):
+        if environ.get("PATH_INFO") == CITATION_PATH:
+            try:
+                return self._citation(environ, start_response)
+            except Exception as exc:
+                _log("citation-error", type=type(exc).__name__)
+                return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8",
+                                     head=environ.get("REQUEST_METHOD") == "HEAD")
+        if environ.get("PATH_INFO") == NATIVE_RECORD_PATH:
+            try:
+                return self._native_record(environ, start_response)
+            except Exception as exc:
+                _log("native-record-error", type=type(exc).__name__)
+                return self._respond(start_response, 404, b"Not found\n", "text/plain; charset=utf-8",
+                                     head=environ.get("REQUEST_METHOD") == "HEAD")
         if environ.get("PATH_INFO") == public_status.STATUS_PATH:
             method = environ.get("REQUEST_METHOD", "GET")
             if method not in ("GET", "HEAD"):
@@ -1546,7 +2139,12 @@ class MCPApplication:
                 view = View(self.brain, "")
                 if view.records_allowed:
                     records = len(view.nodes)
-            body = public_status.document(self.brain.version, self.status_declaration, records=records)
+            if self.native_citations_v2:
+                body = public_status.document(self.brain.version, self.status_declaration, records=records,
+                    structured_citations=self.structured_citations, native_citations_v2=True)
+            else:
+                body = public_status.document(self.brain.version, self.status_declaration, records=records,
+                                              structured_citations=self.structured_citations)
             payload = json.dumps(body, separators=(",", ":")).encode("utf-8")
             return self._respond(start_response, 200, payload, "application/json", head=method == "HEAD")
         if environ.get("PATH_INFO") != "/mcp":
@@ -1580,16 +2178,28 @@ def create_application():
     brain = Brain(root)
     settings = {key: os.environ.get(key, "").strip()
                 for key in ("BRAIN_MCP_JWKS_URL", "BRAIN_MCP_ISSUER", "BRAIN_MCP_AUDIENCE")}
+    typed_setting = os.environ.get("BRAIN_MCP_TYPED_PRINCIPALS", "").strip().lower()
+    if typed_setting not in ("", "0", "false", "1", "true"):
+        raise ValueError("BRAIN_MCP_TYPED_PRINCIPALS must be true or false")
+    typed_enabled = typed_setting in ("1", "true")
+    expected_org_guid = os.environ.get("BRAIN_MCP_EXPECTED_ORG_GUID", "").strip() or None
+    if typed_enabled and not all(settings.values()):
+        raise ValueError("typed principals require the complete brain token verifier configuration")
+    if expected_org_guid and not typed_enabled:
+        raise ValueError("BRAIN_MCP_EXPECTED_ORG_GUID requires BRAIN_MCP_TYPED_PRINCIPALS=true")
     verifier = None
     if any(settings.values()):
         if not all(settings.values()):
             raise ValueError("Set BRAIN_MCP_JWKS_URL, BRAIN_MCP_ISSUER and BRAIN_MCP_AUDIENCE together, or none")
         verifier = brain_token.TokenVerifier(jwks_url=settings["BRAIN_MCP_JWKS_URL"],
                                              issuer=settings["BRAIN_MCP_ISSUER"],
-                                             audience=settings["BRAIN_MCP_AUDIENCE"])
+                                             audience=settings["BRAIN_MCP_AUDIENCE"],
+                                             typed_principals_enabled=typed_enabled,
+                                             expected_org_guid=expected_org_guid)
     header = os.environ.get("BRAIN_MCP_TOKEN_HEADER", "").strip() or TOKEN_HEADER
     origins = [o.strip() for o in os.environ.get("BRAIN_MCP_ALLOWED_ORIGINS", "").split(",") if o.strip()]
     static_source = os.environ.get("BRAIN_STATIC_IDENTITY_SOURCE", "anonymous").strip().lower()
+    native_record_source = os.environ.get("BRAIN_NATIVE_RECORD_IDENTITY_SOURCE", "off").strip().lower()
     proposal_setting = os.environ.get("BRAIN_MCP_ENABLE_PROPOSALS", "").strip().lower()
     if proposal_setting not in ("", "0", "false", "1", "true"):
         raise ValueError("BRAIN_MCP_ENABLE_PROPOSALS must be true or false")
@@ -1598,16 +2208,40 @@ def create_application():
     if public_setting not in ("", "0", "false", "1", "true"):
         raise ValueError("BRAIN_MCP_PUBLIC_ONLY must be true or false")
     public_only = public_setting in ("1", "true")
+    citation_setting = os.environ.get("BRAIN_MCP_STRUCTURED_CITATIONS", "").strip().lower()
+    if citation_setting not in ("", "0", "false", "1", "true"):
+        raise ValueError("BRAIN_MCP_STRUCTURED_CITATIONS must be true or false")
+    structured_citations = citation_setting in ("1", "true")
+    native_citation_setting = os.environ.get("BRAIN_MCP_NATIVE_CITATIONS_V2", "").strip().lower()
+    if native_citation_setting not in ("", "0", "false", "1", "true"):
+        raise ValueError("BRAIN_MCP_NATIVE_CITATIONS_V2 must be true or false")
+    native_citations_v2 = native_citation_setting in ("1", "true")
+    citation_origin = os.environ.get("BRAIN_MCP_CITATION_PUBLIC_ORIGIN", "").strip() or None
+    if citation_origin and not (structured_citations or native_citations_v2):
+        raise ValueError("BRAIN_MCP_CITATION_PUBLIC_ORIGIN requires structured citations")
+    if structured_citations:
+        from mcp_citations import validate_public_origin
+        if validate_public_origin(citation_origin) is None:
+            raise ValueError("Structured citations require an explicit valid HTTPS public origin")
+        # The frozen v1 resource/commit contract cannot cite native authority
+        # data without borrowing compiled provenance. Native v2 is separate.
+        if brain.native_authority is not None:
+            raise ValueError("Structured citation v1 requires a compiled-source authority")
     operations_root = Path(os.environ.get("BRAIN_OPERATIONS_ROOT", root)).absolute()
     declaration = public_status.load(operations_root, os.environ.get("BRAIN_PUBLIC_STATUS", "").strip())
     application = MCPApplication(brain, verifier=verifier, token_header=header, allowed_origins=origins,
                                  static_identity_source=static_source,
                                  edge_identity_secret=os.environ.get("BRAIN_STATIC_EDGE_SECRET", ""),
+                                 native_record_identity_source=native_record_source,
+                                 native_record_edge_secret=os.environ.get("BRAIN_NATIVE_RECORD_EDGE_SECRET", ""),
                                  proposals_enabled=proposals_enabled,
                                  operations_root=operations_root,
                                  operations_host=os.environ.get("BRAIN_OPERATIONS_HOST",
                                                                 "_internal/knowledge-operations.json"),
-                                 public_only=public_only, status_declaration=declaration)
+                                 public_only=public_only, status_declaration=declaration,
+                                 structured_citations=structured_citations,
+                                 citation_public_origin=citation_origin,
+                                 native_citations_v2=native_citations_v2)
     if brain.gate.lockdown:
         _log("mcp-access-lockdown", problems=len(brain.gate.problems))
     _log("mcp-ready", brain=brain.name, records=len(brain.nodes), documents=len(brain.documents),
@@ -1621,6 +2255,7 @@ def serve_stdio(application, input_stream=None, output_stream=None, *, uid=None)
     input_stream = input_stream or sys.stdin.buffer
     output_stream = output_stream or sys.stdout.buffer
     uid = os.getuid() if uid is None else uid
+    negotiated_protocol = None
 
     def reply(value):
         output_stream.write(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n")
@@ -1658,7 +2293,15 @@ def serve_stdio(application, input_stream=None, output_stream=None, *, uid=None)
             continue
         try:
             view = application._stdio_view(uid)
-            response = dispatch(application.brain, view, message)
+            response = dispatch(
+                application.brain, view, message, protocol_version=negotiated_protocol,
+                structured_citations=application.structured_citations,
+                public_origin=application.citation_public_origin,
+                link_identity=(application.public_only and application.static_identity_source in ("anonymous", "edge")),
+            )
+            if (message.get("method") == "initialize" and isinstance(response, dict)
+                    and isinstance(response.get("result"), dict)):
+                negotiated_protocol = response["result"].get("protocolVersion")
             if view.native_adopted and (not callable(view.native_authorize) or not view.native_authorize()):
                 response = _error(rid, -32001, "Native view changed or authorization was revoked; retry")
         except Exception as exc:

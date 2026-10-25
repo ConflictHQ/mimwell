@@ -27,6 +27,11 @@ not enable the private template updater or include its ownership catalog.
 You need Python 3.14 and Node 22. The Wrangler CLI is needed only for a
 Cloudflare Worker deployment.
 
+Media inspection and snapshot subprocess operations require Linux or macOS
+and a Python build exposing `os.waitid` with `WNOWAIT`. These operations refuse
+before launching a child when that support is absent. Python version alone does
+not qualify a host platform; the rest of the portal remains independently usable.
+
 ```sh
 python3 -m pip install -r requirements.txt
 npm ci

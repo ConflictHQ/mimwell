@@ -330,6 +330,57 @@ def _dump_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _worker_lock_is_template_owned(target: Path) -> bool:
+    """Return whether the copied lockfile is pinned engine content.
+
+    Public editions intentionally omit the ownership manifest, so their
+    project lockfile can be renamed with the worker identity. A private
+    scaffold carries the manifest and must preserve engine-owned lock bytes.
+    Present but malformed metadata is an error; it must never select the
+    public/unowned behavior by accident.
+    """
+    ownership_path = target / "template-ownership.json"
+    if not ownership_path.exists() and not ownership_path.is_symlink():
+        return False
+    if ownership_path.is_symlink() or not ownership_path.is_file():
+        raise ValueError("template-ownership.json must be a regular file")
+
+    from template_ownership import classify as classify_template_ownership
+
+    def unique_pairs(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate ownership key: {key}")
+            result[key] = value
+        return result
+
+    try:
+        manifest = json.loads(ownership_path.read_text(encoding="utf-8"), object_pairs_hook=unique_pairs)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("template-ownership.json is malformed") from exc
+    if not isinstance(manifest, dict) or type(manifest.get("version")) is not int or manifest["version"] != 1:
+        raise ValueError("template-ownership.json must have version 1")
+    for owner in ("template", "engagement", "ignore"):
+        section = manifest.get(owner)
+        paths = section.get("paths") if isinstance(section, dict) else None
+        if not isinstance(paths, list) or any(not isinstance(pattern, str) or not pattern.strip() for pattern in paths):
+            raise ValueError(f"template-ownership.json has invalid {owner}.paths")
+        if len(paths) != len(set(paths)):
+            raise ValueError(f"template-ownership.json has duplicate {owner}.paths")
+        for pattern in paths:
+            if pattern.startswith("/") or "\\" in pattern or any(part in (".", "..") for part in pattern.split("/")):
+                raise ValueError(f"template-ownership.json has invalid {owner} pattern")
+    migration = manifest.get("migration", {})
+    triggers = migration.get("trigger_paths", []) if isinstance(migration, dict) else None
+    if not isinstance(triggers, list) or any(not isinstance(path, str) or not path for path in triggers):
+        raise ValueError("template-ownership.json has invalid migration.trigger_paths")
+    owner = classify_template_ownership("package-lock.json", manifest)
+    if owner == "untracked":
+        raise ValueError("template-ownership.json does not classify package-lock.json")
+    return owner == "template"
+
+
 # ---------------------------------------------------------------------------
 # Step 1 — copy
 # ---------------------------------------------------------------------------
@@ -580,6 +631,12 @@ def stamp_config(target: Path, opts: argparse.Namespace, composition: dict | Non
 def rename_worker(target: Path, slug: str) -> None:
     worker_name = f"{slug}-portal"
 
+    # Determine whether package-lock.json is pinned engine content before any
+    # worker identity files are changed. Public editions omit ownership data;
+    # private catalog-backed scaffolds classify this file as template-owned.
+    lock_path = target / "package-lock.json"
+    lock_is_template_owned = lock_path.is_file() and _worker_lock_is_template_owned(target)
+
     wrangler = target / "wrangler.toml"
     text = wrangler.read_text(encoding="utf-8")
     out_lines = []
@@ -602,8 +659,7 @@ def rename_worker(target: Path, slug: str) -> None:
     # Keep npm's lockfile root identity aligned with package.json. Only update
     # the project-level names; dependency entries may legitimately have the
     # same name and their versions, integrity hashes and metadata are immutable.
-    lock_path = target / "package-lock.json"
-    if lock_path.is_file():
+    if lock_path.is_file() and not lock_is_template_owned:
         lock = _load_json(lock_path)
         if not isinstance(lock, dict):
             raise ValueError("package-lock.json must contain a JSON object")

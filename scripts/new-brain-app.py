@@ -17,6 +17,18 @@ def scaffold(root, app_id, template):
         raise ValueError('app-id: use a lowercase letter followed by letters, digits or hyphens')
     if template not in TEMPLATES:
         raise ValueError('app-template: choose tracker, form, dashboard or viewer')
+    # App scaffolding writes a retained tree that is already covered by the
+    # selected brain's inventory. It has no reservation path yet, so refuse an
+    # adopted (or uncertain/orphaned) root before creating apps/ or staging files.
+    if root.exists():
+        try:
+            from brain_storage_admission import load_registration
+            from knowledge_store import StoreError
+            registration = load_registration(root)
+        except StoreError as exc:
+            raise ValueError('app-storage-admission: selected brain storage state is unsafe or unavailable') from exc
+        if registration is not None:
+            raise ValueError('app-storage-admission: scaffolding is unavailable for an adopted brain')
     apps = root / 'apps'
     if apps.is_symlink():
         raise ValueError('app-path: apps directory cannot be a symlink')

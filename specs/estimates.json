@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "version": 3,
+    "generated_at": "2026-10-25",
+    "generator": "scripts/gen-estimates.py",
+    "sources": [
+      "specs/manifest.json",
+      "specs/estimate-bands.json",
+      "specs/roles.json"
+    ],
+    "unit": "days",
+    "bands": {},
+    "role_labels": [],
+    "totals": {
+      "activities": 0,
+      "sized": 0,
+      "unsized": 0,
+      "points": 0,
+      "low": 0,
+      "high": 0,
+      "overhead_low": 0,
+      "overhead_high": 0
+    }
+  },
+  "activities": [],
+  "rollup_by_phase": [],
+  "rollup_by_workstream": [],
+  "rollup_by_role": [],
+  "overhead": []
+}

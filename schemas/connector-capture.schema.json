@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "conflict:schema/connector-capture/v1",
+  "title": "Host-bound connector export byte capture observation",
+  "description": "Captured exported bytes and an authenticated current host read grant. This is not platform source authentication or a canonical write receipt.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "eventSha256", "idempotencyKey", "sourceBytesSha256", "sourceByteLength", "body", "sourceAuthenticity", "importedActor", "operation", "order", "locator", "item", "requiresSourceReview", "withdrawalLimit", "principal", "policySha256", "capturedAt", "hostAuthorization"],
+  "properties": {
+    "format": {"const": "connector-capture/v1"},
+    "eventSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "idempotencyKey": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sourceBytesSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sourceByteLength": {"type": "integer", "minimum": 0, "maximum": 65536},
+    "body": {"type": "object", "additionalProperties": false, "required": ["encoding", "data"], "properties": {"encoding": {"const": "base64"}, "data": {"type": "string", "maxLength": 87384}}},
+    "sourceAuthenticity": {"const": "unverified-export-observation"},
+    "importedActor": {"type": ["string", "null"], "maxLength": 1024},
+    "operation": {"enum": ["upsert", "edit", "delete", "access-change"]},
+    "order": {"type": "string", "pattern": "^(0|[1-9][0-9]{0,127})$"},
+    "locator": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "item": {"anyOf": [{"$ref": "conflict:schema/intake/v1#/$defs/item"}, {"type": "null"}]},
+    "requiresSourceReview": {"type": "boolean"},
+    "withdrawalLimit": {"type": ["string", "null"], "maxLength": 256},
+    "principal": {"type": "string", "minLength": 1, "maxLength": 256},
+    "policySha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "capturedAt": {"type": "string", "minLength": 1, "maxLength": 256},
+    "hostAuthorization": {"const": "current-read-grant"}
+  }
+}
