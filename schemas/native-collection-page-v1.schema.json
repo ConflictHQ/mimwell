@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mimwell:schema/native-collection-page/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "collection",
+    "owner",
+    "basisSha256",
+    "asOf",
+    "rows",
+    "nextCursor",
+    "scope",
+    "executionAuthorized"
+  ],
+  "properties": {
+    "format": {
+      "const": "native-collection-page/v1"
+    },
+    "collection": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "authority"
+      ],
+      "properties": {
+        "contract": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "basisSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "asOf": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rows": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record",
+          "collection",
+          "kind",
+          "title",
+          "revision",
+          "editableWholeRecord"
+        ],
+        "properties": {
+          "record": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "collection": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "kind": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2097152
+          },
+          "revision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "editableWholeRecord": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "nextCursor": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "basisSha256",
+            "after",
+            "asOf"
+          ],
+          "properties": {
+            "basisSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "after": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "asOf": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "const": "current-readable-ordinary-context-records-at-asOf"
+    },
+    "executionAuthorized": {
+      "const": false
+    }
+  }
+}

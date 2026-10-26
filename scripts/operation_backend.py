@@ -23,7 +23,7 @@ def validate_connection(value):
 def supports(driver, operation):
     if driver == 'sqlite':
         return True
-    return operation not in ('record.history', 'proposal.list') and not operation.startswith('intake.')
+    return operation not in ('record.history', 'proposal.list', 'collection.browse') and not operation.startswith('intake.')
 
 
 def select_backend(root, selected):

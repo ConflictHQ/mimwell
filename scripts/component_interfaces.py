@@ -254,7 +254,7 @@ def _version_key(value, *, canonical=True):
     if not isinstance(value, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", value):
         raise RecipeError("Interface versions must use numeric major.minor.patch")
     if canonical and any(str(int(part)) != part for part in value.split(".")):
-        raise RecipeError("Protocol 1.1 versions must use canonical numeric components")
+        raise RecipeError("Protocol 1.1/1.2 versions must use canonical numeric components")
     return tuple(int(part) for part in value.split("."))
 
 
@@ -270,7 +270,7 @@ class Interfaces:
         self.discovery_versions = {}
         current = {}
         for item in discovery.document["entries"]:
-            if protocol == "1.1":
+            if protocol in ("1.1", "1.2"):
                 _version_key(item["version"])
             key = (item["id"], item["version"])
             if key in current:
@@ -282,7 +282,7 @@ class Interfaces:
             if protocol == "1.0" or previous is None or _version_key(item["version"]) > _version_key(previous["version"]):
                 latest_discovery[item["id"]] = item
         for entry in self.document["entries"]:
-            if protocol == "1.1":
+            if protocol in ("1.1", "1.2"):
                 _version_key(entry["version"])
                 if "discoveryVersion" in entry:
                     _version_key(entry["discoveryVersion"])
@@ -360,7 +360,7 @@ class Interfaces:
                 "review": declaration["review"], "limits": declaration["limits"],
                 "gapIssues": declaration["gapIssues"],
             }
-            if self.protocol_version == "1.1":
+            if self.protocol_version in ("1.1", "1.2"):
                 item["reviewVersion"] = declaration["version"]
                 item["discoveryVersion"] = self.discovery_versions[(identity, declaration["version"])]
                 item["discoverySha256"] = declaration["discoverySha256"]
@@ -393,7 +393,7 @@ class Interfaces:
             "externalSourceCount": len(entry.get("externalSources", [])), "externalSourcesRechecked": False,
             "limits": entry["limits"], "gapIssues": entry["gapIssues"],
         }
-        if self.protocol_version == "1.1":
+        if self.protocol_version in ("1.1", "1.2"):
             report["discoveryVersion"] = self.discovery_versions[(identity, entry["version"])]
             report["discoverySha256"] = entry["discoverySha256"]
         for pin in entry["sourcePins"]:

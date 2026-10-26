@@ -135,6 +135,11 @@ def load_host(root, relative):
     host = decode(raw)
     if not isinstance(host, dict):
         raise StoreError("Invalid operations host")
+    browse_host = host.get("format") == "knowledge-operations-host/v11"
+    if browse_host:
+        # V11 retains the complete V10 registration and adds only the explicit
+        # native browse grant. Normalize locally for the unchanged V10 checks.
+        host["format"] = "knowledge-operations-host/v10"
     file_host = host.get("format") in ("knowledge-operations-host/v6", "knowledge-operations-host/v7", "knowledge-operations-host/v8", "knowledge-operations-host/v9", "knowledge-operations-host/v10")
     host_fields = (("format", "principalsByUid", "authorities", "fileAuthorities", "publicationGroups", "backupDestinations")
                    if host.get("format") in ("knowledge-operations-host/v9", "knowledge-operations-host/v10") else
@@ -224,6 +229,7 @@ def load_host(root, relative):
                     ARGUMENTS | TRANSFER_ARGUMENTS if host["format"] == "knowledge-operations-host/v2" else
                     ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS if host["format"] == "knowledge-operations-host/v3" else
                     ARGUMENTS | TRANSFER_ARGUMENTS | REVIEW_ARGUMENTS | INTAKE_ARGUMENTS |
+                    ({"collection.browse": ()} if browse_host else {}) |
                     (BACKUP_ARGUMENTS if host["format"] == "knowledge-operations-host/v10" else
                      {"backup.preview": BACKUP_ARGUMENTS["backup.preview"]}
                      if host["format"] == "knowledge-operations-host/v9" else {})
@@ -287,6 +293,8 @@ def load_host(root, relative):
                 if (group["controlRepository"] != targets[0]["repository"] or
                         group["controlRef"] != targets[0]["sourceRef"]):
                     raise StoreError("Publication group control basis must be its first registered target")
+    if browse_host:
+        host["format"] = "knowledge-operations-host/v11"
     return host
 
 
@@ -297,6 +305,12 @@ def validate_request(request):
     specific shared-validator exception subclasses are not wire contracts.
     """
     fields(request, ("format", "authority", "operation", "arguments"))
+    if request["format"] == "knowledge-operation-request/v13":
+        if not isinstance(request["authority"], str) or not 1 <= len(request["authority"]) <= 2000:
+            raise StoreError("An exact native authority alias is required")
+        from native_collection_browser import validate_arguments
+        validate_arguments(request["operation"], request["arguments"])
+        return
     if request["format"] == "knowledge-operation-request/v12":
         if not isinstance(request["authority"], str) or not 1 <= len(request["authority"]) <= 2000:
             raise StoreError("An exact native authority alias is required")
@@ -728,6 +742,11 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
         from knowledge_operation_file_records import run_record_authority
         return run_record_authority(root, host_config, host, selected_file, request, actor=actor,
                                     clock=clock, authorize=authorize, max_response_bytes=max_response_bytes)
+    if request["format"] == "knowledge-operation-request/v13" and (
+        host["format"] != "knowledge-operations-host/v11"
+        or request["authority"] not in host["authorities"]
+    ):
+        raise StoreError("Native browsing requires an explicit v11 host registration")
     if request["format"] == "knowledge-operation-request/v12" and (
         request["authority"] in host.get("fileAuthorities", {})
         or request["authority"] in host.get("publicationGroups", {})
@@ -751,9 +770,9 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
     if selected is None or operation not in selected["grants"].get(actor, []):
         raise StoreError("Operation unavailable")
     if operation in BACKUP_ARGUMENTS:
-        if operation == "backup.preview" and host["format"] not in ("knowledge-operations-host/v9", "knowledge-operations-host/v10"):
+        if operation == "backup.preview" and host["format"] not in ("knowledge-operations-host/v9", "knowledge-operations-host/v10", "knowledge-operations-host/v11"):
             raise StoreError("Backup preview requires a v9 or v10 host registration")
-        if operation != "backup.preview" and host["format"] != "knowledge-operations-host/v10":
+        if operation != "backup.preview" and host["format"] not in ("knowledge-operations-host/v10", "knowledge-operations-host/v11"):
             raise StoreError("Backup writer operations require a v10 host registration")
         destination = host["backupDestinations"].get(args["destination"])
         if destination is None or destination["authority"] != request["authority"]:
@@ -780,6 +799,11 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
             raise StoreError("Native data corrections require the selected SQLite pilot")
         if operation == "record.patch-propose" and "collection.semantic-inspect" not in selected["grants"].get(actor, []):
             raise StoreError("Current native schema inspection is unavailable")
+    if request["format"] == "knowledge-operation-request/v13" and (
+        driver != "sqlite" or not all(verb in selected["grants"].get(actor, [])
+                                     for verb in ("record.get", "collection.browse"))
+    ):
+        raise StoreError("Native browsing is unavailable for this registration")
     initial = timestamp(clock())
 
     def guard(not_before=initial):
@@ -842,7 +866,16 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
             )
         from native_inspection import inspection_budget
 
+        browse_as_of = None
+
         def invoke(at):
+            nonlocal browse_as_of
+            if operation == "collection.browse":
+                from native_collection_browser import browse
+                if browse_as_of is None:
+                    browse_as_of = at
+                return browse(store, args, actor=actor, at=at, as_of=browse_as_of,
+                              registration=fingerprint({"authority": request["authority"], "registration": selected}))
             if operation in INTAKE_ARGUMENTS:
                 if intake is None:
                     raise StoreError("Intake host registration required")
@@ -859,7 +892,7 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
             return execute(store, operation, args, actor=actor, at=at)
 
         with store.request_transaction(write=write), (
-            inspection_budget(store) if operation == "proposal.list" else nullcontext()
+            inspection_budget(store) if operation in ("proposal.list", "collection.browse") else nullcontext()
         ):
             guard()  # Waiting for the writer lock must not preserve a revoked token.
             at = clock()
@@ -885,7 +918,8 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
                     "authority": request["authority"],
                     "principal": actor,
                     "binding": store.contract.binding,
-                    "operations": sorted(verb for verb in selected["grants"][actor] if supports(driver, verb)),
+                    "operations": sorted(verb for verb in selected["grants"][actor] if supports(driver, verb)
+                                         and (verb != "collection.browse" or "record.get" in selected["grants"][actor])),
                     "authorization": "host-registration-only",
                     "nativePolicy": "required-per-operation",
                     "executionAuthorized": False,
@@ -896,7 +930,7 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
                     (["v1", "v9"] if driver == "sqlite" else ["v1"])
                     if "record.patch-propose" in response["hostCapabilities"]["operations"] else []
                 )
-            if operation == "authority.inspect" and request["format"] == "knowledge-operation-request/v12":
+            if operation == "authority.inspect" and request["format"] in ("knowledge-operation-request/v12", "knowledge-operation-request/v13"):
                 caps = response["hostCapabilities"]
                 caps["sourceSelectionSha256"] = fingerprint({"authority": request["authority"], "registration": selected})
                 caps["recordPatchVersions"] = (
@@ -904,6 +938,8 @@ def run(root, host_config, request, *, actor, clock=utcnow, authorize=None, max_
                         verb in caps["operations"] for verb in ("record.get", "record.patch-propose", "collection.semantic-inspect")
                     ) else ["v1"]
                 )
+            if operation == "authority.inspect" and request["format"] == "knowledge-operation-request/v13":
+                response["hostCapabilities"]["collectionBrowseVersions"] = ["v13"]
             raw = encode(response)
             if len(raw) > max_response_bytes:
                 raise StoreError("Operation response exceeds its limit")

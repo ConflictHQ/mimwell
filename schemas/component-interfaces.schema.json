@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "properties": {
     "protocolVersion": {
-      "enum": ["1.0", "1.1"]
+      "enum": ["1.0", "1.1", "1.2"]
     },
     "entries": {
       "type": "array",
@@ -59,7 +59,7 @@
               ]
             },
             "minItems": 0,
-            "maxItems": 64
+            "maxItems": 128
           },
           "inputs": {
             "type": "array",
@@ -518,6 +518,21 @@
         "required": ["protocolVersion"]
       },
       "then": {"properties": {"entries": {"maxItems": 192}}}
+    },
+    {
+      "if": {
+        "properties": {"protocolVersion": {"enum": ["1.0", "1.1"]}},
+        "required": ["protocolVersion"]
+      },
+      "then": {
+        "properties": {
+          "entries": {
+            "items": {
+              "properties": {"sourcePins": {"maxItems": 64}}
+            }
+          }
+        }
+      }
     }
   ]
 }

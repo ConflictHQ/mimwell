@@ -45,3 +45,18 @@ Protected attachment chunks and stored bytes are supported only through the sele
 A trusted maintenance host can supply the selected protection adapter for bounded capture on the supported retained-content route, with opaque metadata disabled and offline retain authorized. The ordinary command-line interface has no adapter and refuses adopted capture. Opening the read-only SQLite authority may create coordination sidecars, so capture does not promise zero filesystem effects. Protected restore, activation and cutover remain unavailable; capture does not qualify aggregate capacity.
 
 `scripts/store-maintenance.py` also exposes host-authorized inspection, bounded cache maintenance and migration reporting. `scripts/inspect-maintenance.py` reports semantic findings through a pinned context host. Logical memory compaction remains a reviewed native change; physical cache compression does not rewrite canonical meaning. A snapshot is complete only when its referenced blob bytes and selected protection requirements are also preserved.
+
+## Selected collection navigation and reviewed identifier tools
+
+The optional SQLite collection browser uses the explicit v11 operations host
+and v13 request/result route; no shipped host opts in. Current viewer, owner,
+credential and native revision checks still govern every page and editor
+selection. It exposes no hidden counts or new write permission. See the fresh
+public [native collection guide](native-collection-browser.md).
+
+Reviewed identifier migration is an operator-only preview/plan/apply/recovery
+workflow for selected current plain JSON. It preserves all bytes outside the
+explicit root marker change and refuses unsupported files, metadata and writer
+conditions. It does not migrate native authority state, signed history or frozen
+catalogs, and does not retire compatibility readers. See the fresh public
+[identifier migration guide](identifier-migration.md).

@@ -341,6 +341,7 @@ def capture_v1(plan, destination, *, store, reservation, adapter,
         raise snapshot.SnapshotError("Registered snapshot destination parent changed")
     stage_name = ".brain-snapshot-protected-v1-" + uuid.uuid4().hex
     stage_created, stage_fd, stage_identity, published = False, None, None, False
+    created_outputs = {}
     try:
         store._snapshot_route_guard()
         os.mkdir(stage_name, mode=0o700, dir_fd=parent_fd)
@@ -351,13 +352,22 @@ def capture_v1(plan, destination, *, store, reservation, adapter,
         snapshot._verify_snapshot_stage(parent_fd, stage_name, stage_fd, stage_identity)
         outputs = [(row["name"], row["bytes"]) for row in sealed["chunks"]]
         outputs.append(("manifest.json", sealed["manifestBytes"]))
+        output_identities = {}
         for output_index, (name, raw) in enumerate(outputs):
             source_guard()
             adapter.reauthorize(sealed["chunks"][output_index]["envelope"]
                                  if output_index < len(sealed["chunks"])
                                  else sealed["chunks"][0]["envelope"])
             charge = store._storage_admission_consume(len(raw))
-            snapshot._v2_stage_write(stage_fd, name, raw)
+            def record_created(identity):
+                created_outputs[name] = identity
+
+            created_identity = snapshot._v2_stage_write(stage_fd, name, raw, created=record_created)
+            written = snapshot._v2_stage_stat(stage_fd, name, max_bytes=len(raw))
+            if (created_outputs.get(name) != created_identity
+                    or (written.st_dev, written.st_ino) != created_identity or written.st_size != len(raw)):
+                raise snapshot.SnapshotError("Protected snapshot staged ciphertext changed before publication")
+            output_identities[name] = snapshot._v2_stat_identity(written)
             store._storage_admission_complete_external(charge, actual_bytes=len(raw))
         if fault:
             fault("before-recheck")
@@ -381,6 +391,52 @@ def capture_v1(plan, destination, *, store, reservation, adapter,
         for row in sealed["chunks"]:
             adapter.reauthorize(row["envelope"])
         os.fsync(stage_fd)
+
+        def verify_staged_outputs(*, hash_contents):
+            snapshot._verify_snapshot_stage(parent_fd, stage_name, stage_fd, stage_identity)
+            names = set()
+            with os.scandir(stage_fd) as children:
+                for child in children:
+                    names.add(child.name)
+                    if len(names) > len(outputs):
+                        raise snapshot.SnapshotError("Protected snapshot stage contains unexpected output")
+            if names != set(output_identities):
+                raise snapshot.SnapshotError("Protected snapshot stage contains unexpected output")
+            for name, expected_raw in outputs:
+                before = snapshot._v2_stage_stat(stage_fd, name, max_bytes=len(expected_raw))
+                if snapshot._v2_stat_identity(before) != output_identities[name]:
+                    raise snapshot.SnapshotError(
+                        "Protected snapshot staged ciphertext changed before publication")
+                if hash_contents:
+                    # Reuse the capture's already-owned stdlib-only file worker.
+                    # A raced alias may be opened/closed ONLY in that child,
+                    # never in this SQLite-owning parent process.
+                    observed = snapshot._v2_source_worker().describe(
+                        destination.parent / stage_name / name, max_bytes=len(expected_raw))
+                    after = snapshot._v2_stage_stat(stage_fd, name, max_bytes=len(expected_raw))
+                    if (observed["bytes"] != len(expected_raw)
+                            or observed["sha256"] != hashlib.sha256(expected_raw).hexdigest()
+                            or observed["sqlite"]
+                            or observed["mode"] != stat.S_IMODE(before.st_mode)
+                            or snapshot._v2_stat_identity(after) != output_identities[name]):
+                        raise snapshot.SnapshotError(
+                            "Protected snapshot staged ciphertext changed before publication")
+            snapshot._verify_snapshot_stage(parent_fd, stage_name, stage_fd, stage_identity)
+
+        # Fsync is an external boundary: check current authority/route/provider,
+        # exact created output identities and actual sealed bytes before rename.
+        source_guard()
+        verify_staged_outputs(hash_contents=True)
+        source_guard()
+        for row in sealed["chunks"]:
+            adapter.reauthorize(row["envelope"])
+        verify_staged_outputs(hash_contents=False)
+        try:
+            os.stat(destination.name, dir_fd=parent_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise snapshot.SnapshotError("Snapshot destination appeared during capture")
         os.rename(stage_name, destination.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
         published = True
         published_info = os.stat(destination.name, dir_fd=parent_fd, follow_symlinks=False)
@@ -398,10 +454,18 @@ def capture_v1(plan, destination, *, store, reservation, adapter,
         if not published and stage_created and stage_fd is not None and stage_identity is not None:
             try:
                 snapshot._verify_snapshot_stage(parent_fd, stage_name, stage_fd, stage_identity)
-                for name in os.listdir(stage_fd):
-                    info = os.stat(name, dir_fd=stage_fd, follow_symlinks=False)
-                    if not stat.S_ISREG(info.st_mode):
-                        raise snapshot.SnapshotError("Protected staging contains an unexpected entry")
+                # Cleanup authority is the creation receipt, not directory
+                # membership. Unknown entries/replaced inodes remain retained
+                # and keep the effect conservatively unknown after inventory.
+                for name, identity in created_outputs.items():
+                    try:
+                        info = os.stat(name, dir_fd=stage_fd, follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid()
+                            or info.st_nlink != 1 or info.st_mode & 0o077
+                            or (info.st_dev, info.st_ino) != identity):
+                        continue
                     os.unlink(name, dir_fd=stage_fd)
                 snapshot._verify_snapshot_stage(parent_fd, stage_name, stage_fd, stage_identity)
                 os.rmdir(stage_name, dir_fd=parent_fd)

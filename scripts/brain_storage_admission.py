@@ -341,8 +341,8 @@ def _relative_authority_route(path, selected_root, root, root_info, *, allow_roo
     return relative
 
 
-def _selected_authority_path(root, store, selection):
-    """Require the adopted SQLite authority to be the configured file under this brain."""
+def _read_storage_config(root, *, forbidden_identities=()):
+    """Read the canonical bounded configuration without aliasing an owned native FD."""
     selected_root = Path(root).absolute()
     root = selected_root.resolve(strict=True)
     root_fd = _open_directory_chain(root)
@@ -356,7 +356,8 @@ def _selected_authority_path(root, store, selection):
         try:
             info = os.stat("client.config.json", dir_fd=root_fd, follow_symlinks=False)
             if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_nlink != 1
-                    or info.st_mode & unsafe_write or info.st_size > MAX_CLIENT_CONFIG_BYTES):
+                    or info.st_mode & unsafe_write or info.st_size > MAX_CLIENT_CONFIG_BYTES
+                    or (info.st_dev, info.st_ino) in forbidden_identities):
                 raise StoreError("Selected authority configuration is unsafe or exceeds its limit")
             fd = os.open("client.config.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=root_fd)
         except StoreError:
@@ -395,6 +396,18 @@ def _selected_authority_path(root, store, selection):
         settings = json.loads(raw)
         if not isinstance(settings, dict):
             raise StoreError("Selected authority configuration is invalid")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise StoreError("Selected authority configuration is invalid") from exc
+    return root, root_info, settings
+
+
+def _selected_authority_path(root, store, selection):
+    """Require the adopted SQLite authority to be the configured file under this brain."""
+    selected_root = Path(root).absolute()
+    root, root_info, settings = _read_storage_config(root,
+        forbidden_identities=(getattr(store, "authority_file_identity", None),))
+    unsafe_write = stat.S_IWGRP | stat.S_IWOTH | stat.S_ISUID | stat.S_ISGID
+    try:
         from knowledge_store import SQLiteAuthority, adopted_authority, authority_class, resolve_store_dsn
         selected = adopted_authority(settings)
         if (not isinstance(selected, dict) or selected.get("store") != selection["authority"]["store"]
@@ -1299,10 +1312,24 @@ def _terminate_owned_inventory_group(child):
     return child.returncode
 
 
-def _stable_tree_worker(path, *, max_files, max_total, budget=None, _worker_path=None):
+def _stable_tree_worker(path, *, max_files, max_total, budget=None, _worker_path=None, only_files=None,
+                        header_only=False, private_exclusions=None):
     """Run the descriptor-relative tree walk outside every live SQLite PID."""
     if (type(max_files) is not int or max_files < 1 or type(max_total) is not int or max_total < 0
-            or (budget is not None and not isinstance(budget, InventoryBudget))):
+            or (budget is not None and not isinstance(budget, InventoryBudget))
+            or type(header_only) is not bool
+            or header_only and only_files is None
+            or only_files is not None and (not isinstance(only_files, list) or not 1 <= len(only_files) <= 64
+                or any(not isinstance(name, str) or not name or name in (".", "..")
+                       or len(os.fsencode(name)) > 255 or "/" in name or "\\" in name or "\x00" in name
+                       for name in only_files)
+                or len(set(only_files)) != len(only_files))
+            or private_exclusions is not None and (only_files is not None or header_only
+                or not isinstance(private_exclusions, list) or len(private_exclusions) > 128
+                or any(not isinstance(name, str) or not name or name.startswith("/") or "\\" in name
+                       or "\x00" in name or len(os.fsencode(name)) > 4096
+                       or any(part in ("", ".", "..") for part in name.split("/"))
+                       for name in private_exclusions))):
         raise StoreError("Registered storage inventory bounds are invalid")
     required = ("P_PID", "WEXITED", "WNOHANG", "WNOWAIT")
     if (not sys.platform.startswith(("darwin", "linux")) or not callable(getattr(os, "waitid", None))
@@ -1328,9 +1355,15 @@ def _stable_tree_worker(path, *, max_files, max_total, budget=None, _worker_path
         remaining = deadline - time.monotonic()
         if remaining <= 0 or any(value < 0 for value in request_budget.values()):
             raise StoreError("Storage inspection exceeded its bounded inventory")
-        request = json.dumps(
-            {"path": tree_path, "maxFiles": max_files, "maxTotal": max_total,
-             "limits": request_budget, "deadline": deadline},
+        request_value = {"path": tree_path, "maxFiles": max_files, "maxTotal": max_total,
+                         "limits": request_budget, "deadline": deadline}
+        if only_files is not None:
+            request_value["onlyFiles"] = only_files
+        if header_only:
+            request_value["headerOnly"] = True
+        if private_exclusions is not None:
+            request_value["privateExclusions"] = private_exclusions
+        request = json.dumps(request_value,
             ensure_ascii=True, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("ascii")
         if len(request) > 16 * 1024:
             raise StoreError("Storage inventory request exceeded its bound")
@@ -1463,6 +1496,9 @@ def _stable_tree_worker(path, *, max_files, max_total, budget=None, _worker_path
                 "A registered storage path exceeds its bound",
                 "Registered storage inventory exceeds its bound",
                 "Registered storage inventory bounds are invalid",
+                "Native sidecar contains standalone authority content",
+                "Unregistered private retained content requires an explicit retained root",
+                "Studio App host registration is invalid",
                 "Safe registered storage inventory is unavailable on this platform",
                 "Storage inspection exceeded its time budget",
                 "Storage inspection exceeded its bounded inventory",
@@ -1710,6 +1746,42 @@ def _read_git_object_marker(directory_fd, name, *, maximum):
         os.close(fd)
 
 
+def _private_residue_basis(root, store, registration, *, blob_root=None, budget=None):
+    """Refuse unknown private content and validate host metadata in the owned worker.
+
+    Standby residue must be explicitly retained before adoption. No native file
+    body is opened in this SQLite-owning process, and no residue is deleted.
+    """
+    root = Path(root).resolve(strict=True)
+    internal = root / "_internal"
+    native = Path(store.path).resolve(strict=True)
+    sessions = internal / "studio-app-sessions"
+    managed = [native, sessions, root / "apps", root / ".git"]
+    blob = Path(blob_root).resolve(strict=True) if blob_root is not None else None
+    if blob is not None:
+        if any(path == blob or path.is_relative_to(blob) or blob.is_relative_to(path) for path in managed):
+            raise StoreError("Managed blob storage cannot overlap another active managed route")
+        managed.append(blob)
+    retained = [Path(item["path"]).resolve(strict=True) for item in registration["retainedRoots"]]
+    for index, route in enumerate(retained):
+        if any(path == route or path.is_relative_to(route) or route.is_relative_to(path) for path in managed):
+            raise StoreError("Retained storage roots cannot overlap an active managed route")
+        if any(route == other or route.is_relative_to(other) or other.is_relative_to(route)
+               for other in retained[:index]):
+            raise StoreError("Retained storage roots must not overlap")
+    excluded = {root / name for name in (REGISTRATION, LEDGER, LEDGER_LOCK, WRITER_LOCK)}
+    excluded.update(Path(str(root / LEDGER) + suffix) for suffix in ("-wal", "-shm", "-journal"))
+    excluded.update(Path(str(native) + suffix) for suffix in ("", "-wal", "-shm", "-journal"))
+    excluded.update([sessions, *retained])
+    if blob is not None:
+        excluded.add(blob)
+    relative = sorted(path.relative_to(internal).as_posix() for path in excluded if path.is_relative_to(internal))
+    if "." in relative:
+        raise StoreError("The private state root cannot be an excluded managed tree")
+    return _stable_tree_worker(internal, max_files=200_000, max_total=64 * 1024, budget=budget,
+                               private_exclusions=relative)
+
+
 def inventory(root, store, registration, *, session_root=None, blob_root=None, blob_location=None, budget=None):
     """Return one stable accounting basis; any unavailable managed class refuses."""
     _require_admission_platform()
@@ -1718,6 +1790,7 @@ def inventory(root, store, registration, *, session_root=None, blob_root=None, b
     if (store.contract.binding != registration["authority"]["binding"]
             or store.contract.authority != registration["authority"]["store"]):
         raise StoreError("Storage admission authority pin changed")
+    _private_residue_basis(root, store, registration, blob_root=blob_root, budget=budget)
     native_bytes, native_basis = _native_content(store, budget=budget)
     classes = {"native": native_bytes}
     bases = {"native": native_basis}
@@ -2896,40 +2969,72 @@ def apply_adoption(root, store, selection, *, expected_preview_sha256,
     """Apply only a caller-confirmed preview. This function never changes brain config/policy."""
     _require_admission_platform()
     selection = {key: value for key, value in validate_selection(selection).items() if key != "adoption"}
-    preview = preview_adoption(root, store, selection, blob_root=blob_root, session_root=session_root)
-    if preview.get("previewSha256") != expected_preview_sha256:
-        raise StoreError("Storage admission adoption preview changed; review a new preview")
-    authority_revision = fingerprint({"binding": store.contract.binding,
-                                      "nativeBasis": preview["classBasis"]["native"]})
-    if authority_revision != expected_authority_revision:
-        raise StoreError("Storage admission authority revision changed; review a new preview")
-    registration_raw = adoption_file_bytes(selection, preview_sha256=preview["previewSha256"],
-        inventory_basis_sha256=preview["basisSha256"], authority_revision=authority_revision)
-    internal = Path(root) / "_internal"
-    info = internal.lstat()
-    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
-            or info.st_mode & 0o077 or info.st_nlink < 1):
-        raise StoreError("Storage admission state directory is not owner-private")
-    registration_path = Path(root) / REGISTRATION
-    ledger = AdmissionLedger(root, json.loads(registration_raw))
-    ledger.initialize_after_explicit_adoption(expected_preview_sha256=expected_preview_sha256,
-        preview_sha256=preview["previewSha256"], inventory_basis_sha256=preview["basisSha256"])
+    # Reuse the selected authority's real SQLite writer transaction. Do not
+    # manufacture a second native connection or a pre-adoption lock protocol.
+    # This coordinates canonical native writers, not arbitrary filesystem actors
+    # or a distributed transaction with ledger/registration publication.
+    if store.dialect.driver != "sqlite" or store.dialect.in_transaction:
+        raise StoreError("Storage adoption requires an idle selected SQLite authority")
+    store.dialect.begin(write=True)
     try:
-        fd = os.open(registration_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY
-                     | getattr(os, "O_NOFOLLOW", 0), 0o600)
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(registration_raw)
-            stream.flush()
-            os.fsync(stream.fileno())
-    except BaseException:
-        # The unreferenced ledger is inert; never remove a path we did not create.
-        ledger.path.unlink(missing_ok=True)
-        raise
-    return {"format": "brain-storage-adoption-receipt/v1",
-            "registrationSha256": hashlib.sha256(registration_raw).hexdigest(),
-            "previewSha256": preview["previewSha256"],
-            "inventoryBasisSha256": preview["basisSha256"],
-            "authorityRevision": authority_revision}
+        store._writer_ready()
+        selected_path, selected_config = _selected_authority_path(root, store, selection)
+        selected_config_sha256 = fingerprint(selected_config)
+        preview = preview_adoption(root, store, selection, blob_root=blob_root, session_root=session_root)
+        if preview.get("previewSha256") != expected_preview_sha256:
+            raise StoreError("Storage admission adoption preview changed; review a new preview")
+        authority_revision = fingerprint({"binding": store.contract.binding,
+                                          "nativeBasis": preview["classBasis"]["native"]})
+        if authority_revision != expected_authority_revision:
+            raise StoreError("Storage admission authority revision changed; review a new preview")
+        current_path, current_config = _selected_authority_path(root, store, selection)
+        if current_path != selected_path or fingerprint(current_config) != selected_config_sha256:
+            raise StoreError("Storage adoption selected route changed during preview")
+        registration_raw = adoption_file_bytes(selection, preview_sha256=preview["previewSha256"],
+            inventory_basis_sha256=preview["basisSha256"], authority_revision=authority_revision)
+        internal = Path(root) / "_internal"
+        info = internal.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+                or info.st_mode & 0o077 or info.st_nlink < 1):
+            raise StoreError("Storage admission state directory is not owner-private")
+        registration_path = Path(root) / REGISTRATION
+        ledger = AdmissionLedger(root, json.loads(registration_raw))
+        ledger.initialize_after_explicit_adoption(expected_preview_sha256=expected_preview_sha256,
+            preview_sha256=preview["previewSha256"], inventory_basis_sha256=preview["basisSha256"])
+        try:
+            current_path, current_config = _selected_authority_path(root, store, selection)
+            if current_path != selected_path or fingerprint(current_config) != selected_config_sha256:
+                raise StoreError("Storage adoption selected route changed before publication")
+            fd = os.open(registration_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY
+                         | getattr(os, "O_NOFOLLOW", 0), 0o600)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(registration_raw)
+                stream.flush()
+                os.fsync(stream.fileno())
+        except BaseException:
+            # Publication is not atomic with native/ledger state. Preserve the
+            # created ledger and locks as fail-closed orphan evidence, including
+            # a replaced path whose ownership is no longer ours. An ambiguous
+            # failure never grants deletion or an automatic adoption retry.
+            raise
+        return {"format": "brain-storage-adoption-receipt/v1",
+                "registrationSha256": hashlib.sha256(registration_raw).hexdigest(),
+                "previewSha256": preview["previewSha256"],
+                "inventoryBasisSha256": preview["basisSha256"],
+                "authorityRevision": authority_revision}
+
+    finally:
+        # Adoption changes no native content. Roll back this read-only use of
+        # BEGIN IMMEDIATE on every exit, including a refused/interrupted publish;
+        # never commit or roll back a caller-owned outer transaction.
+        if store.dialect.in_transaction:
+            primary = sys.exc_info()[1]
+            try:
+                store.dialect.rollback()
+            except BaseException:
+                if primary is None:
+                    raise
+                primary.add_note("Native adoption fence rollback failed; transaction custody is unresolved.")
 
 
 def configured_admission(root, store):
@@ -2961,6 +3066,19 @@ def preview_adoption(root, store, registration, *, blob_root=None, session_root=
     _require_admission_platform()
     registration = validate_selection(registration)
     _selected_authority_path(root, store, registration)
+    # Legacy administrative callers could have used a reserved sidecar name
+    # before this writer version refused those targets. Do not silently omit a
+    # standalone native/FilesAuthority backup under a WAL/SHM basename. Inspect
+    # at most 16 bytes per existing sidecar ONLY in the already-owned worker.
+    native = Path(store.path)
+    try:
+        Path(str(native) + "-journal").lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        raise StoreError("Selected WAL authority has unresolved rollback-journal residue")
+    _stable_tree_worker(native.parent, max_files=200_000, max_total=32,
+        only_files=[native.name + "-wal", native.name + "-shm"], header_only=True)
     value = inventory(root, store, registration, blob_root=blob_root, session_root=session_root)
     value["previewSha256"] = fingerprint({k: v for k, v in value.items() if k != "previewSha256"})
     return value

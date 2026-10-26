@@ -57,3 +57,16 @@ ingest:
 	python3 scripts/enrich-kg.py
 	python3 scripts/graph-refresh.py
 	python3 scripts/gen-knowledge-pack.py
+
+# Explicit reviewed operator migrations; never part of build or verify.
+# Action/recovery flags select paths from the plan, so explicitly clear KG=.
+FILES :=
+KG :=
+ARGS :=
+APPLY :=
+.PHONY: migrate-identifiers migrate-kg
+migrate-identifiers:
+	python3 scripts/migrate-identifiers.py $(FILES) $(ARGS) $(APPLY)
+
+migrate-kg:
+	python3 scripts/migrate-kg.py $(KG) $(ARGS)
