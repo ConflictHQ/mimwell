@@ -17,6 +17,45 @@ import sys
 import time
 
 
+class HostRegistrationError(ValueError):
+    """The canonical closed Studio App transport registration is invalid."""
+
+
+def validate_host_registration(value):
+    """Pure canonical host metadata validation, shared with RegisteredHost."""
+    if (not isinstance(value, dict) or set(value) != {"format", "principals", "aliases"}
+            or value.get("format") != "studio-app-mcp-host/v1"
+            or not isinstance(value["principals"], dict) or not isinstance(value["aliases"], dict)
+            or not 1 <= len(value["aliases"]) <= 64 or len(value["principals"]) > 256):
+        raise HostRegistrationError("Studio App host registration is invalid")
+    for digest, actor in value["principals"].items():
+        if (not isinstance(digest, str) or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)
+                or not isinstance(actor, str) or not actor.strip() or len(actor) > 256):
+            raise HostRegistrationError("Studio App host principal registration is invalid")
+    for alias, entry in value["aliases"].items():
+        if (not isinstance(alias, str) or not alias.isidentifier() or len(alias) > 64
+                or not isinstance(entry, dict)
+                or set(entry) - {"root", "authority", "binding", "grants", "nativeActors", "blobProtected"}
+                or not {"root", "authority", "binding", "grants", "nativeActors"}.issubset(entry)
+                or not isinstance(entry["root"], str) or not Path(entry["root"]).is_absolute()
+                or not isinstance(entry["authority"], str)
+                or not isinstance(entry["binding"], str) or len(entry["binding"]) != 64
+                or not isinstance(entry["grants"], dict) or not isinstance(entry["nativeActors"], dict)
+                or "blobProtected" in entry and type(entry["blobProtected"]) is not bool):
+            raise HostRegistrationError("Studio App host alias registration is invalid")
+        for actor, grants in entry["grants"].items():
+            native_actor = entry["nativeActors"].get(actor)
+            if (actor not in value["principals"].values() or not isinstance(native_actor, str)
+                    or not native_actor.strip() or len(native_actor) > 256 or not isinstance(grants, list)
+                    or len(grants) != len(set(grants))
+                    or any(grant not in ("read", "propose") for grant in grants)):
+                raise HostRegistrationError("Studio App host alias grant is invalid")
+        if set(entry["nativeActors"]) != set(entry["grants"]):
+            raise HostRegistrationError("Studio App native actor mappings must match explicit alias grants")
+    return value
+
+
 class InventoryError(Exception):
     pass
 
@@ -30,13 +69,28 @@ def _fingerprint(value):
     return hashlib.sha256(raw).hexdigest()
 
 
-def stable_tree(path, *, max_files, max_total, limits, deadline):
+def stable_tree(path, *, max_files, max_total, limits, deadline, only_files=None, header_only=False,
+                private_exclusions=None):
     """Count and hash one stable tree using no-follow, descriptor-relative IO."""
     if (type(max_files) is not int or max_files < 1 or type(max_total) is not int or max_total < 0
             or not isinstance(limits, dict)
             or set(limits) != {"files", "pathBytes", "contentBytes"}
             or any(type(value) is not int or value < 0 for value in limits.values())
             or not isinstance(deadline, (int, float)) or not math.isfinite(deadline)):
+        raise InventoryError("Registered storage inventory bounds are invalid")
+    if only_files is not None and (not isinstance(only_files, list) or not 1 <= len(only_files) <= 64
+            or any(not isinstance(name, str) or not name or name in (".", "..")
+                   or "/" in name or "\\" in name or "\x00" in name for name in only_files)
+            or len(set(only_files)) != len(only_files)):
+        raise InventoryError("Registered storage inventory bounds are invalid")
+    if type(header_only) is not bool or header_only and only_files is None:
+        raise InventoryError("Registered storage inventory bounds are invalid")
+    if private_exclusions is not None and (
+            not isinstance(private_exclusions, list) or len(private_exclusions) > 128
+            or only_files is not None or header_only
+            or any(not isinstance(name, str) or not name or name.startswith("/") or "\\" in name
+                   or "\x00" in name or any(part in ("", ".", "..") for part in name.split("/"))
+                   for name in private_exclusions)):
         raise InventoryError("Registered storage inventory bounds are invalid")
     if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
         raise InventoryError("Safe registered storage inventory is unavailable on this platform")
@@ -93,6 +147,8 @@ def stable_tree(path, *, max_files, max_total, limits, deadline):
     def walk(directory_fd, relative):
         nonlocal total, files, entries
         check_time()
+        if private_exclusions is not None and len(Path(relative).parts) > 32:
+            raise InventoryError("Storage inspection exceeded its bounded inventory")
         before_dir = os.fstat(directory_fd)
         validate_directory(before_dir)
         try:
@@ -111,7 +167,11 @@ def stable_tree(path, *, max_files, max_total, limits, deadline):
         names.sort()
         for name in names:
             check_time()
+            if only_files is not None and not relative and name not in only_files:
+                continue
             rel = f"{relative}/{name}" if relative else name
+            if private_exclusions is not None and rel in private_exclusions:
+                continue
             encoded_rel = os.fsencode(rel)
             if len(encoded_rel) > 4096:
                 raise InventoryError("A registered storage path exceeds its bound")
@@ -121,6 +181,8 @@ def stable_tree(path, *, max_files, max_total, limits, deadline):
             except OSError:
                 raise InventoryError("A registered storage entry changed while measuring") from None
             if stat.S_ISDIR(named.st_mode):
+                if only_files is not None:
+                    raise InventoryError("A registered storage file is unsafe")
                 validate_directory(named)
                 try:
                     child_fd = os.open(name, open_flags(directory=True), dir_fd=directory_fd)
@@ -142,7 +204,13 @@ def stable_tree(path, *, max_files, max_total, limits, deadline):
             if (not stat.S_ISREG(named.st_mode) or named.st_nlink != 1
                     or named.st_uid != os.geteuid() or named.st_mode & no_write):
                 raise InventoryError("A registered storage file is unsafe")
-            if named.st_size > max_total - total:
+            if private_exclusions is not None and rel != "studio-apps-host.json" and named.st_size:
+                raise InventoryError("Unregistered private retained content requires an explicit retained root")
+            host_configuration = private_exclusions is not None and rel == "studio-apps-host.json"
+            if host_configuration and named.st_mode & 0o077:
+                raise InventoryError("Studio App host registration is invalid")
+            read_limit = min(named.st_size, 16) if header_only else named.st_size
+            if read_limit > max_total - total:
                 raise InventoryError("Registered storage inventory exceeds its bound")
             try:
                 file_fd = os.open(name, open_flags(), dir_fd=directory_fd)
@@ -154,21 +222,36 @@ def stable_tree(path, *, max_files, max_total, limits, deadline):
                     raise InventoryError("A registered storage file changed while opening")
                 digest = hashlib.sha256()
                 size = 0
+                prefix = b""
+                host_bytes = bytearray() if host_configuration else None
                 while True:
                     check_time()
-                    chunk = os.read(file_fd, min(1024 * 1024, named.st_size - size + 1))
+                    if header_only and size == read_limit:
+                        break
+                    chunk = os.read(file_fd, min(1024 * 1024, read_limit - size + (0 if header_only else 1)))
                     if not chunk:
                         break
                     size += len(chunk)
-                    if size > named.st_size or size > max_total - total:
+                    if size > read_limit or size > max_total - total:
                         raise InventoryError("A registered storage file changed while measuring")
+                    if header_only:
+                        prefix += chunk
+                    if host_bytes is not None:
+                        host_bytes.extend(chunk)
                     add("contentBytes", len(chunk))
                     digest.update(chunk)
                 after = os.fstat(file_fd)
                 current_name = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-                if (size != named.st_size or not same_entry(opened, after)
+                if (size != read_limit or not same_entry(opened, after)
                         or not same_entry(after, current_name)):
                     raise InventoryError("A registered storage file changed while measuring")
+                if header_only and (prefix == b"SQLite format 3\x00" or prefix.lstrip().startswith(b"{")):
+                    raise InventoryError("Native sidecar contains standalone authority content")
+                if host_bytes is not None:
+                    try:
+                        validate_host_registration(json.loads(host_bytes))
+                    except (ValueError, UnicodeError, TypeError, RecursionError):
+                        raise InventoryError("Studio App host registration is invalid") from None
             except OSError:
                 raise InventoryError("A registered storage file is unavailable") from None
             finally:
@@ -230,7 +313,10 @@ def _request():
     except (UnicodeDecodeError, json.JSONDecodeError):
         raise InventoryError("Storage inventory request is invalid") from None
     if (not isinstance(request, dict)
-            or set(request) != {"path", "maxFiles", "maxTotal", "limits", "deadline"}
+            or set(request) not in ({"path", "maxFiles", "maxTotal", "limits", "deadline"},
+                                   {"path", "maxFiles", "maxTotal", "limits", "deadline", "onlyFiles"},
+                                   {"path", "maxFiles", "maxTotal", "limits", "deadline", "onlyFiles", "headerOnly"},
+                                   {"path", "maxFiles", "maxTotal", "limits", "deadline", "privateExclusions"})
             or not isinstance(request["path"], str)):
         raise InventoryError("Storage inventory request is invalid")
     return request
@@ -245,7 +331,9 @@ def main(*, _owner_deadline=None):
             raise InventoryError("Storage inventory owner deadline differs from its request")
         result = stable_tree(request["path"], max_files=request["maxFiles"],
                              max_total=request["maxTotal"], limits=request["limits"],
-                             deadline=request["deadline"])
+                             deadline=request["deadline"], only_files=request.get("onlyFiles"),
+                             header_only=request.get("headerOnly", False),
+                             private_exclusions=request.get("privateExclusions"))
         status = 0
     except InventoryError as exc:
         result = {"ok": False, "error": str(exc), "used": dict(_LAST_USED),

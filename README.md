@@ -22,6 +22,10 @@ The MCP engine version is recorded separately in `engine-release.json` and
 validated against that pinned revision. This public identity descriptor does
 not enable the private template updater or include its ownership catalog.
 
+Optional source selection includes [native collection browsing](docs/native-collection-browser.md)
+and [reviewed identifier migration](docs/identifier-migration.md). Both require
+explicit operator selection; neither runs in an ordinary build or grants access.
+
 ## Quick start
 
 You need Python 3.14 and Node 22. The Wrangler CLI is needed only for a

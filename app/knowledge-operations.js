@@ -6,7 +6,7 @@
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonical(value[key])).join(',')+'}':JSON.stringify(value);
   const same=(a,b)=>canonical(a)===canonical(b);
   async function validate(report,request) {
-    if(!['knowledge-operation-request/v1','knowledge-operation-request/v2','knowledge-operation-request/v3','knowledge-operation-request/v4','knowledge-operation-request/v5','knowledge-operation-request/v6','knowledge-operation-request/v9','knowledge-operation-request/v10','knowledge-operation-request/v11','knowledge-operation-request/v12'].includes(request.format)||
+    if(!['knowledge-operation-request/v1','knowledge-operation-request/v2','knowledge-operation-request/v3','knowledge-operation-request/v4','knowledge-operation-request/v5','knowledge-operation-request/v6','knowledge-operation-request/v9','knowledge-operation-request/v10','knowledge-operation-request/v11','knowledge-operation-request/v12','knowledge-operation-request/v13'].includes(request.format)||
       report?.format!==request.format.replace('knowledge-operation-request/','knowledge-operation/')||report.state!=='completed'||
       report.authority!==request.authority||report.operation!==request.operation||
       typeof report.nativeWire!=='string'||!/^[a-f0-9]{64}$/.test(report.nativeSha256)||
@@ -35,6 +35,19 @@
       // Unsupported v9 is not cached permission. Read v1 AGAIN under current identity/host.
       return call('authority.inspect',{},'v1');
     }
+  }
+  async function selectBrowsedRecord(call,page,row) {
+    if(page?.format!=='native-collection-page/v1'||!page.rows?.some(value=>same(value,row))||
+      row.collection!==page.collection||row.editableWholeRecord!==true)throw Error('Current whole-record selection unavailable');
+    // Recheck the original page basis/visibility before the independent canonical
+    // get. The get revision must still equal the listed revision; neither response
+    // grants write authority or bypasses the existing editor's owner checks.
+    await call('collection.browse',{collection:page.collection,limit:1,
+      cursor:{basisSha256:page.basisSha256,after:row.record,asOf:page.asOf}},'v13');
+    const observed=await call('record.get',{record:row.record});
+    if(!observed?.record||observed.deleted||observed.withheldRelations||observed.revision!==row.revision||
+      observed.record.id!==row.record||observed.record.collection!==page.collection)throw Error('Listed record changed; refresh the collection');
+    return observed;
   }
   function nativeObjectWires(wire,{maxBytes=262144,maxNodes=16384,maxDepth=72}={}){
     if(typeof wire!=='string'||new TextEncoder().encode(wire).length>maxBytes||(JSON.parse(wire)===null||typeof JSON.parse(wire)!=='object'||Array.isArray(JSON.parse(wire))))throw Error('A bounded JSON correction object is required');
@@ -65,7 +78,7 @@
     const requiredOperations={
       'source-list':['source.list'],'source-next':['source.list'],'source-inspect':['source.inspect'],
       'source-capture':['source.capture','source.extraction-preview'],'source-extract':['source.extract'],
-      'record-get':['record.get'],'collection-semantics':['collection.semantic-inspect'],
+      'record-get':['record.get'],'record-browse':['collection.browse','record.get'],'record-browse-next':['collection.browse','record.get'],'collection-semantics':['collection.semantic-inspect'],
       'record-history':['record.history'],
       'proposal-list':['proposal.list'],'proposal-next':['proposal.list'],'proposal-inspect':['proposal.inspect'],
       'proposal-approve':['proposal.review'],'proposal-reject':['proposal.dispose'],'proposal-defer':['proposal.dispose'],
@@ -81,7 +94,7 @@
     };
     let sequence=0, controller=null, activeWrite=false, uncertain=false, principal=null, description=null, selectedRecord=null,
       capture=null, extraction=null, sourcePreview=null, proposal=null, publication=null, transfer=null, sourcePage=null, proposalPage=null,
-      fileSource=null, fileProposal=null, fileHistory=null, fileAttempt=null, fileProfile=null, fileProfileSha=null;
+      fileSource=null, fileProposal=null, fileHistory=null, fileAttempt=null, fileProfile=null, fileProfileSha=null, recordPage=null;
     const fileRecordInputs=new Map();
     let nativeDataProfile=null;
     const nativeDataInputs=new Map();
@@ -108,6 +121,9 @@
         const required=requiredOperations[control.dataset.action];
         if(required&&(!capabilities||required.some(operation=>!capabilities.operations.includes(operation))))control.disabled=true;
       }
+      const browseAvailable=capabilities?.collectionBrowseVersions?.includes('v13')===true;
+      listRecords.hidden=nextRecords.hidden=browserView.hidden=!browseAvailable;
+      if(!browseAvailable){listRecords.disabled=true;nextRecords.disabled=true;}
       if(!capabilities||!['proposal.propose','record.patch-propose'].some(operation=>capabilities.operations.includes(operation)))proposeButton.disabled=true;
       const canDraft=capabilities&&['proposal.propose','record.patch-propose'].some(operation=>capabilities.operations.includes(operation));
       for(const name of ['title','text','reason','evidence','nativePatch','agentInstruction','relationAddType','relationAddTarget','relationRemoveType','relationRemoveTarget'])inputs[name].disabled=!canDraft;
@@ -183,8 +199,8 @@
     const r=panels.record;
     field(r,'record','Record ID',{value:options.record||''});field(r,'collection','Collection',{type:'select'});
     const recordView=output(r,'Record inspection');
-    const loadRecord=button(r,'record-get','Inspect record',()=>task('Loading the selected record…',false,async (call,ensureCurrent)=>{
-      selectedRecord=await call('record.get',{record:inputs.record.value});
+    async function inspectRecord(call,ensureCurrent,observed=null){
+      selectedRecord=observed||await call('record.get',{record:inputs.record.value});
       if(selectedRecord?.withheldRelations)throw Error('Whole-record editing is unavailable for this scope');
       const value=selectedRecord?.record;
       const capturedDraft=extraction&&inputs.evidence.value==='capture:'+extraction.captureSha256?inputs.text.value:null;
@@ -202,7 +218,33 @@
       if(value)global.KBReviewCards.details(recordView,'Exact record response',wires.get(selectedRecord));
       else recordView.append(node('p','A new proposal still requires permission and an unused identity.'));
       proposeButton.disabled=false;
-    }));
+    }
+    const loadRecord=button(r,'record-get','Inspect record',()=>task('Loading the selected record…',false,(call,ensureCurrent)=>inspectRecord(call,ensureCurrent)));
+    const browserView=output(r,'Current collection records');
+    async function browseRecords(cursor=null){
+      return task('Loading readable collection records…',false,async call=>{
+        if(!capabilities?.collectionBrowseVersions?.includes('v13'))throw Error('Native collection browser unavailable');
+        const page=await call('collection.browse',{collection:inputs.collection.value,limit:25,cursor},'v13');
+        if(page.format!=='native-collection-page/v1'||page.collection!==inputs.collection.value||!Array.isArray(page.rows))throw Error('Invalid collection page');
+        recordPage=page;browserView.replaceChildren(node('h3','Current collection records'));
+        browserView.append(node('p',page.rows.length+' records on this page. '+(page.nextCursor?'More records are available.':'End of this readable selection.')));
+        const list=node('ul');browserView.append(list);
+        for(const row of page.rows){
+          const item=node('li');item.append(node('span',(row.title||row.record)+' · '+row.kind+' · revision '+row.revision+' '));
+          const select=node('button','Inspect this record');select.type='button';select.dataset.browseRecord=row.record;
+          select.disabled=!row.editableWholeRecord;
+          select.onclick=()=>{if(controller)return;task('Checking the selected record…',false,async (selectCall,ensureCurrent)=>{
+            const observed=await selectBrowsedRecord(selectCall,page,row);ensureCurrent();inputs.record.value=row.record;
+            await inspectRecord(selectCall,ensureCurrent,observed);
+          });};
+          item.append(select);list.append(item);
+        }
+        browserView.append(node('p','Owner '+page.owner.authority+' · '+page.owner.contract+'. Membership snapshot '+page.asOf+'. Refresh after five minutes or any authority change.'));
+        nextRecords.disabled=!page.nextCursor;
+      });
+    }
+    const listRecords=button(r,'record-browse','Browse collection records',()=>browseRecords());
+    const nextRecords=button(r,'record-browse-next','Next records',()=>browseRecords(recordPage?.nextCursor));
     const vocabularyView=output(r,'Adopted vocabulary');
     const historyView=output(r,'Record revision history');
     const loadHistory=button(r,'record-history','Browse recorded revisions',()=>task('Loading recorded revisions…',false,async call=>{
@@ -756,8 +798,8 @@
       groupView.append(node('p','Each destination is a separate local compare-and-swap. Reconcile after an interrupted response; there is no cross-repository atomicity.'));
     }));
     function clearKnowledge() {
-      selectedRecord=capture=extraction=sourcePreview=proposal=publication=transfer=sourcePage=proposalPage=fileSource=fileProposal=fileHistory=null;
-      resetNativeData();
+      selectedRecord=capture=extraction=sourcePreview=proposal=publication=transfer=sourcePage=proposalPage=fileSource=fileProposal=fileHistory=recordPage=null;
+      resetNativeData();nextRecords.disabled=true;
       for(const area of outputs)area.replaceChildren();
       for(const name of ['title','text','evidence','reason','reviewReason','nativePatch','agentInstruction','relationAddTarget','relationRemoveTarget'])inputs[name].value='';
       for(const name of ['relationAddType','relationRemoveType'])inputs[name].replaceChildren();inputs.confirmCommit.checked=false;
@@ -826,6 +868,7 @@
       invalidate('Connecting…');groupRequestId=null;groupProposal=null;groupSnapshot=null;description=null;principal=null;capabilities=null;agentAvailable=false;capabilityView.hidden=true;capabilityView.replaceChildren();
       task('Loading authority…',false,async (call,ensureCurrent,signal)=>{
         description=await discoverAuthority(call,{nativeData:true});
+        if(capabilities?.operations.includes('collection.browse'))description=await call('authority.inspect',{},'v13');
         agentAvailable=false;
         try{
           const configReply=await fetch('/client.config.json',{credentials:'same-origin',cache:'no-store',redirect:'error',signal});
@@ -849,7 +892,7 @@
         capabilityView.append(node('p','Only exact paths and destinations registered by this host can be changed. Group destinations publish independently, so a partial result must be reconciled before continuing.'));
         capabilityView.hidden=false;
         for(const collection of description.collections){inputs.collection.append(new Option(collection.id+' · '+collection.kind,collection.id));inputs.reviewCollection.append(new Option(collection.id+' · '+collection.kind,collection.id));}
-        for(const control of [inspectSource,loadRecord,loadHistory,loadProposal,previewPublication,previewTransfer,listSources,listProposals,loadVocabulary,inspectFile])control.disabled=false;
+        for(const control of [inspectSource,loadRecord,loadHistory,loadProposal,previewPublication,previewTransfer,listSources,listProposals,loadVocabulary,inspectFile,listRecords])control.disabled=false;
         groupInspect.disabled=!capabilities?.operations.includes('file.group.inspect');
       });
     },{ready:true});
@@ -858,6 +901,7 @@
       interrupt();host.removeAttribute('aria-busy');
       if(name==='source'){capture=extraction=sourcePreview=null;sourceView.replaceChildren();for(const control of [captureButton,extractButton,useText])control.disabled=true;}
       else if(name==='record'||name==='collection'){
+        if(name==='collection'){recordPage=null;browserView.replaceChildren();nextRecords.disabled=true;}
         selectedRecord=null;resetNativeData();inputs.nativePatch.value='';draftView.replaceChildren();for(const name of ['relationAddType','relationRemoveType'])inputs[name].replaceChildren();for(const name of ['relationAddTarget','relationRemoveTarget'])inputs[name].value='';recordView.replaceChildren();vocabularyView.replaceChildren();historyView.replaceChildren();proposeButton.disabled=true;
         if(!extraction||inputs.evidence.value!=='capture:'+extraction.captureSha256){inputs.title.value='';inputs.text.value='';inputs.evidence.value='';}
       }else if(name==='reviewCollection'){proposalPage=null;proposalList.replaceChildren();nextProposals.disabled=true;proposal=null;proposalView.replaceChildren();inputs.confirmCommit.checked=false;reviewAvailability();}
@@ -883,7 +927,7 @@
         expectedOwner={binding,principal:actor};connect.click();return true;
       }};
   }
-  global.KnowledgeOperations={mount,validate,discoverAuthority,nativeObjectWires};
+  global.KnowledgeOperations={mount,validate,discoverAuthority,nativeObjectWires,selectBrowsedRecord};
   if(typeof document!=='undefined')document.addEventListener('DOMContentLoaded',()=>{
     const hosts=document.querySelectorAll('[data-kb-knowledge-operations]');
     if(!hosts.length)return;

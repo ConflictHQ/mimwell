@@ -2111,11 +2111,13 @@ def _v2_verify_stage_named_file(directory_fd, name, identity, *, max_bytes=None)
         os.close(descriptor)
 
 
-def _v2_stage_write(directory_fd, name, raw):
-    if not isinstance(raw, bytes):
+def _v2_stage_write(directory_fd, name, raw, *, created=None):
+    if not isinstance(raw, bytes) or (created is not None and not callable(created)):
         raise SnapshotError("V2 staging content is invalid")
     descriptor, identity = _v2_stage_create(directory_fd, name)
     try:
+        if created is not None:
+            created(identity)
         offset = 0
         view = memoryview(raw)
         while offset < len(view):

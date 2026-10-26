@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 from contextlib import contextmanager, nullcontext
+from contextvars import ContextVar
 from copy import deepcopy
 import datetime as dt
 from functools import cached_property
@@ -1370,6 +1371,13 @@ class Authority:
         version, legacy = _stored_version(self.dialect)
         if version != DB_VERSION:
             raise StoreError("authority writer version changed; reopen explicitly")
+        if self.dialect.driver == "sqlite" and not getattr(self, "_storage_admission_active", False):
+            # The legacy/no-admission choice may predate this transaction's
+            # BEGIN. Canonical adoption holds the same native writer fence;
+            # recheck while it is held instead of letting a queued old choice
+            # bypass the newly published ledger. An admitted retry stays usable.
+            _refuse_adopted_storage_path(self.path, "Native write admission")
+            _refuse_unselected_private_native_write(self)
 
     def _record_schema_version(self):
         """A pre-seam file at DB_VERSION gains its row as its first write transaction commits.
@@ -1698,50 +1706,51 @@ class Authority:
 
     @classmethod
     def initialize(cls, path, bundle, records=(), *, prior_history=None):
-        contract = Contract(bundle)
-        cls._require_driver(contract)
-        records = list(records)
-        for record in records:
-            contract.validate_record(record)
-            if (record.get('content', {}).get('data', {}).get('intakeHistory') or {}).get('format') in ('intake-history/v3', 'intake-history/v4'):
-                raise StoreError('Initialize projected judgments through current proposals, or restore a complete historical snapshot')
-        contract.graph(records)
-        if contract.document["history"]["priorHistory"] == "included" and prior_history is None:
-            raise StoreError("declared prior history must be supplied, not silently omitted")
-        # This is a whole-authority filesystem writer. Refuse it under an
-        # adopted brain until initialization has an admission-aware path. Do
-        # not turn remote DSNs into local paths when checking the host root.
-        if cls.dialect_class.driver in LOCAL_DRIVERS:
-            _refuse_adopted_storage_path(path, "authority initialization")
-        dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=contract.cell["blobs"] == "db-blob"))
-        try:
-            for key, value in (("bundle", encoded(bundle)), ("status", "active"), ("instance", secrets.token_hex(16)),
-                               ("prior_history", encoded(prior_history))):
-                dialect.add_meta(key, value)
+        with (_unsupported_storage_fence((path,), 'authority initialization') if cls.dialect_class.driver in LOCAL_DRIVERS else nullcontext()):
+            contract = Contract(bundle)
+            cls._require_driver(contract)
+            records = list(records)
             for record in records:
-                dialect.add_record(record["id"], record["collection"], "1:" + fingerprint(record), encoded(record))
-            for record in records:
-                dialect.replace_edges(record["id"], [(edge["target"], edge["rel"], encoded(edge))
-                                                     for edge in record["relations"]])
-            event = {
-                "operation": "import",
-                "at": utcnow(),
-                "contract": contract.binding,
-                "records": records,
-                "priorHistory": deepcopy(prior_history),
-            }
-            digest = fingerprint({"previous": None, "event": event})
-            dialect.append_event(1, None, digest, encoded(event))
-            dialect.add_outbox(1, encoded({"sequence": 1, "digest": digest}))
-            dialect.set_schema_version(DB_VERSION)
-            dialect.commit()
-        except BaseException:
-            if dialect.in_transaction:
-                dialect.rollback()
-            dialect.discard()
-            raise
-        dialect.close()
-        return cls(path, expected_binding=contract.binding)
+                contract.validate_record(record)
+                if (record.get('content', {}).get('data', {}).get('intakeHistory') or {}).get('format') in ('intake-history/v3', 'intake-history/v4'):
+                    raise StoreError('Initialize projected judgments through current proposals, or restore a complete historical snapshot')
+            contract.graph(records)
+            if contract.document["history"]["priorHistory"] == "included" and prior_history is None:
+                raise StoreError("declared prior history must be supplied, not silently omitted")
+            # This is a whole-authority filesystem writer. Refuse it under an
+            # adopted brain until initialization has an admission-aware path. Do
+            # not turn remote DSNs into local paths when checking the host root.
+            if cls.dialect_class.driver in LOCAL_DRIVERS:
+                _refuse_adopted_storage_path(path, "authority initialization")
+            dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=contract.cell["blobs"] == "db-blob"))
+            try:
+                for key, value in (("bundle", encoded(bundle)), ("status", "active"), ("instance", secrets.token_hex(16)),
+                                   ("prior_history", encoded(prior_history))):
+                    dialect.add_meta(key, value)
+                for record in records:
+                    dialect.add_record(record["id"], record["collection"], "1:" + fingerprint(record), encoded(record))
+                for record in records:
+                    dialect.replace_edges(record["id"], [(edge["target"], edge["rel"], encoded(edge))
+                                                         for edge in record["relations"]])
+                event = {
+                    "operation": "import",
+                    "at": utcnow(),
+                    "contract": contract.binding,
+                    "records": records,
+                    "priorHistory": deepcopy(prior_history),
+                }
+                digest = fingerprint({"previous": None, "event": event})
+                dialect.append_event(1, None, digest, encoded(event))
+                dialect.add_outbox(1, encoded({"sequence": 1, "digest": digest}))
+                dialect.set_schema_version(DB_VERSION)
+                dialect.commit()
+            except BaseException:
+                if dialect.in_transaction:
+                    dialect.rollback()
+                dialect.discard()
+                raise
+            dialect.close()
+            return cls(path, expected_binding=contract.binding)
 
     def _row(self, identity):
         budget = getattr(self, "_inspection_budget", None)
@@ -2795,19 +2804,20 @@ class Authority:
         the snapshot. Referenced blobs are read back from `blob_store` and must match their
         locator digests before anything is written.
         """
-        _refuse_adopted_storage_path(path, "authority restore")
-        tables, blobs = _restorable(snapshot, cls.dialect_class.driver, blob_store)
-        dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=blobs["completeness"] == "included"))
-        try:
-            _populate_standby_authority(dialect, tables, blobs, snapshot, instance=secrets.token_hex(16))
-            dialect.commit()
-        except BaseException:
-            if dialect.in_transaction:
-                dialect.rollback()
-            dialect.discard()
-            raise
-        dialect.close()
-        return cls(path)
+        with (_unsupported_storage_fence((path,), 'authority restore') if cls.dialect_class.driver in LOCAL_DRIVERS else nullcontext()):
+            _refuse_adopted_storage_path(path, "authority restore")
+            tables, blobs = _restorable(snapshot, cls.dialect_class.driver, blob_store)
+            dialect = cls.dialect_class.create(path, _schema(cls.dialect_class, db_blob=blobs["completeness"] == "included"))
+            try:
+                _populate_standby_authority(dialect, tables, blobs, snapshot, instance=secrets.token_hex(16))
+                dialect.commit()
+            except BaseException:
+                if dialect.in_transaction:
+                    dialect.rollback()
+                dialect.discard()
+                raise
+            dialect.close()
+            return cls(path)
 
     @staticmethod
     def validate_snapshot(snapshot):
@@ -3164,19 +3174,18 @@ class Authority:
         name the successor's store id, `store`, which the frozen source keeps as `successorStore`."""
         _refuse_adopted_storage_path(self.path, "authority cutover")
         fence = _fence(successor, expected_snapshot, store)
-        with self.transaction():
+        with _unsupported_native_write(self, "authority cutover"):
+            self._writer_ready()
             if self._snapshot()["sha256"] != expected_snapshot:
                 raise StoreError("source changed since backup; make a new cutover snapshot")
             self.dialect.set_meta("status", "frozen")
             for key, value in fence.items():
                 self.dialect.add_meta(key, value)
+            self._record_schema_version()
 
     def activate_from(self, source):
         """Finish an interrupted cutover only after the exact source snapshot is frozen."""
-        _refuse_adopted_storage_path(self.path, "authority activation")
-        _refuse_adopted_storage_path(source.path, "authority activation")
-        self.dialect.begin(write=True)
-        try:
+        with _unsupported_native_write(self, "authority activation", other_paths=(source.path,)):
             if (
                 source._meta("status") != "frozen"
                 or source._meta("successor") != self._meta("instance")
@@ -3188,10 +3197,6 @@ class Authority:
                 raise StoreError("successor cannot be activated")
             self.validate_snapshot(self._snapshot())
             self.dialect.set_meta("status", "active")
-            self.dialect.commit()
-        except BaseException:
-            self.dialect.rollback()
-            raise
 
     def cutover(self, target, *, store, adapter=None, fault=None, blob_store=None):
         """Graduate into a new `adapter` store (default: this driver) at `target`; see cutover()."""
@@ -3226,43 +3231,48 @@ class Authority:
         # Whole-authority migration has no qualified storage-admission path.
         # The shared guard also refuses orphaned ledger/lock state and unsafe
         # or changed registrations before the driver can open the authority.
-        _refuse_adopted_storage_path(path, "Schema migration")
-        if not cls.dialect_class.exists(path):
-            raise StoreError("migration source does not exist")
-        dialect = cls.dialect_class.open(path)
-        db = dialect.db
-        try:
-            dialect.begin(write=True)
-            version, legacy = _stored_version(dialect)
-            if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) and not (legacy and version == DB_VERSION):
-                raise StoreError(f"only schema 1, 2, 3, 4, 5, 6, 7, 8, 9 or 10 -> {DB_VERSION} migration is supported")
-            declaration = Contract(json.loads(dialect.meta("bundle")))
-            # The adopted pin may still be the binding schema 10 and earlier computed.
-            if expected_binding is not None and expected_binding not in {declaration.binding, *declaration.legacy_bindings}:
-                raise StoreError("authority contract differs from adopted migration binding")
-            if version == 1:
-                dialect.apply_schema("".join(_table_schema(dialect, table) + ";\n" for table in ("outbox", "deliveries")))
-                for sequence, digest in dialect.event_digests():
-                    dialect.add_outbox(sequence, encoded({"sequence": sequence, "digest": digest}))
-            if version != DB_VERSION:
-                old = dialect.meta("schemaMigrations")
-                migrations = json.loads(old) if old else []
-                migrations.append({"from": version, "to": DB_VERSION, "at": utcnow()})
-                dialect.set_meta("schemaMigrations", encoded(migrations))
-            if not dialect.has_index(REVIEW_INDEX):
-                db.execute(_review_index(dialect))
-            dialect.set_schema_version(DB_VERSION)
-            candidate = cls.__new__(cls)
-            candidate.dialect, candidate.db = dialect, db
-            cls.validate_snapshot(candidate._snapshot())
-            dialect.commit()
-        except BaseException:
-            if dialect.in_transaction:
-                dialect.rollback()
-            raise
-        finally:
-            dialect.close()
-        return cls(path)
+        with (_unsupported_storage_fence((path,), 'Schema migration', deferred_native=path) if cls.dialect_class.driver in LOCAL_DRIVERS else nullcontext()):
+            _refuse_adopted_storage_path(path, "Schema migration")
+            if not cls.dialect_class.exists(path):
+                raise StoreError("migration source does not exist")
+            dialect = cls.dialect_class.open(path)
+            db = dialect.db
+            try:
+                dialect.begin(write=True)
+                # Canonical adoption holds this same selected SQLite writer fence
+                # through publication. A completed adoption between the pre-open
+                # check and BEGIN must therefore be seen before any migration write.
+                _refuse_adopted_storage_path(path, "Schema migration")
+                version, legacy = _stored_version(dialect)
+                if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) and not (legacy and version == DB_VERSION):
+                    raise StoreError(f"only schema 1, 2, 3, 4, 5, 6, 7, 8, 9 or 10 -> {DB_VERSION} migration is supported")
+                declaration = Contract(json.loads(dialect.meta("bundle")))
+                # The adopted pin may still be the binding schema 10 and earlier computed.
+                if expected_binding is not None and expected_binding not in {declaration.binding, *declaration.legacy_bindings}:
+                    raise StoreError("authority contract differs from adopted migration binding")
+                if version == 1:
+                    dialect.apply_schema("".join(_table_schema(dialect, table) + ";\n" for table in ("outbox", "deliveries")))
+                    for sequence, digest in dialect.event_digests():
+                        dialect.add_outbox(sequence, encoded({"sequence": sequence, "digest": digest}))
+                if version != DB_VERSION:
+                    old = dialect.meta("schemaMigrations")
+                    migrations = json.loads(old) if old else []
+                    migrations.append({"from": version, "to": DB_VERSION, "at": utcnow()})
+                    dialect.set_meta("schemaMigrations", encoded(migrations))
+                if not dialect.has_index(REVIEW_INDEX):
+                    db.execute(_review_index(dialect))
+                dialect.set_schema_version(DB_VERSION)
+                candidate = cls.__new__(cls)
+                candidate.dialect, candidate.db = dialect, db
+                cls.validate_snapshot(candidate._snapshot())
+                dialect.commit()
+            except BaseException:
+                if dialect.in_transaction:
+                    dialect.rollback()
+                raise
+            finally:
+                dialect.close()
+            return cls(path)
 
 
 def _fence(successor, snapshot, store):
@@ -3298,6 +3308,201 @@ def _refuse_adopted_storage_path(path, operation):
             raise StoreError(f"{operation} is unavailable for an adopted storage-admission brain")
 
 
+_UNADOPTED_ADMIN_FENCES = ContextVar("unadopted_native_admin_fences", default=None)
+
+
+def _refuse_unselected_private_native_write(store):
+    """A configured private canonical root has one selected writable authority.
+
+    Alternate standbys may be created under the admin fence, but cannot remain
+    an unmediated active writer inside that private root while adoption selects
+    another file. Unconfigured stores and platforms without admission retain
+    their ordinary legacy path. A nested explicitly configured private root is
+    resolved as its own host selection, never as a grant from a parent label.
+    """
+    from brain_storage_admission import (_admission_platform_available,
+        _read_storage_config, _selected_authority_path)
+    if not _admission_platform_available():
+        return
+    target = Path(store.path).resolve(strict=True)
+    for internal in target.parents:
+        if internal.name != "_internal" or not (internal.parent / "client.config.json").exists():
+            continue
+        root, _info, config = _read_storage_config(internal.parent,
+            forbidden_identities=(getattr(store, "authority_file_identity", None),))
+        selected = adopted_authority(config)
+        if selected is None:
+            return
+        dsn = resolve_store_dsn(config, selected["store"])
+        if authority_class(dsn) is not SQLiteAuthority:
+            return
+        _selected_authority_path(root, store,
+            {"authority": {"store": selected["store"], "binding": selected["binding"]}})
+        return
+
+
+@contextmanager
+def _unsupported_storage_fence(paths, operation, *, stores=(), deferred_native=None, effect_paths=None):
+    """Coordinate unsupported effects with canonical adoption's selected BEGIN.
+
+    This holds real SQLite writer transactions, not an adoption permission,
+    inventory cache or a filesystem transaction. Nested synchronous admin calls
+    reuse only this scope's still-owned selected connection. Old unregistered
+    files without a selected SQLite authority retain their legacy path; canonical
+    admission cannot adopt such a selection. Host configuration changes are
+    revalidated, not claimed to be atomically locked by SQLite.
+    """
+    from brain_storage_admission import (_admission_platform_available,
+        _read_storage_config, _selected_authority_path)
+
+    paths = tuple(Path(path).resolve(strict=False) for path in paths if "://" not in os.fspath(path))
+    effect_paths = paths if effect_paths is None else tuple(Path(path).resolve(strict=False) for path in effect_paths)
+    for path in paths:
+        _refuse_adopted_storage_path(path, operation)
+    if not _admission_platform_available():
+        # The portable absence guard above refuses any registration/unknown
+        # state. Canonical adoption itself is unavailable on this platform.
+        yield
+        return
+    roots = set()
+    for path in paths:
+        for parent in (path.parent, *path.parent.parents):
+            if (parent / "_internal").exists() and (parent / "client.config.json").exists():
+                roots.add(parent)
+    inherited = _UNADOPTED_ADMIN_FENCES.get() or {}
+    current = dict(inherited)
+    token = None
+    acquired = []
+    configurations = []
+    try:
+        for root in sorted(roots, key=str):
+            identities = tuple(getattr(store, "authority_file_identity", None)
+                               for store in (*stores, *(item["store"] for item in current.values())))
+            canonical_root, _info, config = _read_storage_config(root, forbidden_identities=identities)
+            selected = adopted_authority(config)
+            if selected is None:
+                configurations.append((root, fingerprint(config), None))
+                continue
+            dsn = resolve_store_dsn(config, selected["store"])
+            if authority_class(dsn) is not SQLiteAuthority:
+                configurations.append((root, fingerprint(config), None))
+                continue
+            selected_path = Path(dsn)
+            if not selected_path.is_absolute():
+                selected_path = canonical_root / selected_path
+            selected_path = selected_path.resolve(strict=False)
+            if not selected_path.is_relative_to(canonical_root):
+                raise StoreError("Unsupported native administration requires a root-contained selected authority")
+            for effect_path in effect_paths:
+                if effect_path in {Path(str(selected_path) + suffix) for suffix in ("-wal", "-shm", "-journal")}:
+                    raise StoreError("Administrative destinations cannot occupy selected SQLite sidecar names")
+                if (effect_path.is_relative_to(canonical_root) and effect_path != selected_path
+                        and not effect_path.is_relative_to(canonical_root / "_internal")):
+                    raise StoreError("Unregistered administrative destinations must stay under private _internal storage")
+            configurations.append((root, fingerprint(config), selected_path))
+            if not selected_path.exists():
+                # New initialize/standby creation owns its exclusive target and
+                # first writer transaction. No valid selected authority exists
+                # for canonical adoption to open before that transaction commits.
+                if (operation not in ("authority initialization", "authority restore")
+                        or effect_paths != (selected_path,)):
+                    raise StoreError("Unsupported administration requires the existing selected SQLite authority")
+                continue
+            if deferred_native is not None and selected_path == Path(deferred_native).resolve(strict=False):
+                # migrate owns BEGIN on exactly this selected file and repeats
+                # the adopted refusal after it, before any migration write.
+                continue
+            entry = current.get(str(canonical_root))
+            if entry is not None:
+                selected_store = entry["store"]
+                if (Path(selected_store.path).resolve() != selected_path
+                        or (not selected_store.dialect.in_transaction
+                            and selected_store._meta("status") != "frozen")):
+                    raise StoreError("Unsupported administration lost its selected native fence")
+            else:
+                selected_store = next((store for store in stores
+                    if isinstance(store, SQLiteAuthority) and Path(store.path).resolve() == selected_path), None)
+                owned = selected_store is None
+                if owned:
+                    selected_store = SQLiteAuthority(selected_path, expected_binding=selected["binding"])
+                if selected_store.dialect.in_transaction:
+                    if owned:
+                        selected_store.close()
+                    raise StoreError("Unsupported administration requires an idle selected authority")
+                try:
+                    selected_store.dialect.begin(write=True)
+                except BaseException:
+                    if owned:
+                        selected_store.close()
+                    raise
+                acquired.append((selected_store, owned))
+                current[str(canonical_root)] = {"store": selected_store}
+            _refuse_adopted_storage_path(selected_path, operation)
+            fresh_path, fresh_config = _selected_authority_path(root, selected_store,
+                {"authority": {"store": selected["store"], "binding": selected["binding"]}})
+            if fresh_path != selected_path or fingerprint(fresh_config) != fingerprint(config):
+                raise StoreError("Unsupported administration selected route changed")
+        token = _UNADOPTED_ADMIN_FENCES.set(current)
+        for path in paths:
+            _refuse_adopted_storage_path(path, operation)
+        yield
+        for root, expected, _selected_path in configurations:
+            _root, _info, actual = _read_storage_config(root,
+                forbidden_identities=tuple(getattr(item["store"], "authority_file_identity", None)
+                                           for item in current.values()))
+            if fingerprint(actual) != expected:
+                raise StoreError("Unsupported administration configuration changed; retain recovery evidence")
+    finally:
+        primary = sys.exc_info()[1]
+        cleanup_error = None
+        if token is not None:
+            _UNADOPTED_ADMIN_FENCES.reset(token)
+        for selected_store, owned in reversed(acquired):
+            try:
+                if selected_store.dialect.in_transaction:
+                    selected_store.dialect.rollback()
+            except BaseException as exc:
+                cleanup_error = cleanup_error or exc
+            finally:
+                if owned:
+                    try:
+                        selected_store.close()
+                    except BaseException as exc:
+                        cleanup_error = cleanup_error or exc
+        if cleanup_error is not None:
+            if primary is None:
+                raise cleanup_error
+            primary.add_note("Unsupported administration native fence cleanup failed; custody is unresolved.")
+
+
+@contextmanager
+def _unsupported_native_write(store, operation, *, other_paths=()):
+    """Use the selected fence for a direct unsupported native metadata write."""
+    with _unsupported_storage_fence((store.path, *other_paths), operation, stores=(store,),
+                                    effect_paths=(store.path,)):
+        entries = _UNADOPTED_ADMIN_FENCES.get() or {}
+        held = any(entry["store"] is store for entry in entries.values())
+        if store.dialect.in_transaction and not held:
+            raise StoreError("Unsupported administration cannot reuse a caller transaction")
+        if not store.dialect.in_transaction:
+            store.dialect.begin(write=True)
+        try:
+            for path in (store.path, *other_paths):
+                _refuse_adopted_storage_path(path, operation)
+            yield
+            for path in (store.path, *other_paths):
+                _refuse_adopted_storage_path(path, operation)
+            store.dialect.commit()
+        except BaseException:
+            primary = sys.exc_info()[1]
+            if store.dialect.in_transaction:
+                try:
+                    store.dialect.rollback()
+                except BaseException:
+                    primary.add_note("Unsupported native write rollback failed; custody is unresolved.")
+            raise
+
+
 def cutover(source, adapter, target, *, store, fault=None, blob_store=None):
     """Graduate `source` (any authority, or a files authority) into a new `adapter` store at `target`.
 
@@ -3307,24 +3512,28 @@ def cutover(source, adapter, target, *, store, fault=None, blob_store=None):
     the target. A fault after the restore or after the freeze leaves a standby target that
     `resume()` completes.
     """
-    _refuse_adopted_storage_path(source.path, "authority cutover")
-    _refuse_adopted_storage_path(target, "authority cutover")
-    _check_store(store)
-    if source._meta("status") != "active":
-        raise StoreError(f"cutover needs an active source; this authority is {source._meta('status')}")
-    snapshot = source.export()
-    successor = adapter.restore(target, snapshot, blob_store=blob_store)
-    try:
-        if fault:
-            fault("after-restore")
-        source.freeze(successor._meta("instance"), expected_snapshot=snapshot["sha256"], store=store)
-        if fault:
-            fault("after-freeze")
-        successor.activate_from(source)
-        return successor
-    except BaseException:
-        successor.close()
-        raise
+    with _unsupported_storage_fence((source.path, target), "authority cutover", stores=(source,), effect_paths=()):
+        _refuse_adopted_storage_path(source.path, "authority cutover")
+        _refuse_adopted_storage_path(target, "authority cutover")
+        _check_store(store)
+        if source._meta("status") != "active":
+            raise StoreError(f"cutover needs an active source; this authority is {source._meta('status')}")
+        held = _UNADOPTED_ADMIN_FENCES.get() or {}
+        snapshot = (source._snapshot() if isinstance(source, SQLiteAuthority)
+                    and source.dialect.in_transaction
+                    and any(entry["store"] is source for entry in held.values()) else source.export())
+        successor = adapter.restore(target, snapshot, blob_store=blob_store)
+        try:
+            if fault:
+                fault("after-restore")
+            source.freeze(successor._meta("instance"), expected_snapshot=snapshot["sha256"], store=store)
+            if fault:
+                fault("after-freeze")
+            successor.activate_from(source)
+            return successor
+        except BaseException:
+            successor.close()
+            raise
 
 
 def resume(source, successor, *, store):
@@ -3333,11 +3542,12 @@ def resume(source, successor, *, store):
     Before the freeze, the source is frozen for the successor only if it still holds exactly
     the snapshot the successor was restored from; after it, the successor is activated.
     """
-    _refuse_adopted_storage_path(source.path, "authority cutover recovery")
-    _refuse_adopted_storage_path(successor.path, "authority cutover recovery")
-    if source._meta("status") == "active":
-        source.freeze(successor._meta("instance"), expected_snapshot=successor._meta("restoredFrom"), store=store)
-    successor.activate_from(source)
+    with _unsupported_storage_fence((source.path, successor.path), "authority cutover", stores=(source, successor), effect_paths=()):
+        _refuse_adopted_storage_path(source.path, "authority cutover recovery")
+        _refuse_adopted_storage_path(successor.path, "authority cutover recovery")
+        if source._meta("status") == "active":
+            source.freeze(successor._meta("instance"), expected_snapshot=successor._meta("restoredFrom"), store=store)
+        successor.activate_from(source)
 
 
 class SQLiteReadOnlyView:
@@ -3674,53 +3884,56 @@ class FileReference:
     @classmethod
     def restore(cls, path, snapshot, *, blob_store=None):
         """Write a standby files authority from a snapshot of any driver (see Authority.restore)."""
-        _refuse_adopted_storage_path(path, "authority restore")
-        tables, _ = _restorable(snapshot, cls.driver, blob_store)
-        metadata = {row["key"]: row["value"] for row in tables["metadata"]}
-        metadata.update(status="standby", instance=secrets.token_hex(16), restoredFrom=snapshot["sha256"])
-        metadata["schema_version"] = str(DB_VERSION)
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
-        try:
-            restored = cls.__new__(cls)
-            restored.path = path
-            with restored._locked():
-                restored._rewrite({**snapshot, "tables": tables}, metadata)
-        except BaseException:
-            path.unlink(missing_ok=True)
-            raise
-        return cls(path)
+        with _unsupported_storage_fence((path,), 'authority restore'):
+            _refuse_adopted_storage_path(path, "authority restore")
+            tables, _ = _restorable(snapshot, cls.driver, blob_store)
+            metadata = {row["key"]: row["value"] for row in tables["metadata"]}
+            metadata.update(status="standby", instance=secrets.token_hex(16), restoredFrom=snapshot["sha256"])
+            metadata["schema_version"] = str(DB_VERSION)
+            path = Path(path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600))
+            try:
+                restored = cls.__new__(cls)
+                restored.path = path
+                with restored._locked():
+                    restored._rewrite({**snapshot, "tables": tables}, metadata)
+            except BaseException:
+                path.unlink(missing_ok=True)
+                raise
+            return cls(path)
 
     def freeze(self, successor, *, expected_snapshot, store=None):
         """Fence this source for `successor`, as Authority.freeze."""
-        _refuse_adopted_storage_path(self.path, "authority cutover")
-        fence = _fence(successor, expected_snapshot, store)
-        with self._locked():
-            current = json.loads(self.path.read_text())
-            if current.get("sha256") != expected_snapshot:
-                raise StoreError("source changed since backup; make a new cutover snapshot")
-            self._load(current)
-            if self.state != "active":
-                raise StoreError("authority is frozen; write through its declared successor")
-            self._rewrite(current, {**self.metadata, "status": "frozen", **fence})
+        with _unsupported_storage_fence((self.path,), 'authority cutover'):
+            _refuse_adopted_storage_path(self.path, "authority cutover")
+            fence = _fence(successor, expected_snapshot, store)
+            with self._locked():
+                current = json.loads(self.path.read_text())
+                if current.get("sha256") != expected_snapshot:
+                    raise StoreError("source changed since backup; make a new cutover snapshot")
+                self._load(current)
+                if self.state != "active":
+                    raise StoreError("authority is frozen; write through its declared successor")
+                self._rewrite(current, {**self.metadata, "status": "frozen", **fence})
 
     def activate_from(self, source):
         """Finish a cutover into this file only after the exact source snapshot is frozen."""
-        _refuse_adopted_storage_path(self.path, "authority activation")
-        _refuse_adopted_storage_path(source.path, "authority activation")
-        with self._locked():
-            self._load(json.loads(self.path.read_text()))
-            if (
-                source._meta("status") != "frozen"
-                or source._meta("successor") != self._meta("instance")
-                or source._meta("frozenSnapshot") != self._meta("restoredFrom")
-                or source.contract.binding != self.contract.binding
-            ):
-                raise StoreError("source is not frozen for this restored successor")
-            if self.state not in ("standby", "active"):
-                raise StoreError("successor cannot be activated")
-            self._rewrite(self.snapshot, {**self.metadata, "status": "active"})
+        with _unsupported_storage_fence((self.path, source.path), 'authority activation'):
+            _refuse_adopted_storage_path(self.path, "authority activation")
+            _refuse_adopted_storage_path(source.path, "authority activation")
+            with self._locked():
+                self._load(json.loads(self.path.read_text()))
+                if (
+                    source._meta("status") != "frozen"
+                    or source._meta("successor") != self._meta("instance")
+                    or source._meta("frozenSnapshot") != self._meta("restoredFrom")
+                    or source.contract.binding != self.contract.binding
+                ):
+                    raise StoreError("source is not frozen for this restored successor")
+                if self.state not in ("standby", "active"):
+                    raise StoreError("successor cannot be activated")
+                self._rewrite(self.snapshot, {**self.metadata, "status": "active"})
 
     def cutover(self, target, *, store, adapter, fault=None, blob_store=None):
         return cutover(self, adapter, target, store=store, fault=fault, blob_store=blob_store)

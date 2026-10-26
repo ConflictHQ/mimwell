@@ -23,3 +23,21 @@ General replacement and retention deletion remain outside the selected install a
 The existing fixed host-registered local v10 backup flow remains limited to one SQLite authority and a declared local-files destination. It supports the selected no-blob and database-blob cases. Adopted or protected sources, external filesystem blobs, remote destinations, unsupported layouts, cross-database transactions, and general PGlite restore remain unsupported or refuse.
 
 See [storage routing](storage-routing.md), [native capabilities](native-capabilities.md), and [snapshot capture](snapshot-capture.md) for the surrounding route and protection boundaries.
+
+## Coordinated unsupported writers and residue
+
+Selected local native administration checks the configured authority under its
+existing native writer fence before unsupported creation, restore, activation,
+freeze, migration, cutover or resume effects. Adopted/unknown admission state
+refuses those effects; ordinary unconfigured legacy workflows retain their
+existing behavior. Configured private alternate destinations and reserved SQLite
+sidecar names cannot become unaccounted standby writers.
+
+Inventory refuses unknown nonempty private residue instead of exempting a file
+by its basename. The operator host configuration is excluded only after bounded
+canonical validation; retained copies use their registered logical accounting
+classes. Failed publication does not delete a foreign/replaced ledger or silently
+release ambiguous debt. Session retirement and unsupported recovery remain
+refusals, not time-based deletion. These cooperative writer fences and
+conservative accounting do not qualify aggregate capacity or arbitrary external
+filesystem/database writers.

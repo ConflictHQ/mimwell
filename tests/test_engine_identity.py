@@ -29,6 +29,27 @@ class EngineIdentity(unittest.TestCase):
         self.assertNotEqual(edition["engineVersion"], "0")
 
 
+class Edition038Selection(unittest.TestCase):
+    def test_native_browser_and_operator_migration_have_explicit_public_closure(self):
+        edition = json.loads((ROOT / "edition.json").read_text())
+        self.assertEqual((edition["edition"], edition["version"]), ("mimwell", "0.3.8"))
+        self.assertEqual(edition["engineVersion"], "0.1.0-dev.77")
+        self.assertRegex(edition["engineSourceCommit"], r"^[a-f0-9]{40}$")
+        selected = {entry["path"] for entry in edition["files"]}
+        for name in (
+            "scripts/native_collection_browser.py", "schemas/native-collection-page-v1.schema.json",
+            "schemas/knowledge-operation-request-v13.schema.json", "schemas/knowledge-operation-v13.schema.json",
+            "schemas/knowledge-operations-host-v11.schema.json", "scripts/migrate-identifiers.py",
+            "scripts/migrate-kg.py", "scripts/operator_json_migration.py", "scripts/build-kg.py",
+            "scripts/kg_evidence.py", "scripts/kg_identity.py", "docs/native-collection-browser.md",
+            "docs/identifier-migration.md",
+        ):
+            with self.subTest(path=name):
+                self.assertIn(name, selected)
+                self.assertTrue((ROOT / name).is_file())
+        self.assertTrue({"recipes/catalog.json", "recipes/discovery.json", "recipes/interfaces.json"}.isdisjoint(selected))
+
+
 class CoreTermCompatibility(unittest.TestCase):
     """Disposable native stores use only public schemas and synthetic policy."""
 

@@ -1,7 +1,7 @@
 {
  "manifest": "brain-manifest/v1",
  "generator": "gen-manifest",
- "generated": "2026-10-25",
+ "generated": "2026-10-26",
  "identity": {
   "id": "mimwell",
   "name": "Mimwell",
@@ -72,7 +72,7 @@
    "artifact": "app/brain.json",
    "enabled": true,
    "present": true,
-   "lag_commits": 0
+   "lag_commits": 1
   },
   {
    "resolution": "indexed",
@@ -86,14 +86,14 @@
    "artifact": "app/knowledge-pack.json",
    "enabled": true,
    "present": true,
-   "lag_commits": 0
+   "lag_commits": 1
   },
   {
    "resolution": "relational",
    "artifact": "app/knowledge_graph.json",
    "enabled": true,
    "present": true,
-   "lag_commits": 1
+   "lag_commits": 2
   },
   {
    "resolution": "semantic",
@@ -107,7 +107,7 @@
    "artifact": "activity.json",
    "enabled": true,
    "present": true,
-   "lag_commits": 1
+   "lag_commits": 2
   }
  ],
  "substrate": {

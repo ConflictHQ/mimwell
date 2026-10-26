@@ -2261,37 +2261,11 @@ class RegisteredHost:
         from knowledge_operations import private_path
         path = private_path(self.root, self.relative)
         value = self._read_bounded_json(path, max_bytes=64 * 1024, private=True)
-        if (not isinstance(value, dict) or set(value) != {"format", "principals", "aliases"}
-                or value.get("format") != "studio-app-mcp-host/v1"
-                or not isinstance(value["principals"], dict) or not isinstance(value["aliases"], dict)
-                or not 1 <= len(value["aliases"]) <= 64 or len(value["principals"]) > 256):
-            raise StoreError("Studio App host registration is invalid")
-        for digest, actor in value["principals"].items():
-            if (not isinstance(digest, str) or len(digest) != 64
-                    or any(char not in "0123456789abcdef" for char in digest)
-                    or not isinstance(actor, str) or not actor.strip() or len(actor) > 256):
-                raise StoreError("Studio App host principal registration is invalid")
-        for alias, entry in value["aliases"].items():
-            if (not isinstance(alias, str) or not alias.isidentifier() or len(alias) > 64
-                    or not isinstance(entry, dict)
-                    or set(entry) - {"root", "authority", "binding", "grants", "nativeActors", "blobProtected"}
-                    or not {"root", "authority", "binding", "grants", "nativeActors"}.issubset(entry)
-                    or not isinstance(entry["root"], str) or not Path(entry["root"]).is_absolute()
-                    or not isinstance(entry["authority"], str)
-                    or not isinstance(entry["binding"], str) or len(entry["binding"]) != 64
-                    or not isinstance(entry["grants"], dict) or not isinstance(entry["nativeActors"], dict)
-                    or "blobProtected" in entry and type(entry["blobProtected"]) is not bool):
-                raise StoreError("Studio App host alias registration is invalid")
-            for actor, grants in entry["grants"].items():
-                native_actor = entry["nativeActors"].get(actor)
-                if (actor not in value["principals"].values() or not isinstance(native_actor, str)
-                        or not native_actor.strip() or len(native_actor) > 256 or not isinstance(grants, list)
-                        or len(grants) != len(set(grants))
-                        or any(grant not in ("read", "propose") for grant in grants)):
-                    raise StoreError("Studio App host alias grant is invalid")
-            if set(entry["nativeActors"]) != set(entry["grants"]):
-                raise StoreError("Studio App native actor mappings must match explicit alias grants")
-        return value
+        from brain_storage_tree_worker import HostRegistrationError, validate_host_registration
+        try:
+            return validate_host_registration(value)
+        except HostRegistrationError as exc:
+            raise StoreError(str(exc)) from exc
 
     @staticmethod
     def _read_bounded_json(path, *, max_bytes, private):

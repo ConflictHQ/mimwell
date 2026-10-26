@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mimwell:schema/knowledge-operation-request/v13",
+  "title": "Opt-in current native collection browsing",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v13"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "authority.inspect"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "authority",
+        "operation",
+        "arguments"
+      ],
+      "properties": {
+        "format": {
+          "const": "knowledge-operation-request/v13"
+        },
+        "authority": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "operation": {
+          "const": "collection.browse"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "collection",
+            "limit",
+            "cursor"
+          ],
+          "properties": {
+            "collection": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "cursor": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "basisSha256",
+                    "after",
+                    "asOf"
+                  ],
+                  "properties": {
+                    "basisSha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "after": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "asOf": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
