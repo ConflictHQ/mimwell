@@ -1,7 +1,7 @@
 {
  "generated_by": "scripts/gen-staleness.py",
  "enabled": false,
- "as_of": "2026-10-27",
+ "as_of": "2026-10-28",
  "windows": {
   "point_in_time_window_days": 180,
   "open_question_window_days": 90,
