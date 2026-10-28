@@ -1,7 +1,7 @@
 {
  "manifest": "brain-manifest/v1",
  "generator": "gen-manifest",
- "generated": "2026-10-26",
+ "generated": "2026-10-27",
  "identity": {
   "id": "mimwell",
   "name": "Mimwell",
